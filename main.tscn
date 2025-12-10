@@ -1,0 +1,46 @@
+[gd_scene load_steps=5 format=3 uid="uid://dptnwxm0fajqn"]
+
+[ext_resource type="Script" uid="uid://cotpp4piwgi8l" path="res://board_manager.gd" id="1_k6p8v"]
+
+[sub_resource type="Environment" id="Environment_rkqxd"]
+background_mode = 1
+background_color = Color(0.4, 0.5019608, 0.6, 1)
+ambient_light_source = 2
+ambient_light_color = Color(1, 1, 1, 1)
+ambient_light_energy = 0.5
+
+[sub_resource type="PlaneMesh" id="PlaneMesh_table"]
+size = Vector2(20, 20)
+
+[sub_resource type="WorldBoundaryShape3D" id="WorldBoundaryShape3D_ground"]
+plane = Plane(0, 1, 0, 0)
+
+[node name="Main" type="Node3D"]
+
+[node name="Camera3D" type="Camera3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 0.707107, 0.707107, 0, -0.707107, 0.707107, 0, 10, 10)
+projection = 1
+size = 15.0
+far = 100.0
+
+[node name="DirectionalLight3D" type="DirectionalLight3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 0.5, 0.866025, 0, -0.866025, 0.5, 0, 10, 0)
+light_energy = 0.8
+shadow_enabled = true
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = SubResource("Environment_rkqxd")
+
+[node name="Table" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.1, 0)
+mesh = SubResource("PlaneMesh_table")
+
+[node name="GroundPlane" type="StaticBody3D" parent="."]
+collision_layer = 2
+collision_mask = 0
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="GroundPlane"]
+shape = SubResource("WorldBoundaryShape3D_ground")
+
+[node name="BoardManager" type="Node3D" parent="."]
+script = ExtResource("1_k6p8v")
