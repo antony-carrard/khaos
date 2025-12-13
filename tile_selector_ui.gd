@@ -40,9 +40,9 @@ func initialize(colors: Dictionary) -> void:
 	margin.add_child(hbox)
 
 	# Create tile selection buttons
-	create_tile_button(hbox, 0, "Plains")
-	create_tile_button(hbox, 1, "Hills")
-	create_tile_button(hbox, 2, "Mountain")
+	create_button(hbox, "Plains", tile_type_colors[0], 120, _on_tile_button_pressed.bind(0))
+	create_button(hbox, "Hills", tile_type_colors[1], 120, _on_tile_button_pressed.bind(1))
+	create_button(hbox, "Mountain", tile_type_colors[2], 120, _on_tile_button_pressed.bind(2))
 
 	# Add separator
 	var separator = Control.new()
@@ -50,40 +50,19 @@ func initialize(colors: Dictionary) -> void:
 	hbox.add_child(separator)
 
 	# Create village buttons
-	create_village_button(hbox, "Place Village", true)
-	create_village_button(hbox, "Remove Village", false)
+	create_button(hbox, "Place Village", Color(0.8, 0.5, 0.2), 140, _on_village_place_pressed)
+	create_button(hbox, "Remove Village", Color(0.7, 0.3, 0.2), 140, _on_village_remove_pressed)
 
 
-func create_tile_button(parent: Control, tile_type: int, label: String) -> void:
+func create_button(parent: Control, label: String, base_color: Color, width: int, callback: Callable) -> void:
 	var button = Button.new()
 	button.text = label
-	button.custom_minimum_size = Vector2(120, 50)
+	button.custom_minimum_size = Vector2(width, 50)
 
-	var base_color = tile_type_colors[tile_type]
-
-	# Normal state
-	var style_normal = StyleBoxFlat.new()
-	style_normal.bg_color = base_color
-	style_normal.corner_radius_top_left = 8
-	style_normal.corner_radius_top_right = 8
-	style_normal.corner_radius_bottom_left = 8
-	style_normal.corner_radius_bottom_right = 8
-
-	# Hover state (lighter)
-	var style_hover = StyleBoxFlat.new()
-	style_hover.bg_color = base_color.lightened(0.2)
-	style_hover.corner_radius_top_left = 8
-	style_hover.corner_radius_top_right = 8
-	style_hover.corner_radius_bottom_left = 8
-	style_hover.corner_radius_bottom_right = 8
-
-	# Pressed state (darker)
-	var style_pressed = StyleBoxFlat.new()
-	style_pressed.bg_color = base_color.darkened(0.2)
-	style_pressed.corner_radius_top_left = 8
-	style_pressed.corner_radius_top_right = 8
-	style_pressed.corner_radius_bottom_left = 8
-	style_pressed.corner_radius_bottom_right = 8
+	# Create button styles with color variations
+	var style_normal = create_button_style(base_color)
+	var style_hover = create_button_style(base_color.lightened(0.2))
+	var style_pressed = create_button_style(base_color.darkened(0.2))
 
 	button.add_theme_stylebox_override("normal", style_normal)
 	button.add_theme_stylebox_override("hover", style_hover)
@@ -91,65 +70,26 @@ func create_tile_button(parent: Control, tile_type: int, label: String) -> void:
 
 	# Text styling
 	button.add_theme_color_override("font_color", Color.WHITE)
-	button.add_theme_font_size_override("font_size", 18)
+	button.add_theme_font_size_override("font_size", 18 if width == 120 else 16)
 
-	button.pressed.connect(_on_tile_button_pressed.bind(tile_type))
+	button.pressed.connect(callback)
 
 	parent.add_child(button)
 	buttons.append(button)
+
+
+func create_button_style(bg_color: Color) -> StyleBoxFlat:
+	var style = StyleBoxFlat.new()
+	style.bg_color = bg_color
+	style.corner_radius_top_left = 8
+	style.corner_radius_top_right = 8
+	style.corner_radius_bottom_left = 8
+	style.corner_radius_bottom_right = 8
+	return style
 
 
 func _on_tile_button_pressed(tile_type: int) -> void:
 	tile_type_selected.emit(tile_type)
-
-
-func create_village_button(parent: Control, label: String, is_place: bool) -> void:
-	var button = Button.new()
-	button.text = label
-	button.custom_minimum_size = Vector2(140, 50)
-
-	# Village buttons use orange/red colors
-	var base_color = Color(0.8, 0.5, 0.2) if is_place else Color(0.7, 0.3, 0.2)
-
-	# Normal state
-	var style_normal = StyleBoxFlat.new()
-	style_normal.bg_color = base_color
-	style_normal.corner_radius_top_left = 8
-	style_normal.corner_radius_top_right = 8
-	style_normal.corner_radius_bottom_left = 8
-	style_normal.corner_radius_bottom_right = 8
-
-	# Hover state (lighter)
-	var style_hover = StyleBoxFlat.new()
-	style_hover.bg_color = base_color.lightened(0.2)
-	style_hover.corner_radius_top_left = 8
-	style_hover.corner_radius_top_right = 8
-	style_hover.corner_radius_bottom_left = 8
-	style_hover.corner_radius_bottom_right = 8
-
-	# Pressed state (darker)
-	var style_pressed = StyleBoxFlat.new()
-	style_pressed.bg_color = base_color.darkened(0.2)
-	style_pressed.corner_radius_top_left = 8
-	style_pressed.corner_radius_top_right = 8
-	style_pressed.corner_radius_bottom_left = 8
-	style_pressed.corner_radius_bottom_right = 8
-
-	button.add_theme_stylebox_override("normal", style_normal)
-	button.add_theme_stylebox_override("hover", style_hover)
-	button.add_theme_stylebox_override("pressed", style_pressed)
-
-	# Text styling
-	button.add_theme_color_override("font_color", Color.WHITE)
-	button.add_theme_font_size_override("font_size", 16)
-
-	if is_place:
-		button.pressed.connect(_on_village_place_pressed)
-	else:
-		button.pressed.connect(_on_village_remove_pressed)
-
-	parent.add_child(button)
-	buttons.append(button)
 
 
 func _on_village_place_pressed() -> void:
