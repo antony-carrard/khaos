@@ -35,9 +35,15 @@ var placed_tiles: Dictionary = {}
 var preview_tile: HexTile = null
 var preview_position: Vector3i = Vector3i.ZERO  # (q, r, height)
 
-# Tile type selection (for now, cycles through types with keyboard)
+# Tile type selection
 var current_tile_type: TileType = TileType.PLAINS
-var placement_active: bool = true  # Toggle placement mode on/off
+var placement_active: bool = false  # Toggle placement mode on/off (starts OFF)
+
+# UI
+var ui: Control = null
+
+# Debug mode (true in editor, false in exported game)
+var debug_mode: bool = OS.is_debug_build()
 
 # Camera raycast
 @onready var camera: Camera3D = get_viewport().get_camera_3d()
@@ -53,6 +59,16 @@ func _ready() -> void:
 	add_child(preview_tile)
 	preview_tile.visible = false
 
+	# Create UI in a CanvasLayer so it positions correctly
+	var canvas_layer = CanvasLayer.new()
+	add_child(canvas_layer)
+
+	var ui_script = load("res://tile_selector_ui.gd")
+	ui = ui_script.new()
+	canvas_layer.add_child(ui)
+	ui.initialize(TILE_TYPE_COLORS)
+	ui.tile_type_selected.connect(_on_tile_type_selected)
+
 
 func _process(_delta: float) -> void:
 	update_preview()
@@ -63,25 +79,32 @@ func _input(event: InputEvent) -> void:
 	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
 		if preview_tile.visible and is_valid_placement(preview_position.x, preview_position.y, current_tile_type):
 			place_tile(preview_position.x, preview_position.y, current_tile_type)
+			# Exit placement mode after placing
+			placement_active = false
+			preview_tile.visible = false  # Immediate hide (saves 1 frame vs update_preview)
 
-	# Keyboard to cycle tile types (temporary - will be replaced with UI)
-	if event is InputEventKey and event.pressed:
+	# Keyboard shortcuts (DEBUG ONLY - disabled in exported game)
+	if debug_mode and event is InputEventKey and event.pressed:
 		if event.keycode == KEY_1:
 			current_tile_type = TileType.PLAINS
 			placement_active = true
-			print("Selected: PLAINS")
 		elif event.keycode == KEY_2:
 			current_tile_type = TileType.HILLS
 			placement_active = true
-			print("Selected: HILLS")
 		elif event.keycode == KEY_3:
 			current_tile_type = TileType.MOUNTAIN
 			placement_active = true
-			print("Selected: MOUNTAIN")
-		elif event.keycode == KEY_ESCAPE:
+
+	# ESC to exit placement mode (always available)
+	if event is InputEventKey and event.pressed:
+		if event.keycode == KEY_ESCAPE:
 			placement_active = false
-			preview_tile.visible = false
-			print("Placement mode OFF")
+			preview_tile.visible = false  # Immediate hide (saves 1 frame vs update_preview)
+
+
+func _on_tile_type_selected(tile_type: int) -> void:
+	current_tile_type = tile_type as TileType
+	placement_active = true
 
 
 func update_preview() -> void:
