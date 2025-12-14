@@ -128,6 +128,11 @@ func handle_keyboard_panning(delta: float) -> void:
 func handle_edge_panning(delta: float) -> void:
 	var mouse_pos := get_viewport().get_mouse_position()
 	var viewport_size := get_viewport().get_visible_rect().size
+
+	# Don't pan if mouse is outside the window
+	if mouse_pos.x < 0 or mouse_pos.x > viewport_size.x or mouse_pos.y < 0 or mouse_pos.y > viewport_size.y:
+		return
+
 	var move_direction := Vector3.ZERO
 
 	# Check if mouse is near edges
