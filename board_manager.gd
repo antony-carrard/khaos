@@ -51,8 +51,8 @@ func _ready() -> void:
 	add_child(placement_controller)
 	await placement_controller.initialize(tile_manager, village_manager, camera, self)
 
-	# Place first tile
-	tile_manager.place_tile(0, 0, TileManager.TileType.PLAINS)
+	# Place first tile (test with FERVOR type, yield 2, buy 1, sell 1)
+	tile_manager.place_tile(0, 0, TileManager.TileType.PLAINS, TileManager.ResourceType.FERVOR, 2, 1, 1)
 
 	# Create UI
 	setup_ui()

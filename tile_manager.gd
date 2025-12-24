@@ -9,6 +9,13 @@ enum TileType {
 	MOUNTAIN   # Height 2 - built on hills
 }
 
+# Resource type definitions (what the tile produces)
+enum ResourceType {
+	RESOURCES,  # Building materials (wood icon)
+	FERVOR,     # Divine energy (pray icon)
+	GLORY       # Victory points (star icon)
+}
+
 # Map tile types to their required height level
 const TILE_TYPE_TO_HEIGHT = {
 	TileType.PLAINS: 0,
@@ -21,6 +28,13 @@ const TILE_TYPE_COLORS = {
 	TileType.PLAINS: Color(0.4, 0.7, 0.3),    # Green
 	TileType.HILLS: Color(0.6, 0.5, 0.3),     # Brown
 	TileType.MOUNTAIN: Color(0.5, 0.5, 0.5)   # Gray
+}
+
+# Icon paths for resource types
+const RESOURCE_TYPE_ICONS = {
+	ResourceType.RESOURCES: "res://icons/wood.svg",
+	ResourceType.FERVOR: "res://icons/pray.svg",
+	ResourceType.GLORY: "res://icons/star.svg"
 }
 
 # Signals
@@ -47,10 +61,11 @@ func initialize(tile_scene: PackedScene, _hex_size: float, _tile_height: float) 
 	tile_height = _tile_height
 
 
-## Places a tile at the specified hex coordinates.
+## Places a tile at the specified hex coordinates with resource properties.
 ## Returns true if placement succeeded, false if invalid placement.
 ## Emits tile_placed signal on success.
-func place_tile(q: int, r: int, tile_type: TileType) -> bool:
+func place_tile(q: int, r: int, tile_type: TileType, res_type: ResourceType = ResourceType.RESOURCES,
+				yield_val: int = 1, buy_val: int = 0, sell_val: int = 0) -> bool:
 	var height = TILE_TYPE_TO_HEIGHT[tile_type]
 
 	if not is_valid_placement(q, r, tile_type):
@@ -62,10 +77,15 @@ func place_tile(q: int, r: int, tile_type: TileType) -> bool:
 	tile.set_tile_type(tile_type, TILE_TYPE_COLORS[tile_type])
 	tile.global_position = get_parent().axial_to_world(q, r, height)
 
+	# Set resource properties with icon
+	var icon_path = RESOURCE_TYPE_ICONS[res_type]
+	tile.set_resource_properties(res_type, yield_val, buy_val, sell_val, icon_path)
+
 	var key = Vector3i(q, r, height)
 	placed_tiles[key] = tile
 
-	print("Placed %s tile at q=%d, r=%d, height=%d" % [TileType.keys()[tile_type], q, r, height])
+	print("Placed %s tile at q=%d, r=%d, height=%d (Resource: %s, Yield: %d)" %
+		  [TileType.keys()[tile_type], q, r, height, ResourceType.keys()[res_type], yield_val])
 	tile_placed.emit(q, r, height, tile_type)
 	return true
 
