@@ -8,17 +8,22 @@ extends Node3D
 @export var hex_size: float = 1.0  # Distance from center to corner
 @export var tile_height: float = 0.3  # Height of each tile level
 @export var max_stack_height: int = 3  # Maximum tiles that can be stacked
+@export_enum("test", "game") var ui_mode: String = "game"  # UI mode: test (debug) or game (full)
 
 # Manager components
 var tile_manager: TileManager
 var village_manager: VillageManager
 var placement_controller: PlacementController
+var tile_pool: TilePool
 
 # UI
 var ui: Control = null
 
 # Camera reference
 var camera: Camera3D = null
+
+# Player hand (for now, single player)
+var player_hand: Array[TilePool.TileDefinition] = []
 
 
 func _ready() -> void:
@@ -31,6 +36,11 @@ func _ready() -> void:
 	village_manager = VillageManager.new()
 	add_child(village_manager)
 	village_manager.initialize(tile_height)
+
+	# Initialize tile pool
+	tile_pool = TilePool.new()
+	add_child(tile_pool)
+	tile_pool.initialize()
 
 	# Cross-reference managers (for validation)
 	tile_manager.village_manager = village_manager
@@ -51,8 +61,15 @@ func _ready() -> void:
 	add_child(placement_controller)
 	await placement_controller.initialize(tile_manager, village_manager, camera, self)
 
-	# Place first tile (test with FERVOR type, yield 2, buy 1, sell 1)
-	tile_manager.place_tile(0, 0, TileManager.TileType.PLAINS, TileManager.ResourceType.FERVOR, 2, 1, 1)
+	# Draw initial hand (3 tiles as per rules.md line 65)
+	player_hand = tile_pool.draw_tiles(3)
+	print("Player drew initial hand: %d tiles" % player_hand.size())
+
+	# Place first tile from pool as a starting tile
+	var first_tile = tile_pool.draw_tile()
+	if first_tile:
+		tile_manager.place_tile(0, 0, first_tile.tile_type, first_tile.resource_type,
+								first_tile.yield_value, first_tile.buy_price, first_tile.sell_price)
 
 	# Create UI
 	setup_ui()
@@ -65,12 +82,33 @@ func setup_ui() -> void:
 	var ui_script = load("res://tile_selector_ui.gd")
 	ui = ui_script.new()
 	canvas_layer.add_child(ui)
-	ui.initialize(TileManager.TILE_TYPE_COLORS)
+	ui.initialize(TileManager.TILE_TYPE_COLORS, self, ui_mode)
 
 	# Connect UI signals to placement controller
 	ui.tile_type_selected.connect(placement_controller.select_tile_type)
+	ui.tile_selected_from_hand.connect(_on_tile_selected_from_hand)
 	ui.village_place_selected.connect(placement_controller.select_village_place_mode)
 	ui.village_remove_selected.connect(placement_controller.select_village_remove_mode)
+
+	# Update hand display (only in game mode)
+	if ui_mode == "game":
+		ui.update_hand_display()
+
+
+## Handle tile selection from hand
+func _on_tile_selected_from_hand(hand_index: int) -> void:
+	if hand_index < 0 or hand_index >= player_hand.size():
+		return
+
+	var tile_def = player_hand[hand_index]
+	print("Selected tile from hand: %s %s" % [
+		TileManager.TileType.keys()[tile_def.tile_type],
+		TileManager.ResourceType.keys()[tile_def.resource_type]
+	])
+
+	# TODO: Enter placement mode with this specific tile
+	# For now, just select the tile type
+	placement_controller.select_tile_type(tile_def.tile_type)
 
 
 # Hexagonal coordinate conversion utilities
@@ -133,6 +171,26 @@ func get_axial_neighbors(q: int, r: int) -> Array[Vector2i]:
 		neighbors.append(Vector2i(q + dir.x, r + dir.y))
 
 	return neighbors
+
+
+## Draw tiles from the pool into player's hand
+func draw_tiles_to_hand(count: int) -> void:
+	var drawn = tile_pool.draw_tiles(count)
+	player_hand.append_array(drawn)
+	print("Drew %d tiles. Hand size: %d" % [drawn.size(), player_hand.size()])
+
+
+## Remove a tile from hand (when placed or sold)
+func remove_from_hand(index: int) -> bool:
+	if index < 0 or index >= player_hand.size():
+		return false
+	player_hand.remove_at(index)
+	return true
+
+
+## Get the player's current hand
+func get_hand() -> Array[TilePool.TileDefinition]:
+	return player_hand
 
 
 ## Gets the hex coordinates at the mouse cursor position via raycast.
