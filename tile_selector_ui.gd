@@ -12,6 +12,11 @@ var hand_container: HBoxContainer = null
 var board_manager = null  # Reference to get hand data
 var tile_count_label: Label = null  # Shows remaining tiles in bag
 
+# Resource display
+var resource_label: Label = null
+var fervor_label: Label = null
+var glory_label: Label = null
+
 # UI mode: "test" or "game"
 var ui_mode: String = "game"  # Default to game UI
 var debug_buttons_container: HBoxContainer = null
@@ -50,7 +55,16 @@ func initialize(colors: Dictionary, _board_manager = null, mode: String = "game"
 	margin.add_child(main_hbox)
 
 	if ui_mode == "game":
-		# GAME UI - Hand display on left
+		# GAME UI - Resource display on left
+		var resource_panel = create_resource_panel()
+		main_hbox.add_child(resource_panel)
+
+		# Separator
+		var sep1 = Control.new()
+		sep1.custom_minimum_size = Vector2(15, 0)
+		main_hbox.add_child(sep1)
+
+		# Hand display in center
 		var hand_vbox = VBoxContainer.new()
 		hand_vbox.add_theme_constant_override("separation", 5)
 		main_hbox.add_child(hand_vbox)
@@ -148,6 +162,87 @@ func _on_tile_button_pressed(tile_type: int) -> void:
 	tile_type_selected.emit(tile_type)
 
 
+## Create resource display panel with icons
+func create_resource_panel() -> PanelContainer:
+	var panel = PanelContainer.new()
+	var style = StyleBoxFlat.new()
+	style.bg_color = Color(0.15, 0.15, 0.15, 0.9)
+	style.corner_radius_top_left = 10
+	style.corner_radius_top_right = 10
+	style.corner_radius_bottom_left = 10
+	style.corner_radius_bottom_right = 10
+	panel.add_theme_stylebox_override("panel", style)
+	panel.custom_minimum_size = Vector2(120, 100)
+
+	# Inner margin
+	var margin = MarginContainer.new()
+	margin.add_theme_constant_override("margin_left", 10)
+	margin.add_theme_constant_override("margin_right", 10)
+	margin.add_theme_constant_override("margin_top", 10)
+	margin.add_theme_constant_override("margin_bottom", 10)
+	panel.add_child(margin)
+
+	var vbox = VBoxContainer.new()
+	vbox.add_theme_constant_override("separation", 8)
+	margin.add_child(vbox)
+
+	# Resources row
+	resource_label = create_resource_row(vbox, "res://icons/wood.svg", "0")
+
+	# Fervor row
+	fervor_label = create_resource_row(vbox, "res://icons/pray.svg", "0")
+
+	# Glory row
+	glory_label = create_resource_row(vbox, "res://icons/star.svg", "0")
+
+	return panel
+
+
+## Create a row with icon + label
+func create_resource_row(parent: VBoxContainer, icon_path: String, initial_value: String) -> Label:
+	var hbox = HBoxContainer.new()
+	hbox.add_theme_constant_override("separation", 8)
+	parent.add_child(hbox)
+
+	# Icon
+	var icon = TextureRect.new()
+	icon.custom_minimum_size = Vector2(20, 20)
+	icon.expand_mode = TextureRect.EXPAND_FIT_WIDTH_PROPORTIONAL
+	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	var texture = load(icon_path) as Texture2D
+	if texture:
+		icon.texture = texture
+	hbox.add_child(icon)
+
+	# Label
+	var label = Label.new()
+	label.text = initial_value
+	label.add_theme_color_override("font_color", Color.WHITE)
+	label.add_theme_font_size_override("font_size", 16)
+	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	hbox.add_child(label)
+
+	return label
+
+
+## Update resource display (called via signal)
+func update_resources(amount: int) -> void:
+	if resource_label:
+		resource_label.text = str(amount)
+
+
+## Update fervor display (called via signal)
+func update_fervor(amount: int) -> void:
+	if fervor_label:
+		fervor_label.text = str(amount)
+
+
+## Update glory display (called via signal)
+func update_glory(amount: int) -> void:
+	if glory_label:
+		glory_label.text = str(amount)
+
+
 func _on_village_place_pressed() -> void:
 	village_place_selected.emit()
 
@@ -187,16 +282,28 @@ func update_hand_display() -> void:
 
 ## Create a visual card for a tile in the hand
 func create_hand_card(hand_index: int, tile_def) -> void:
+	# Check if player can afford this tile
+	var can_afford = true
+	if board_manager and board_manager.current_player:
+		can_afford = board_manager.current_player.can_afford_tile(tile_def)
+
 	# Card container
 	var card = PanelContainer.new()
 	var card_style = StyleBoxFlat.new()
 	var tile_color = tile_type_colors[tile_def.tile_type]
-	card_style.bg_color = tile_color.darkened(0.3)
+
+	# Gray out if can't afford
+	if can_afford:
+		card_style.bg_color = tile_color.darkened(0.3)
+		card_style.border_color = tile_color.lightened(0.3)
+	else:
+		card_style.bg_color = tile_color.darkened(0.6)  # Much darker
+		card_style.border_color = Color.RED  # Red border for unaffordable
+
 	card_style.border_width_left = 2
 	card_style.border_width_right = 2
 	card_style.border_width_top = 2
 	card_style.border_width_bottom = 2
-	card_style.border_color = tile_color.lightened(0.3)
 	card_style.corner_radius_top_left = 8
 	card_style.corner_radius_top_right = 8
 	card_style.corner_radius_bottom_left = 8
@@ -252,7 +359,11 @@ func create_hand_card(hand_index: int, tile_def) -> void:
 	# Buy price
 	var buy_label = Label.new()
 	buy_label.text = "Cost: %d" % tile_def.buy_price
-	buy_label.add_theme_color_override("font_color", Color.YELLOW)
+	# Red if can't afford, yellow if can
+	if can_afford:
+		buy_label.add_theme_color_override("font_color", Color.YELLOW)
+	else:
+		buy_label.add_theme_color_override("font_color", Color.RED)
 	buy_label.add_theme_font_size_override("font_size", 10)
 	buy_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	vbox.add_child(buy_label)

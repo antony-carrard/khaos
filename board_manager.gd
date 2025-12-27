@@ -22,8 +22,8 @@ var ui: Control = null
 # Camera reference
 var camera: Camera3D = null
 
-# Player hand (for now, single player)
-var player_hand: Array[TilePool.TileDefinition] = []
+# Player (for now, single player)
+var current_player: Player = null
 
 
 func _ready() -> void:
@@ -41,6 +41,11 @@ func _ready() -> void:
 	tile_pool = TilePool.new()
 	add_child(tile_pool)
 	tile_pool.initialize()
+
+	# Create player
+	current_player = Player.new()
+	add_child(current_player)
+	current_player.initialize("Player 1", 10, 10)  # Start with 0 resources/fervor
 
 	# Cross-reference managers (for validation)
 	tile_manager.village_manager = village_manager
@@ -62,14 +67,16 @@ func _ready() -> void:
 	await placement_controller.initialize(tile_manager, village_manager, camera, self)
 
 	# Draw initial hand (3 tiles as per rules.md line 65)
-	player_hand = tile_pool.draw_tiles(3)
-	print("Player drew initial hand: %d tiles" % player_hand.size())
+	current_player.draw_tiles(tile_pool, 3)
 
 	# Place first tile from pool as a starting tile
 	var first_tile = tile_pool.draw_tile()
 	if first_tile:
 		tile_manager.place_tile(0, 0, first_tile.tile_type, first_tile.resource_type,
 								first_tile.yield_value, first_tile.buy_price, first_tile.sell_price)
+
+	# Give player starting turn bonus
+	current_player.start_turn()
 
 	# Create UI
 	setup_ui()
@@ -90,17 +97,34 @@ func setup_ui() -> void:
 	ui.village_place_selected.connect(placement_controller.select_village_place_mode)
 	ui.village_remove_selected.connect(placement_controller.select_village_remove_mode)
 
-	# Update hand display (only in game mode)
+	# Connect player signals to UI
+	if ui_mode == "game":
+		current_player.resources_changed.connect(ui.update_resources)
+		current_player.fervor_changed.connect(ui.update_fervor)
+		current_player.glory_changed.connect(ui.update_glory)
+
+	# Update displays (only in game mode)
 	if ui_mode == "game":
 		ui.update_hand_display()
+		ui.update_resources(current_player.resources)
+		ui.update_fervor(current_player.fervor)
+		ui.update_glory(current_player.glory)
 
 
 ## Handle tile selection from hand
 func _on_tile_selected_from_hand(hand_index: int) -> void:
-	if hand_index < 0 or hand_index >= player_hand.size():
+	if hand_index < 0 or hand_index >= current_player.hand.size():
 		return
 
-	var tile_def = player_hand[hand_index]
+	var tile_def = current_player.hand[hand_index]
+
+	# Check if player can afford it
+	if not current_player.can_afford_tile(tile_def):
+		print("Cannot afford tile! Need %d resources, have %d" % [
+			tile_def.buy_price, current_player.resources
+		])
+		return
+
 	print("Selected tile from hand: %s %s (yield=%d, cost=%d)" % [
 		TileManager.TileType.keys()[tile_def.tile_type],
 		TileManager.ResourceType.keys()[tile_def.resource_type],
@@ -114,28 +138,29 @@ func _on_tile_selected_from_hand(hand_index: int) -> void:
 
 ## Called by placement_controller when a tile from hand is successfully placed
 func on_tile_placed_from_hand(hand_index: int) -> void:
-	if hand_index < 0 or hand_index >= player_hand.size():
+	if hand_index < 0 or hand_index >= current_player.hand.size():
 		return
 
-	var placed_tile = player_hand[hand_index]
+	var placed_tile = current_player.hand[hand_index]
+
+	# Spend resources
+	if not current_player.spend_resources(placed_tile.buy_price):
+		print("ERROR: Placed tile but couldn't afford it!")
+		return
+
 	print("Consumed tile from hand: %s %s" % [
 		TileManager.TileType.keys()[placed_tile.tile_type],
 		TileManager.ResourceType.keys()[placed_tile.resource_type]
 	])
 
 	# Remove tile from hand
-	remove_from_hand(hand_index)
+	current_player.remove_from_hand(hand_index)
 
 	# Draw replacement tile to refill hand
-	var new_tiles = tile_pool.draw_tiles(1)
-	if new_tiles.size() > 0:
-		player_hand.append(new_tiles[0])
-		print("Drew replacement tile. Hand size: %d, Bag remaining: %d" % [
-			player_hand.size(),
-			tile_pool.get_remaining_count()
-		])
-	else:
-		print("No tiles left in bag! Hand size: %d" % player_hand.size())
+	current_player.draw_tiles(tile_pool, 1)
+
+	if tile_pool.get_remaining_count() == 0 and current_player.hand.size() == 0:
+		print("Game Over! No tiles left in bag or hand.")
 
 	# Update UI to reflect hand changes
 	if ui and ui_mode == "game":
@@ -204,24 +229,9 @@ func get_axial_neighbors(q: int, r: int) -> Array[Vector2i]:
 	return neighbors
 
 
-## Draw tiles from the pool into player's hand
-func draw_tiles_to_hand(count: int) -> void:
-	var drawn = tile_pool.draw_tiles(count)
-	player_hand.append_array(drawn)
-	print("Drew %d tiles. Hand size: %d" % [drawn.size(), player_hand.size()])
-
-
-## Remove a tile from hand (when placed or sold)
-func remove_from_hand(index: int) -> bool:
-	if index < 0 or index >= player_hand.size():
-		return false
-	player_hand.remove_at(index)
-	return true
-
-
 ## Get the player's current hand
-func get_hand() -> Array[TilePool.TileDefinition]:
-	return player_hand
+func get_hand() -> Array:
+	return current_player.hand if current_player else []
 
 
 ## Gets the hex coordinates at the mouse cursor position via raycast.
