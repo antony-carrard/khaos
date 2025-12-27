@@ -10,6 +10,7 @@ var tile_type_colors: Dictionary = {}
 var buttons: Array[Button] = []
 var hand_container: HBoxContainer = null
 var board_manager = null  # Reference to get hand data
+var tile_count_label: Label = null  # Shows remaining tiles in bag
 
 # UI mode: "test" or "game"
 var ui_mode: String = "game"  # Default to game UI
@@ -50,6 +51,19 @@ func initialize(colors: Dictionary, _board_manager = null, mode: String = "game"
 
 	if ui_mode == "game":
 		# GAME UI - Hand display on left
+		var hand_vbox = VBoxContainer.new()
+		hand_vbox.add_theme_constant_override("separation", 5)
+		main_hbox.add_child(hand_vbox)
+
+		# Tile count label (above hand)
+		tile_count_label = Label.new()
+		tile_count_label.text = "Tiles: 63"
+		tile_count_label.add_theme_color_override("font_color", Color.WHITE)
+		tile_count_label.add_theme_font_size_override("font_size", 14)
+		tile_count_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		hand_vbox.add_child(tile_count_label)
+
+		# Hand panel
 		var hand_panel = PanelContainer.new()
 		var hand_style = StyleBoxFlat.new()
 		hand_style.bg_color = Color(0.1, 0.1, 0.1, 0.8)
@@ -58,7 +72,7 @@ func initialize(colors: Dictionary, _board_manager = null, mode: String = "game"
 		hand_style.corner_radius_bottom_left = 10
 		hand_style.corner_radius_bottom_right = 10
 		hand_panel.add_theme_stylebox_override("panel", hand_style)
-		main_hbox.add_child(hand_panel)
+		hand_vbox.add_child(hand_panel)
 
 		hand_container = HBoxContainer.new()
 		hand_container.add_theme_constant_override("separation", 10)
@@ -158,6 +172,17 @@ func update_hand_display() -> void:
 	for i in range(hand.size()):
 		var tile_def = hand[i]
 		create_hand_card(i, tile_def)
+
+	# Update tile count label
+	if tile_count_label and board_manager.tile_pool:
+		var remaining = board_manager.tile_pool.get_remaining_count()
+		tile_count_label.text = "Tiles: %d" % remaining
+		if remaining == 0:
+			tile_count_label.add_theme_color_override("font_color", Color.RED)
+		elif remaining < 10:
+			tile_count_label.add_theme_color_override("font_color", Color.YELLOW)
+		else:
+			tile_count_label.add_theme_color_override("font_color", Color.WHITE)
 
 
 ## Create a visual card for a tile in the hand

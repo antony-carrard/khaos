@@ -101,14 +101,45 @@ func _on_tile_selected_from_hand(hand_index: int) -> void:
 		return
 
 	var tile_def = player_hand[hand_index]
-	print("Selected tile from hand: %s %s" % [
+	print("Selected tile from hand: %s %s (yield=%d, cost=%d)" % [
 		TileManager.TileType.keys()[tile_def.tile_type],
-		TileManager.ResourceType.keys()[tile_def.resource_type]
+		TileManager.ResourceType.keys()[tile_def.resource_type],
+		tile_def.yield_value,
+		tile_def.buy_price
 	])
 
-	# TODO: Enter placement mode with this specific tile
-	# For now, just select the tile type
-	placement_controller.select_tile_type(tile_def.tile_type)
+	# Enter placement mode with this specific tile
+	placement_controller.select_tile_from_hand(hand_index, tile_def)
+
+
+## Called by placement_controller when a tile from hand is successfully placed
+func on_tile_placed_from_hand(hand_index: int) -> void:
+	if hand_index < 0 or hand_index >= player_hand.size():
+		return
+
+	var placed_tile = player_hand[hand_index]
+	print("Consumed tile from hand: %s %s" % [
+		TileManager.TileType.keys()[placed_tile.tile_type],
+		TileManager.ResourceType.keys()[placed_tile.resource_type]
+	])
+
+	# Remove tile from hand
+	remove_from_hand(hand_index)
+
+	# Draw replacement tile to refill hand
+	var new_tiles = tile_pool.draw_tiles(1)
+	if new_tiles.size() > 0:
+		player_hand.append(new_tiles[0])
+		print("Drew replacement tile. Hand size: %d, Bag remaining: %d" % [
+			player_hand.size(),
+			tile_pool.get_remaining_count()
+		])
+	else:
+		print("No tiles left in bag! Hand size: %d" % player_hand.size())
+
+	# Update UI to reflect hand changes
+	if ui and ui_mode == "game":
+		ui.update_hand_display()
 
 
 # Hexagonal coordinate conversion utilities

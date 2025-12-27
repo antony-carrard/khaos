@@ -13,6 +13,8 @@ enum PlacementMode {
 var current_mode: PlacementMode = PlacementMode.TILE
 var placement_active: bool = false
 var current_tile_type: int = 0  # TileManager.TileType value
+var selected_hand_index: int = -1  # Index of tile selected from hand (-1 = none)
+var selected_tile_def = null  # TilePool.TileDefinition from hand
 
 # Preview objects
 var preview_tile: HexTile = null
@@ -71,9 +73,30 @@ func handle_mouse_input(event: InputEvent) -> void:
 		match current_mode:
 			PlacementMode.TILE:
 				if preview_tile.visible and tile_manager.is_valid_placement(preview_position.x, preview_position.y, current_tile_type):
-					if tile_manager.place_tile(preview_position.x, preview_position.y, current_tile_type):
+					# Place tile with specific properties if from hand
+					var success = false
+					if selected_tile_def:
+						success = tile_manager.place_tile(
+							preview_position.x, preview_position.y,
+							selected_tile_def.tile_type,
+							selected_tile_def.resource_type,
+							selected_tile_def.yield_value,
+							selected_tile_def.buy_price,
+							selected_tile_def.sell_price
+						)
+					else:
+						# Test mode - place generic tile
+						success = tile_manager.place_tile(preview_position.x, preview_position.y, current_tile_type)
+
+					if success:
+						# Notify board manager to consume tile from hand
+						if selected_hand_index >= 0 and board_manager:
+							board_manager.on_tile_placed_from_hand(selected_hand_index)
+
 						placement_active = false
 						preview_tile.visible = false
+						selected_hand_index = -1
+						selected_tile_def = null
 
 			PlacementMode.VILLAGE_PLACE, PlacementMode.VILLAGE_REMOVE:
 				var viewport = get_viewport()
@@ -238,6 +261,18 @@ func update_tile_preview() -> void:
 ## Activates preview and waits for player to click to place.
 func select_tile_type(tile_type: int) -> void:
 	current_tile_type = tile_type
+	current_mode = PlacementMode.TILE
+	placement_active = true
+	selected_hand_index = -1  # Clear hand selection
+	selected_tile_def = null
+
+
+## Enters tile placement mode with a specific tile from hand.
+## Activates preview and waits for player to click to place.
+func select_tile_from_hand(hand_index: int, tile_def) -> void:
+	selected_hand_index = hand_index
+	selected_tile_def = tile_def
+	current_tile_type = tile_def.tile_type
 	current_mode = PlacementMode.TILE
 	placement_active = true
 
