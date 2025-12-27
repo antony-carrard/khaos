@@ -25,6 +25,10 @@ var camera: Camera3D = null
 # Player (for now, single player)
 var current_player: Player = null
 
+# ========== TURN SYSTEM (Extract to TurnManager later) ==========
+enum TurnPhase { HARVEST, ACTIONS }
+var current_phase: TurnPhase = TurnPhase.HARVEST
+
 
 func _ready() -> void:
 	# Create and initialize managers
@@ -67,16 +71,39 @@ func _ready() -> void:
 	await placement_controller.initialize(tile_manager, village_manager, camera, self)
 
 	# Draw initial hand (3 tiles as per rules.md line 65)
+	print("Tile pool count before drawing hand: %d" % tile_pool.get_remaining_count())
 	current_player.draw_tiles(tile_pool, 3)
+	print("Tile pool count after drawing hand: %d" % tile_pool.get_remaining_count())
+	print("Player hand size: %d" % current_player.hand.size())
 
-	# Place first tile from pool as a starting tile
-	var first_tile = tile_pool.draw_tile()
-	if first_tile:
-		tile_manager.place_tile(0, 0, first_tile.tile_type, first_tile.resource_type,
+	# Place first tile from pool as a starting tile (must be PLAINS)
+	var first_tile = null
+	var attempts = 0
+	while first_tile == null or first_tile.tile_type != TileManager.TileType.PLAINS:
+		if first_tile != null:
+			# Put non-PLAINS tile back and shuffle
+			tile_pool.return_tile(first_tile)
+		first_tile = tile_pool.draw_tile()
+		attempts += 1
+		if attempts > 100:  # Safety check
+			push_error("Could not find PLAINS tile for starting position!")
+			break
+
+	print("Tile pool count after drawing starting tile: %d" % tile_pool.get_remaining_count())
+	if first_tile and first_tile.tile_type == TileManager.TileType.PLAINS:
+		print("Placing initial tile at (0,0): %s %s" % [
+			TileManager.TileType.keys()[first_tile.tile_type],
+			TileManager.ResourceType.keys()[first_tile.resource_type]
+		])
+		var success = tile_manager.place_tile(0, 0, first_tile.tile_type, first_tile.resource_type,
 								first_tile.yield_value, first_tile.buy_price, first_tile.sell_price)
+		print("Initial tile placement success: %s" % success)
+	else:
+		push_error("Failed to draw PLAINS tile from pool!")
 
-	# Give player starting turn bonus
+	# Give player starting turn bonus and start harvest phase
 	current_player.start_turn()
+	start_harvest_phase()
 
 	# Create UI
 	setup_ui()
@@ -102,13 +129,17 @@ func setup_ui() -> void:
 		current_player.resources_changed.connect(ui.update_resources)
 		current_player.fervor_changed.connect(ui.update_fervor)
 		current_player.glory_changed.connect(ui.update_glory)
+		current_player.actions_changed.connect(ui.update_actions)
 
 	# Update displays (only in game mode)
 	if ui_mode == "game":
 		ui.update_hand_display()
-		ui.update_resources(current_player.resources)
-		ui.update_fervor(current_player.fervor)
-		ui.update_glory(current_player.glory)
+		ui.update_turn_phase(current_phase)  # Show/hide phase-specific UI
+		# Trigger initial signal emissions to update UI
+		current_player.resources_changed.emit(current_player.resources)
+		current_player.fervor_changed.emit(current_player.fervor)
+		current_player.glory_changed.emit(current_player.glory)
+		current_player.actions_changed.emit(current_player.actions_remaining)
 
 
 ## Handle tile selection from hand
@@ -148,6 +179,12 @@ func on_tile_placed_from_hand(hand_index: int) -> void:
 		print("ERROR: Placed tile but couldn't afford it!")
 		return
 
+	# Consume action (only in game mode during actions phase)
+	if ui_mode == "game" and current_phase == TurnPhase.ACTIONS:
+		if not consume_action():
+			print("ERROR: Placed tile but had no actions!")
+			return
+
 	print("Consumed tile from hand: %s %s" % [
 		TileManager.TileType.keys()[placed_tile.tile_type],
 		TileManager.ResourceType.keys()[placed_tile.resource_type]
@@ -165,6 +202,135 @@ func on_tile_placed_from_hand(hand_index: int) -> void:
 	# Update UI to reflect hand changes
 	if ui and ui_mode == "game":
 		ui.update_hand_display()
+
+
+# ========== TURN SYSTEM METHODS (Extract to TurnManager later) ==========
+
+## Starts the harvest phase of the turn.
+## Determines available harvest types and shows UI or auto-harvests if only one option.
+func start_harvest_phase() -> void:
+	current_phase = TurnPhase.HARVEST
+	var harvest_types = _get_available_harvest_types()
+
+	print("=== HARVEST PHASE ===")
+	print("Available harvest types: %s" % [harvest_types])
+
+	if harvest_types.is_empty():
+		print("No villages to harvest from! Skipping to actions phase.")
+		current_phase = TurnPhase.ACTIONS
+		if ui and ui_mode == "game":
+			ui.update_turn_phase(current_phase)
+		return
+
+	if harvest_types.size() == 1:
+		# Auto-harvest the only available type
+		print("Auto-harvesting %s (only option)" % TileManager.ResourceType.keys()[harvest_types[0]])
+		harvest(harvest_types[0])
+	else:
+		# Show harvest UI for player choice
+		if ui and ui_mode == "game":
+			ui.show_harvest_options(harvest_types)
+
+
+## Gets the available harvest types based on player's villages.
+## Returns array of ResourceType enums that have at least one village.
+func _get_available_harvest_types() -> Array[int]:
+	var types: Array[int] = []
+	var villages = village_manager.get_villages_for_player(current_player)
+
+	# Count villages on each resource type
+	var type_counts = {
+		TileManager.ResourceType.RESOURCES: 0,
+		TileManager.ResourceType.FERVOR: 0,
+		TileManager.ResourceType.GLORY: 0
+	}
+
+	for village in villages:
+		var tile = tile_manager.get_tile_at(village.q, village.r)
+		if tile:
+			type_counts[tile.resource_type] += 1
+
+	# Add types that have at least one village
+	for type in type_counts:
+		if type_counts[type] > 0:
+			types.append(type)
+
+	return types
+
+
+## Harvests resources of the specified type from all player villages.
+## Adds the total yield to the player's resources/fervor/glory.
+## Transitions to actions phase after harvesting.
+func harvest(resource_type: int) -> void:
+	var villages = village_manager.get_villages_for_player(current_player)
+	var total = 0
+	var village_count = 0
+
+	for village in villages:
+		var tile = tile_manager.get_tile_at(village.q, village.r)
+		if tile and tile.resource_type == resource_type:
+			total += tile.yield_value
+			village_count += 1
+
+	# Add to player resources
+	match resource_type:
+		TileManager.ResourceType.RESOURCES:
+			current_player.add_resources(total)
+		TileManager.ResourceType.FERVOR:
+			current_player.add_fervor(total)
+		TileManager.ResourceType.GLORY:
+			current_player.add_glory(total)
+
+	print("Harvested %d %s from %d villages" % [
+		total,
+		TileManager.ResourceType.keys()[resource_type],
+		village_count
+	])
+
+	# Transition to actions phase
+	current_phase = TurnPhase.ACTIONS
+	print("=== ACTIONS PHASE ===")
+	print("Actions remaining: %d" % current_player.actions_remaining)
+
+	if ui and ui_mode == "game":
+		ui.update_turn_phase(current_phase)
+
+
+## Consumes one action from the current player.
+## Returns true if action was consumed, false if no actions remaining.
+func consume_action() -> bool:
+	var success = current_player.consume_action()
+	if not success:
+		print("No actions remaining!")
+	else:
+		print("Action consumed. Remaining: %d" % current_player.actions_remaining)
+	return success
+
+
+## Ends the current turn and starts a new one.
+## Discards hand, draws new tiles, resets actions, and starts harvest phase.
+func end_turn() -> void:
+	print("=== END TURN ===")
+
+	# Discard current hand
+	current_player.hand.clear()
+
+	# Draw 3 new tiles
+	current_player.draw_tiles(tile_pool, 3)
+
+	# Start new turn (gives +1 resource, +1 fervor, resets actions to 3)
+	current_player.start_turn()
+
+	# Reset to harvest phase
+	start_harvest_phase()
+
+	# Update UI (hand display only - signals handle the rest)
+	if ui and ui_mode == "game":
+		ui.update_hand_display()
+
+	print("New turn started!")
+
+# ========== END TURN SYSTEM ==========
 
 
 # Hexagonal coordinate conversion utilities

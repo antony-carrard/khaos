@@ -27,7 +27,7 @@ func initialize(_tile_height: float) -> void:
 ## Village will be positioned on top of the highest tile at that location.
 ## Returns true if placement succeeded, false if invalid (no tile, village exists).
 ## Emits village_placed signal on success.
-func place_village(q: int, r: int) -> bool:
+func place_village(q: int, r: int, owner: Player) -> bool:
 	var pos_key = Vector2i(q, r)
 
 	# Check if village already exists at this position
@@ -46,6 +46,7 @@ func place_village(q: int, r: int) -> bool:
 	# Create and place the village
 	var village = village_scene.instantiate() as Village
 	village.set_grid_position(q, r)
+	village.set_player_owner(owner)  # Set the owning player
 	add_child(village)
 
 	# Position it on top of the highest tile
@@ -53,7 +54,7 @@ func place_village(q: int, r: int) -> bool:
 	village.global_position = world_pos + Vector3(0, tile_height / 2, 0)
 
 	placed_villages[pos_key] = village
-	print("Placed village at q=%d, r=%d" % [q, r])
+	print("Placed village at q=%d, r=%d (Owner: %s)" % [q, r, owner.player_name])
 	village_placed.emit(q, r)
 	return true
 
@@ -82,6 +83,22 @@ func remove_village(q: int, r: int) -> bool:
 ## Returns true if a village is present, false otherwise.
 func has_village_at(q: int, r: int) -> bool:
 	return placed_villages.has(Vector2i(q, r))
+
+
+## Gets all villages owned by a specific player.
+## Returns an array of Village objects.
+func get_villages_for_player(player: Player) -> Array[Village]:
+	var player_villages: Array[Village] = []
+	for village in placed_villages.values():
+		if village.player_owner == player:
+			player_villages.append(village)
+	return player_villages
+
+
+## Gets the village at a specific position, or null if none exists.
+func get_village_at(q: int, r: int) -> Village:
+	var pos_key = Vector2i(q, r)
+	return placed_villages.get(pos_key, null)
 
 
 ## Creates a semi-transparent preview village for placement mode.

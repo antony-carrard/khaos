@@ -17,6 +17,12 @@ var resource_label: Label = null
 var fervor_label: Label = null
 var glory_label: Label = null
 
+# Turn system UI
+var harvest_buttons_container: HBoxContainer = null
+var actions_label: Label = null
+var end_turn_button: Button = null
+var turn_phase_container: Control = null
+
 # UI mode: "test" or "game"
 var ui_mode: String = "game"  # Default to game UI
 var debug_buttons_container: HBoxContainer = null
@@ -97,13 +103,51 @@ func initialize(colors: Dictionary, _board_manager = null, mode: String = "game"
 		separator.custom_minimum_size = Vector2(30, 0)
 		main_hbox.add_child(separator)
 
-		# Village buttons container (right side)
-		var village_hbox = HBoxContainer.new()
-		village_hbox.add_theme_constant_override("separation", 15)
-		main_hbox.add_child(village_hbox)
+		# Turn phase and actions panel (right side)
+		var right_vbox = VBoxContainer.new()
+		right_vbox.add_theme_constant_override("separation", 10)
+		main_hbox.add_child(right_vbox)
 
-		create_button(village_hbox, "Place Village", Color(0.8, 0.5, 0.2), 140, _on_village_place_pressed)
-		create_button(village_hbox, "Remove Village", Color(0.7, 0.3, 0.2), 140, _on_village_remove_pressed)
+		# Turn phase container (harvest buttons or actions display)
+		turn_phase_container = VBoxContainer.new()
+		turn_phase_container.add_theme_constant_override("separation", 8)
+		right_vbox.add_child(turn_phase_container)
+
+		# Actions display (shown during actions phase)
+		actions_label = Label.new()
+		actions_label.text = "Actions: 3/3"
+		actions_label.add_theme_color_override("font_color", Color.WHITE)
+		actions_label.add_theme_font_size_override("font_size", 16)
+		actions_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		actions_label.visible = false
+		turn_phase_container.add_child(actions_label)
+
+		# Harvest buttons container (shown during harvest phase)
+		harvest_buttons_container = HBoxContainer.new()
+		harvest_buttons_container.add_theme_constant_override("separation", 10)
+		harvest_buttons_container.visible = false
+		turn_phase_container.add_child(harvest_buttons_container)
+
+		# Village buttons
+		var village_hbox = HBoxContainer.new()
+		village_hbox.add_theme_constant_override("separation", 10)
+		right_vbox.add_child(village_hbox)
+
+		create_button(village_hbox, "Place Village", Color(0.8, 0.5, 0.2), 130, _on_village_place_pressed)
+		create_button(village_hbox, "Remove Village", Color(0.7, 0.3, 0.2), 130, _on_village_remove_pressed)
+
+		# End turn button
+		end_turn_button = Button.new()
+		end_turn_button.text = "End Turn"
+		end_turn_button.custom_minimum_size = Vector2(270, 40)
+		var end_turn_style = create_button_style(Color(0.2, 0.6, 0.8))
+		end_turn_button.add_theme_stylebox_override("normal", end_turn_style)
+		end_turn_button.add_theme_stylebox_override("hover", create_button_style(Color(0.3, 0.7, 0.9)))
+		end_turn_button.add_theme_stylebox_override("pressed", create_button_style(Color(0.15, 0.5, 0.7)))
+		end_turn_button.add_theme_color_override("font_color", Color.WHITE)
+		end_turn_button.add_theme_font_size_override("font_size", 18)
+		end_turn_button.pressed.connect(_on_end_turn_pressed)
+		right_vbox.add_child(end_turn_button)
 
 	elif ui_mode == "test":
 		# TEST UI - Debug tile placement buttons
@@ -379,3 +423,89 @@ func create_hand_card(hand_index: int, tile_def) -> void:
 
 func _on_hand_card_pressed(hand_index: int) -> void:
 	tile_selected_from_hand.emit(hand_index)
+
+
+func _on_end_turn_pressed() -> void:
+	if board_manager:
+		board_manager.end_turn()
+
+
+## Shows harvest option buttons based on available types
+func show_harvest_options(available_types: Array[int]) -> void:
+	if not harvest_buttons_container:
+		return
+
+	# Clear existing buttons
+	for child in harvest_buttons_container.get_children():
+		child.queue_free()
+
+	# Create button for each available type
+	for res_type in available_types:
+		var type_name = TileManager.ResourceType.keys()[res_type]
+		var icon_path = TileManager.RESOURCE_TYPE_ICONS[res_type]
+
+		var button = Button.new()
+		button.text = "Harvest %s" % type_name
+		button.custom_minimum_size = Vector2(130, 35)
+
+		var button_color = _get_resource_color(res_type)
+		button.add_theme_stylebox_override("normal", create_button_style(button_color))
+		button.add_theme_stylebox_override("hover", create_button_style(button_color.lightened(0.2)))
+		button.add_theme_stylebox_override("pressed", create_button_style(button_color.darkened(0.2)))
+		button.add_theme_color_override("font_color", Color.WHITE)
+		button.add_theme_font_size_override("font_size", 14)
+
+		button.pressed.connect(_on_harvest_button_pressed.bind(res_type))
+		harvest_buttons_container.add_child(button)
+
+	harvest_buttons_container.visible = true
+	if actions_label:
+		actions_label.visible = false
+
+
+func _on_harvest_button_pressed(resource_type: int) -> void:
+	if board_manager:
+		board_manager.harvest(resource_type)
+
+
+func _get_resource_color(res_type: int) -> Color:
+	match res_type:
+		TileManager.ResourceType.RESOURCES:
+			return Color(0.6, 0.4, 0.2)  # Brown
+		TileManager.ResourceType.FERVOR:
+			return Color(0.8, 0.4, 0.1)  # Orange
+		TileManager.ResourceType.GLORY:
+			return Color(0.8, 0.7, 0.2)  # Gold
+		_:
+			return Color(0.5, 0.5, 0.5)  # Gray
+
+
+## Updates UI based on current turn phase
+func update_turn_phase(phase: int) -> void:
+	if phase == 0:  # HARVEST phase
+		if harvest_buttons_container:
+			harvest_buttons_container.visible = true
+		if actions_label:
+			actions_label.visible = false
+	else:  # ACTIONS phase
+		if harvest_buttons_container:
+			harvest_buttons_container.visible = false
+		if actions_label:
+			actions_label.visible = true
+
+
+## Updates the actions display
+func update_actions(remaining: int) -> void:
+	if actions_label:
+		actions_label.text = "Actions: %d/3" % remaining
+
+		# Color feedback
+		if remaining == 0:
+			actions_label.add_theme_color_override("font_color", Color.RED)
+		elif remaining == 1:
+			actions_label.add_theme_color_override("font_color", Color.YELLOW)
+		else:
+			actions_label.add_theme_color_override("font_color", Color.WHITE)
+
+	# Update hand cards affordability (they might be grayed if no actions)
+	update_hand_display()

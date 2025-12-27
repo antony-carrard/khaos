@@ -107,7 +107,9 @@ func handle_mouse_input(event: InputEvent) -> void:
 				if axial != Vector2i(-999, -999):
 					var success = false
 					if current_mode == PlacementMode.VILLAGE_PLACE:
-						success = village_manager.place_village(axial.x, axial.y)
+						# Pass current player as owner
+						var owner = board_manager.current_player if board_manager else null
+						success = village_manager.place_village(axial.x, axial.y, owner)
 					else:
 						success = village_manager.remove_village(axial.x, axial.y)
 

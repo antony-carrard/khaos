@@ -25,6 +25,7 @@ var actions_remaining: int = 3  # For later: 3 actions per turn
 signal resources_changed(new_amount: int)
 signal fervor_changed(new_amount: int)
 signal glory_changed(new_amount: int)
+signal actions_changed(new_amount: int)
 
 
 ## Initialize player with starting resources
@@ -100,8 +101,23 @@ func remove_from_hand(index: int) -> bool:
 func start_turn() -> void:
 	add_resources(1)
 	add_fervor(1)
-	actions_remaining = 3
+	set_actions(3)
 	print("%s: Started turn. +1 resource, +1 fervor" % player_name)
+
+
+## Set actions remaining and emit signal
+func set_actions(amount: int) -> void:
+	actions_remaining = amount
+	actions_changed.emit(actions_remaining)
+
+
+## Consume one action and emit signal
+func consume_action() -> bool:
+	if actions_remaining <= 0:
+		return false
+	actions_remaining -= 1
+	actions_changed.emit(actions_remaining)
+	return true
 
 
 ## Get current hand

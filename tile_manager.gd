@@ -164,3 +164,13 @@ func get_top_height(q: int, r: int) -> int:
 		if placed_tiles.has(Vector3i(q, r, height)):
 			top_height = height
 	return top_height
+
+
+## Gets the topmost tile at the given hex position.
+## Returns the HexTile node, or null if no tile exists.
+func get_tile_at(q: int, r: int) -> HexTile:
+	var top_height = get_top_height(q, r)
+	if top_height == -1:
+		return null
+	var key = Vector3i(q, r, top_height)
+	return placed_tiles.get(key, null)

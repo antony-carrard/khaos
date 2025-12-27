@@ -1,179 +1,132 @@
-# Khaos - Hexagonal Board Game
+# Khaos - Hexagonal God-Themed Board Game
 
 A Catan-like 3D hexagonal tile placement game built in Godot 4.5.
 
-## Current Status: Phase 1 Complete ✅
+## Current State: Turn-Based Economy System Complete ✅
 
 ### What's Working
 
-**Three Tile Types:**
-- 🟢 **PLAINS** (Green) - Ground level tiles (height 0)
-- 🟤 **HILLS** (Brown) - Stack on PLAINS (height 1)
-- ⚪ **MOUNTAIN** (Gray) - Stack on HILLS (height 2)
+**Core Game Loop:**
+- ✅ Turn phases (Harvest → Actions)
+- ✅ Resource economy (Resources, Fervor, Glory)
+- ✅ Player hand system (draw 3 tiles per turn)
+- ✅ Action tracking (3 actions per turn)
+- ✅ Tile placement with cost
+- ✅ Village ownership and harvesting
+- ✅ Reactive UI with signal-based updates
 
-**Tile Placement System:**
-- Hexagonal grid using axial coordinates (q, r)
-- Tiles snap to hex grid positions
-- Visual preview follows mouse cursor
-- Preview color brightens when valid, turns reddish when invalid
-- Each tile type has distinct color that persists after placement
+**Tile System:**
+- 🟢 **PLAINS** (Green) - Ground level (height 0), yield=1, cost=2
+- 🟤 **HILLS** (Brown) - Stack on PLAINS (height 1), yield=2, cost=4
+- ⚪ **MOUNTAIN** (Gray) - Stack on HILLS (height 2), yield=4, cost=8
+- Each tile produces Resources, Fervor, or Glory
+- 63-tile bag with shuffled distribution (28 Plains, 21 Hills, 14 Mountains)
 
-**Placement Rules:**
-- PLAINS: First tile anywhere, then must be adjacent to existing PLAINS
-- HILLS: Must be placed directly on top of a PLAINS tile
-- MOUNTAIN: Must be placed directly on top of a HILLS tile
+**Resource Types:**
+- 🪵 **Resources** - Building materials (for buying tiles/villages)
+- 🙏 **Fervor** - Divine energy (for future god powers)
+- ⭐ **Glory** - Victory points (win condition)
+
+**Game Flow:**
+1. **Harvest Phase** - Choose one resource type, harvest all villages of that type
+2. **Actions Phase** - Spend 3 actions (place tiles, build villages, etc.)
+3. **End Turn** - Discard hand, draw 3 new tiles, gain +1 resource +1 fervor
 
 **Controls:**
-- `1` - Select PLAINS and enter placement mode
-- `2` - Select HILLS and enter placement mode
-- `3` - Select MOUNTAIN and enter placement mode
-- `ESC` - Exit placement mode (hide preview)
-- `Left Click` - Place tile at preview position
+- Click tiles in hand to select and place them
+- Click "Harvest X" button to harvest that resource type
+- Click "End Turn" to finish your turn
+- ESC to cancel placement mode
+- Debug mode (test UI): Keys 1/2/3 select tile types for free placement
 
 ### Architecture
 
-**Core Files:**
-- `main.tscn` - Main 3D scene with camera, lighting, ground plane
-- `board_manager.gd` - Manages hex grid, placement logic, validation
-- `hex_tile.tscn` / `hex_tile.gd` - Individual tile prefab with collision
-
-**Key Systems:**
-
-1. **Hexagonal Grid Math** (board_manager.gd:153-226)
-   - `axial_to_world()` - Converts hex (q,r) → 3D world position
-   - `world_to_axial()` - Converts world position → hex (q,r)
-   - `axial_round()` - Rounds fractional hex coords to nearest valid hex
-   - `get_axial_neighbors()` - Returns 6 adjacent hex positions
-
-2. **Tile Type System** (board_manager.gd:6-24)
-   - `TileType` enum: PLAINS, HILLS, MOUNTAIN
-   - `TILE_TYPE_TO_HEIGHT` - Maps type → height level
-   - `TILE_TYPE_COLORS` - Maps type → visual color
-
-3. **Validation** (board_manager.gd:139-184)
-   - `is_valid_placement(q, r, tile_type)` - Checks all placement rules
-   - Verifies tile type compatibility (HILLS on PLAINS, etc.)
-   - Ensures tiles connect properly
-
-4. **Collision System**
-   - Tiles: StaticBody3D on collision layer 1
-   - Ground plane: StaticBody3D on collision layer 2 (infinite plane at y=0)
-   - Raycast: Detects both layers for cursor preview
-
-5. **Material Management** (hex_tile.gd:20-27)
-   - Each tile duplicates its material in `_ready()`
-   - Prevents shared material bug (all tiles changing color together)
-
-### Technical Decisions Made
-
-**Why axial coordinates?**
-- Industry standard for hex grids (from Red Blob Games)
-- Simpler math than cube coordinates for storage
-- Easy neighbor calculations with fixed offsets
-
-**Why tile types instead of free stacking?**
-- Simplifies game rules (PLAINS→HILLS→MOUNTAIN progression)
-- Each type locked to specific height
-- Easier validation logic
-
-**Why collision layers?**
-- Layer 1 (tiles): For tile-to-tile interactions
-- Layer 2 (ground plane): For cursor detection without affecting tiles
-- Allows raycast to always hit something (smooth preview)
-
-**Why duplicate materials?**
-- Godot shares materials between instances by default
-- Without duplication, changing one tile's color affects all tiles
-- Each tile needs independent material for unique colors
-
-## Next: Phase 2 Goals
-
-### Placement Mode with Visual Feedback
-
-**Goal:** Dorf Romantik-style tile placement with highlighted valid slots.
-
-**Features to Implement:**
-1. **Calculate Valid Slots** - When entering placement mode, compute all valid positions for current tile type
-2. **Visual Slot Indicators** - Show glowing hex outlines/rings at each valid position
-3. **Placement Mode State** - Proper enter/exit placement mode (not just hide preview)
-4. **Improved Preview** - Preview snaps to valid slots, better visual feedback
-
-**Implementation Approach:**
-
-```gdscript
-# New state variables
-var placement_mode_active: bool = false  # ✅ Already added
-var valid_placement_slots: Array[Vector3i] = []
-var slot_indicators: Dictionary = {}  # Map slot position → indicator node
-
-# New functions to add
-func enter_placement_mode(tile_type: TileType) -> void
-func exit_placement_mode() -> void
-func calculate_valid_slots(tile_type: TileType) -> Array[Vector3i]
-func show_slot_indicators() -> void
-func clear_slot_indicators() -> void
-func create_slot_indicator() -> Node3D
+**Manager Pattern:**
+```
+board_manager.gd         # Game orchestrator, turn system
+├── tile_manager.gd      # Hex grid, tile placement/validation
+├── village_manager.gd   # Village placement/ownership
+├── placement_controller # Mouse input, preview rendering
+├── tile_pool.gd         # 63-tile bag management
+├── player.gd            # Resources, hand, actions (with signals!)
+└── tile_selector_ui.gd  # Game UI (hand, resources, turn controls)
 ```
 
-**Slot Indicator Visual (Option B - Lightweight):**
-- Create simple torus/ring mesh (donut shape)
-- Position at valid hex locations
-- Animate/glow effect (optional)
-- Remove when exiting placement mode
+**Signal-Based Reactive Updates:**
+```gdscript
+# Player emits signals when state changes
+player.resources_changed.emit(new_amount)
+player.actions_changed.emit(new_amount)
 
-**Calculate Valid Slots Logic:**
-- For PLAINS: Find all empty hexes adjacent to existing PLAINS
-- For HILLS: Find all PLAINS tiles without HILLS on top
-- For MOUNTAIN: Find all HILLS tiles without MOUNTAIN on top
+# UI connects to signals once
+player.resources_changed.connect(ui.update_resources)
 
-### UI (Optional for Phase 2)
-- Replace keyboard (1/2/3) with visual tile selection buttons
-- Show current selected tile type
-- Tile inventory/counts
+# Now state changes automatically update UI!
+player.spend_resources(5)  # UI updates via signal
+```
+
+**Key Files:**
+- `board_manager.gd` - Turn system (marked for extraction to TurnManager)
+- `tile_manager.gd` - Tile type system, placement validation
+- `village_manager.gd` - Village ownership, harvest calculations
+- `player.gd` - Resource management with signals
+- `tile_pool.gd` - Tile bag (TileDefinition class)
+- `tile_selector_ui.gd` - Full game UI (hand cards, resources, phases)
+
+### Technical Patterns Learned
+
+**1. Godot Signals for Reactive State:**
+- Define signals in data owner
+- Emit on state changes
+- Connect once during setup
+- Never manually update UI
+
+**2. Avoiding Node Conflicts:**
+- `owner` is built-in in Node (scene root reference)
+- `get_position()` is built-in in Node3D (world position)
+- `set_owner()` is built-in in Node (scene owner)
+- Use descriptive names: `player_owner`, `get_grid_position()`, `set_player_owner()`
+
+**3. Starting Tile Must Be PLAINS:**
+- Draw and return non-PLAINS tiles until we get PLAINS
+- First tile placement requires height 0 (PLAINS only)
+
+**4. UI Initialization Order:**
+- Connect signals BEFORE emitting initial values
+- Call `update_turn_phase()` to show/hide phase-specific UI
+- Emit signals to trigger initial UI population
+
+## Running the Project
+
+1. Open in Godot 4.5
+2. Press F5 or "Run Project"
+3. Harvest phase: Click "Harvest X" button
+4. Actions phase: Click cards in hand, then click board to place
+5. Click "End Turn" when done
 
 ## Project Structure
 
 ```
 khaos/
-├── project.godot
-├── README.md (this file)
-├── PHASE1_COMPLETE.md (Phase 1 summary)
-├── main.tscn (main scene)
-├── board_manager.gd (grid logic)
-├── hex_tile.tscn (tile prefab)
-├── hex_tile.gd (tile script)
-└── icon.svg
+├── board_manager.gd          # Game orchestrator, turn system
+├── tile_manager.gd           # Tile grid logic
+├── village_manager.gd        # Village ownership
+├── placement_controller.gd   # Input handling, previews
+├── tile_pool.gd              # 63-tile bag
+├── player.gd                 # Resources, hand, signals
+├── tile_selector_ui.gd       # Game UI
+├── hex_tile.tscn/gd          # Tile prefab (with icons)
+├── village.tscn/gd           # Village prefab
+├── main.tscn                 # Main scene
+├── rules.md                  # Game design document
+└── IMPLEMENTATION_STATUS.md  # Detailed status + next steps
 ```
-
-## Running the Project
-
-1. Open in Godot 4.5
-2. Press F5 or click "Run Project"
-3. Use keyboard keys 1/2/3 to select tile types
-4. Move mouse to preview placement
-5. Click to place tiles
-6. ESC to exit placement mode
-
-## Lessons Learned
-
-1. **Shared Material Bug** - Always duplicate materials for instances
-2. **Collision Layers** - Use different layers for different interaction types
-3. **Raycast Missing** - Need collision plane for cursor detection in empty space
-4. **Enum Conflicts** - Can't have same enum in multiple scripts (use int storage)
-5. **_ready() Order** - Material duplication must happen before color setting
-
-## Questions to Consider for Phase 2
-
-1. Should slot indicators be persistent or only show in placement mode?
-2. How much should slot indicators glow/animate?
-3. Should invalid slots show at all, or only valid ones?
-4. UI: Buttons vs keyboard vs both?
 
 ## Resources
 
 - Red Blob Games Hex Grids: https://www.redblobgames.com/grids/hexagons/
-- Godot Physics Layers: https://docs.godotengine.org/en/stable/tutorials/physics/physics_introduction.html#collision-layers-and-masks
+- Godot Signals: https://docs.godotengine.org/en/stable/getting_started/step_by_step/signals.html
 
 ---
 
-**Ready for Phase 2!** 🚀
+**See IMPLEMENTATION_STATUS.md for detailed progress and next steps.**

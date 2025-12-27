@@ -136,3 +136,17 @@ func get_remaining_count() -> int:
 ## Check if bag is empty
 func is_empty() -> bool:
 	return tile_bag.is_empty()
+
+
+## Return a tile to the bag and shuffle
+## Used when a tile needs to be put back (e.g., wrong type for starting tile)
+func return_tile(tile: TileDefinition) -> void:
+	# Remove from removed_tiles if it's there
+	var idx = removed_tiles.find(tile)
+	if idx != -1:
+		removed_tiles.remove_at(idx)
+
+	# Add back to bag and shuffle
+	tile_bag.append(tile)
+	tile_bag.shuffle()
+	print("TilePool: Returned tile to bag. Total: %d" % tile_bag.size())
