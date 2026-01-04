@@ -419,6 +419,7 @@ func create_empty_card_placeholder() -> void:
 	var sell_button = Button.new()
 	sell_button.text = "Sell (-)"
 	sell_button.disabled = true
+	sell_button.focus_mode = Control.FOCUS_NONE  # Prevent focus indicator on disabled button
 	sell_button.custom_minimum_size = Vector2(100, 25)
 	var disabled_style = create_button_style(Color(0.25, 0.25, 0.25, 0.4))
 	sell_button.add_theme_stylebox_override("normal", disabled_style)
@@ -525,6 +526,7 @@ func create_hand_card(hand_index: int, tile_def) -> void:
 	var button = Button.new()
 	button.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	button.flat = true
+	button.focus_mode = Control.FOCUS_NONE  # Prevent focus indicator
 	button.mouse_filter = Control.MOUSE_FILTER_PASS
 	button.pressed.connect(_on_hand_card_pressed.bind(hand_index))
 	card.add_child(button)
@@ -546,6 +548,7 @@ func create_hand_card(hand_index: int, tile_def) -> void:
 		# Glory tile - grayed out disabled button
 		sell_button.text = "Sell (-)"
 		sell_button.disabled = true
+		sell_button.focus_mode = Control.FOCUS_NONE  # Prevent focus indicator on disabled button
 		var disabled_style = create_button_style(Color(0.3, 0.3, 0.3))
 		sell_button.add_theme_stylebox_override("normal", disabled_style)
 		sell_button.add_theme_stylebox_override("disabled", disabled_style)

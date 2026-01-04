@@ -338,3 +338,12 @@ func select_village_place_mode() -> void:
 func select_village_remove_mode() -> void:
 	current_mode = PlacementMode.VILLAGE_REMOVE
 	placement_active = true
+
+
+## Cancels any active placement mode.
+## Hides previews and returns to idle state.
+func cancel_placement() -> void:
+	placement_active = false
+	preview_tile.visible = false
+	if preview_village:
+		preview_village.visible = false

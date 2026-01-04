@@ -265,6 +265,10 @@ func sell_tile(hand_index: int) -> void:
 	# Remove tile from hand (no replacement drawn when selling)
 	current_player.remove_from_hand(hand_index)
 
+	# Cancel placement mode if this tile was selected for placement
+	if placement_controller and placement_controller.selected_hand_index == hand_index:
+		placement_controller.cancel_placement()
+
 	# Update UI to reflect hand changes
 	if ui and ui_mode == "game":
 		ui.update_hand_display()
@@ -392,6 +396,11 @@ func on_village_removed(q: int, r: int) -> bool:
 ## Determines available harvest types and shows UI or auto-harvests if only one option.
 func start_harvest_phase() -> void:
 	current_phase = TurnPhase.HARVEST
+
+	# Cancel any active placement mode when entering harvest phase
+	if placement_controller:
+		placement_controller.cancel_placement()
+
 	var harvest_types = _get_available_harvest_types()
 
 	print("=== HARVEST PHASE ===")
@@ -493,6 +502,10 @@ func consume_action() -> bool:
 ## Discards hand, draws new tiles, resets actions, and starts harvest phase.
 func end_turn() -> void:
 	print("=== END TURN ===")
+
+	# Cancel any active placement mode when ending turn
+	if placement_controller:
+		placement_controller.cancel_placement()
 
 	# Discard current hand (reset to empty slots)
 	for i in range(current_player.HAND_SIZE):
