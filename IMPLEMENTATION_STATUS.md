@@ -1,6 +1,6 @@
 # Implementation Status
 
-**Last Updated:** 2026-01-04 (Village building and selling complete)
+**Last Updated:** 2026-01-04 (Action validation and UI polish complete)
 
 This document tracks detailed implementation progress and serves as context for continuing development.
 
@@ -100,6 +100,18 @@ This document tracks detailed implementation progress and serves as context for 
 - ✅ Tooltip only appears in remove mode when hovering your own villages
 - ✅ Preview shows red for villages you don't own (ownership validation)
 - ✅ Guard clause pattern for clean early returns in preview code
+
+**Action Validation & UI Polish** (player.gd, board_manager.gd, placement_controller.gd, tile_selector_ui.gd)
+- ✅ `can_place_tile()` validates both resources AND actions
+- ✅ Prevents tile placement when actions exhausted
+- ✅ Preview shows red when no actions available
+- ✅ Black text outlines for better visibility (actions, resources, tile count)
+- ✅ Auto-disable village/tile buttons when out of actions
+- ✅ Consistent dimming for disabled tiles (text, icons, borders)
+- ✅ Visual feedback separation: red border = unaffordable, gray = no actions
+- ✅ Can sell tiles regardless of placement affordability (only requires actions)
+- ✅ No focus indicators on disabled/unaffordable buttons
+- ✅ Placement mode auto-cancels when phase changes
 
 ---
 
@@ -215,10 +227,10 @@ board_manager (orchestrator)
 - Glory target: TBD (30? 50?)
 
 **UI Polish**
+- ✅ ~~Show tile pool remaining count~~ (DONE - shows above hand with color coding)
+- Better card hover effects
 - Disable end turn during harvest phase
 - Show "must harvest first" feedback
-- Better card hover effects
-- Show tile pool remaining count
 
 ### Medium Priority
 
@@ -292,7 +304,8 @@ This is already marked and ready to extract to `turn_manager.gd`
 **Quick Wins:**
 1. ✅ ~~Implement tile selling~~ (DONE)
 2. ✅ ~~Add village building cost~~ (DONE)
-3. Add glory win condition check
+3. ✅ ~~Fix action validation~~ (DONE)
+4. Implement end game detection and point counting
 
 **Medium Tasks:**
 4. Extract TurnManager class (marked in code)
@@ -300,20 +313,20 @@ This is already marked and ready to extract to `turn_manager.gd`
 6. Polish UI (disable end turn during harvest, better hover effects)
 
 **Best Starting Point:**
-Start with **glory win condition** - check at turn end if player reached threshold, follows established patterns.
+Start with **end game and victory system** - detect when tile bag is empty, calculate points per rules.md (villages, resource/fervor pairs, glory), show winner.
 
 ---
 
 ## 📚 Context for New Sessions
 
 **Current State Summary:**
-You have a working turn-based hexagonal tile placement game with resource economy, villages, harvesting, tile selling, village building, and village removal. The player draws tiles from a shuffled 63-tile bag, spends resources to place them, sells unwanted tiles, builds villages (costing resources and actions), removes villages for refunds, and harvests resource types to generate more resources/fervor/glory.
+You have a working turn-based hexagonal tile placement game with resource economy, villages, harvesting, tile selling, village building, and village removal. The player draws tiles from a shuffled 63-tile bag, spends resources to place them, sells unwanted tiles, builds villages (costing resources and actions), removes villages for refunds, and harvests resource types to generate more resources/fervor/glory. Action validation prevents invalid moves, and UI provides clear visual feedback for affordability and action availability.
 
 **Code Quality:**
 Architecture is clean with manager pattern. Signal-based reactive UI is working well. Turn system is in board_manager but marked for extraction. Fixed-size hand array (3 slots with null) prevents UI shifting.
 
 **What Works Well:**
-The core loop feels solid. Reactive signals prevent bugs. Tile validation is robust. Selling mechanics work smoothly with anchored hand positions. Village building/removal with costs, refunds, and preview validation follows clean patterns. Mouse-following tooltip provides great UX feedback.
+The core loop feels solid. Reactive signals prevent bugs. Tile validation is robust. Selling mechanics work smoothly with anchored hand positions. Village building/removal with costs, refunds, and preview validation follows clean patterns. Mouse-following tooltip provides great UX feedback. Action validation prevents confusing errors. Visual feedback is consistent and clear.
 
 **Next Focus:**
-Add win condition check, then extract TurnManager and add divine powers.
+Implement end game detection and victory point system, then add multiplayer support, then divine powers.
