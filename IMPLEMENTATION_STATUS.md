@@ -251,6 +251,7 @@ board_manager (orchestrator)
 - Currently single player only
 - Player class ready for multiple instances
 - Need: Turn order, player switching, victory conditions
+- **See detailed plan:** `MULTIPLAYER_PLAN.md`
 
 ### Low Priority
 
