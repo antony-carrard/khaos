@@ -31,6 +31,10 @@ var turn_phase_container: Control = null
 var ui_mode: String = "game"  # Default to game UI
 var debug_buttons_container: HBoxContainer = null
 
+# Mouse-following tooltip for village sell value
+var village_sell_tooltip: Label = null
+var village_sell_tooltip_panel: PanelContainer = null
+
 
 func _ready() -> void:
 	# Full screen overlay that doesn't block mouse input to 3D scene
@@ -169,6 +173,52 @@ func initialize(colors: Dictionary, _board_manager = null, mode: String = "game"
 
 		create_button(debug_buttons_container, "Place Village", Color(0.8, 0.5, 0.2), 140, _on_village_place_pressed)
 		create_button(debug_buttons_container, "Remove Village", Color(0.7, 0.3, 0.2), 140, _on_village_remove_pressed)
+
+	# Create mouse-following village sell tooltip (works in both modes)
+	create_village_sell_tooltip()
+
+
+func create_village_sell_tooltip() -> void:
+	# Create a panel container for nice styling
+	village_sell_tooltip_panel = PanelContainer.new()
+	var style = StyleBoxFlat.new()
+	style.bg_color = Color(0.1, 0.1, 0.1, 0.95)  # Almost opaque dark background
+	style.border_color = Color(0.8, 0.6, 0.2)  # Gold border
+	style.border_width_left = 2
+	style.border_width_right = 2
+	style.border_width_top = 2
+	style.border_width_bottom = 2
+	style.corner_radius_top_left = 6
+	style.corner_radius_top_right = 6
+	style.corner_radius_bottom_left = 6
+	style.corner_radius_bottom_right = 6
+	village_sell_tooltip_panel.add_theme_stylebox_override("panel", style)
+	village_sell_tooltip_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE  # Don't block mouse
+	village_sell_tooltip_panel.visible = false
+	add_child(village_sell_tooltip_panel)
+
+	# Inner margin for padding
+	var margin = MarginContainer.new()
+	margin.add_theme_constant_override("margin_left", 10)
+	margin.add_theme_constant_override("margin_right", 10)
+	margin.add_theme_constant_override("margin_top", 6)
+	margin.add_theme_constant_override("margin_bottom", 6)
+	village_sell_tooltip_panel.add_child(margin)
+
+	# Label for the sell value
+	village_sell_tooltip = Label.new()
+	village_sell_tooltip.text = "+2 Resources"
+	village_sell_tooltip.add_theme_color_override("font_color", Color(0.8, 0.9, 0.3))  # Yellow-green
+	village_sell_tooltip.add_theme_font_size_override("font_size", 16)
+	margin.add_child(village_sell_tooltip)
+
+
+func _process(_delta: float) -> void:
+	# Update tooltip position to follow mouse
+	if village_sell_tooltip_panel and village_sell_tooltip_panel.visible:
+		var mouse_pos = get_viewport().get_mouse_position()
+		# Offset the tooltip slightly down and to the right of cursor
+		village_sell_tooltip_panel.position = mouse_pos + Vector2(20, 20)
 
 
 func create_button(parent: Control, label: String, base_color: Color, width: int, callback: Callable) -> void:
@@ -597,3 +647,15 @@ func update_actions(remaining: int) -> void:
 
 	# Update hand cards affordability (they might be grayed if no actions)
 	update_hand_display()
+
+
+## Shows or hides the village sell tooltip with the refund amount
+func show_village_sell_tooltip(visible: bool, refund_amount: int = 0) -> void:
+	if not village_sell_tooltip or not village_sell_tooltip_panel:
+		return
+
+	if visible and refund_amount > 0:
+		village_sell_tooltip.text = "+%d Resources" % refund_amount
+		village_sell_tooltip_panel.visible = true
+	else:
+		village_sell_tooltip_panel.visible = false

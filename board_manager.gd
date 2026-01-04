@@ -327,6 +327,65 @@ func on_village_placed(q: int, r: int) -> bool:
 	return true
 
 
+## Called when player attempts to remove/sell a village
+## Validates ownership, consumes action, removes village, and refunds half the building cost
+## Returns true if removal succeeded, false otherwise
+func on_village_removed(q: int, r: int) -> bool:
+	# Check if village exists at this position
+	var village = village_manager.get_village_at(q, r)
+	if not village:
+		print("ERROR: No village at position to remove!")
+		return false
+
+	# Check ownership - can only remove your own villages
+	if village.player_owner != current_player:
+		print("Cannot remove another player's village!")
+		return false
+
+	# Get the tile to determine refund
+	var tile = tile_manager.get_tile_at(q, r)
+	if not tile:
+		print("ERROR: No tile at village position!")
+		return false
+
+	# Calculate refund (half the building cost)
+	var building_cost = TileManager.VILLAGE_BUILDING_COSTS[tile.tile_type]
+	var refund = building_cost / 2
+
+	# In game mode, check phase and consume action
+	if ui_mode == "game":
+		# Can only remove during actions phase
+		if current_phase != TurnPhase.ACTIONS:
+			print("Can only remove villages during the actions phase!")
+			return false
+
+		# Check if player has actions remaining
+		if current_player.actions_remaining <= 0:
+			print("No actions remaining to remove village!")
+			return false
+
+	# Remove the village
+	var success = village_manager.remove_village(q, r)
+	if not success:
+		return false
+
+	# Give refund
+	current_player.add_resources(refund)
+
+	# Consume action (only in game mode during actions phase)
+	if ui_mode == "game" and current_phase == TurnPhase.ACTIONS:
+		if not consume_action():
+			print("ERROR: Removed village but had no actions!")
+			return false
+
+	print("Removed village from %s tile, received %d resources refund" % [
+		TileManager.TileType.keys()[tile.tile_type],
+		refund
+	])
+
+	return true
+
+
 # ========== TURN SYSTEM METHODS (Extract to TurnManager later) ==========
 
 ## Starts the harvest phase of the turn.

@@ -110,7 +110,8 @@ func handle_mouse_input(event: InputEvent) -> void:
 						# Use board_manager to handle costs and actions
 						success = board_manager.on_village_placed(axial.x, axial.y)
 					else:
-						success = village_manager.remove_village(axial.x, axial.y)
+						# Use board_manager to handle refund and actions
+						success = board_manager.on_village_removed(axial.x, axial.y)
 
 					if success:
 						placement_active = false
@@ -145,6 +146,9 @@ func update_preview() -> void:
 		preview_tile.visible = false
 		if preview_village:
 			preview_village.visible = false
+		# Hide tooltip when exiting placement mode
+		if board_manager and board_manager.ui:
+			board_manager.ui.show_village_sell_tooltip(false)
 		return
 
 	match current_mode:
@@ -162,25 +166,32 @@ func update_village_preview() -> void:
 		preview_village = village_manager.create_preview_village()
 		board_manager.add_child(preview_village)
 
+	# Guard clause: no viewport
 	var viewport = get_viewport()
 	if not viewport:
 		if preview_village:
 			preview_village.visible = false
+		if board_manager and board_manager.ui:
+			board_manager.ui.show_village_sell_tooltip(false)
 		return
 
+	# Guard clause: invalid mouse position
 	var mouse_pos = viewport.get_mouse_position()
 	var axial = board_manager.get_axial_at_mouse(mouse_pos)
-
 	if axial == Vector2i(-999, -999):
 		preview_village.visible = false
+		if board_manager and board_manager.ui:
+			board_manager.ui.show_village_sell_tooltip(false)
 		return
 
 	var q = axial.x
 	var r = axial.y
 
-	# Check if there's a tile at this position
+	# Guard clause: no tile at position
 	if not tile_manager.has_tile_at(q, r):
 		preview_village.visible = false
+		if board_manager and board_manager.ui:
+			board_manager.ui.show_village_sell_tooltip(false)
 		return
 
 	# Show preview
@@ -212,8 +223,26 @@ func update_village_preview() -> void:
 						is_valid = false
 					elif player.actions_remaining <= 0:
 						is_valid = false
+
+		# Hide tooltip in place mode
+		if board_manager and board_manager.ui:
+			board_manager.ui.show_village_sell_tooltip(false)
+
 	else:  # VILLAGE_REMOVE
-		is_valid = village_manager.has_village_at(q, r)
+		# Check if village exists and belongs to current player
+		var village = village_manager.get_village_at(q, r)
+		is_valid = village != null and village.player_owner == board_manager.current_player
+
+		# Show sell value tooltip when hovering your own village
+		if board_manager and board_manager.ui:
+			if is_valid:
+				var tile = tile_manager.get_tile_at(q, r)
+				if tile:
+					var building_cost = TileManager.VILLAGE_BUILDING_COSTS[tile.tile_type]
+					var sell_refund = building_cost / 2  # Half price refund
+					board_manager.ui.show_village_sell_tooltip(true, sell_refund)
+			else:
+				board_manager.ui.show_village_sell_tooltip(false)
 
 	village_manager.update_preview_color(preview_village, is_valid)
 

@@ -1,6 +1,6 @@
 # Implementation Status
 
-**Last Updated:** 2026-01-04 (Village building costs complete)
+**Last Updated:** 2026-01-04 (Village building and selling complete)
 
 This document tracks detailed implementation progress and serves as context for continuing development.
 
@@ -93,6 +93,14 @@ This document tracks detailed implementation progress and serves as context for 
 - ✅ Preview shows red during harvest phase (can only build during actions)
 - ✅ Validation prevents placement without sufficient resources or actions
 
+**Village Selling/Removal** (board_manager.gd, placement_controller.gd, tile_selector_ui.gd)
+- ✅ Remove your own villages for half the building cost refund (Plains=1, Hills=2, Mountains=4)
+- ✅ Costs 1 action during actions phase
+- ✅ Mouse-following tooltip shows refund amount when hovering villages
+- ✅ Tooltip only appears in remove mode when hovering your own villages
+- ✅ Preview shows red for villages you don't own (ownership validation)
+- ✅ Guard clause pattern for clean early returns in preview code
+
 ---
 
 ## 🔧 Technical Decisions & Patterns
@@ -141,6 +149,37 @@ func draw_tiles(tile_pool, count: int):
 ```
 
 **Why:** Keeps tiles anchored to their UI positions when sold. Prevents UI shifting/jumping. Empty slots show "Empty" placeholder.
+
+### Mouse-Following Tooltip Pattern
+**Pattern:**
+```gdscript
+# In tile_selector_ui.gd - Declare class variables
+var village_sell_tooltip: Label = null
+var village_sell_tooltip_panel: PanelContainer = null
+
+# Create tooltip once
+func create_village_sell_tooltip() -> void:
+	village_sell_tooltip_panel = PanelContainer.new()
+	# ... styling ...
+	village_sell_tooltip = Label.new()
+	village_sell_tooltip_panel.add_child(village_sell_tooltip)
+
+# Update position every frame in _process()
+func _process(_delta: float) -> void:
+	if village_sell_tooltip_panel and village_sell_tooltip_panel.visible:
+		var mouse_pos = get_viewport().get_mouse_position()
+		village_sell_tooltip_panel.position = mouse_pos + Vector2(20, 20)  # Offset from cursor
+
+# Show/hide from game logic
+func show_village_sell_tooltip(visible: bool, amount: int = 0) -> void:
+	if visible and amount > 0:
+		village_sell_tooltip.text = "+%d Resources" % amount
+		village_sell_tooltip_panel.visible = true
+	else:
+		village_sell_tooltip_panel.visible = false
+```
+
+**Why:** Provides immediate visual feedback near the cursor. Non-intrusive and works regardless of camera angle. Uses class variables (cleaner than set_meta approach) and guard clause pattern.
 
 ### Manager Organization
 ```
@@ -268,13 +307,13 @@ Start with **glory win condition** - check at turn end if player reached thresho
 ## 📚 Context for New Sessions
 
 **Current State Summary:**
-You have a working turn-based hexagonal tile placement game with resource economy, villages, harvesting, tile selling, and village building. The player draws tiles from a shuffled 63-tile bag, spends resources to place them, sells unwanted tiles, builds villages (costing resources and actions), and harvests resource types to generate more resources/fervor/glory.
+You have a working turn-based hexagonal tile placement game with resource economy, villages, harvesting, tile selling, village building, and village removal. The player draws tiles from a shuffled 63-tile bag, spends resources to place them, sells unwanted tiles, builds villages (costing resources and actions), removes villages for refunds, and harvests resource types to generate more resources/fervor/glory.
 
 **Code Quality:**
 Architecture is clean with manager pattern. Signal-based reactive UI is working well. Turn system is in board_manager but marked for extraction. Fixed-size hand array (3 slots with null) prevents UI shifting.
 
 **What Works Well:**
-The core loop feels solid. Reactive signals prevent bugs. Tile validation is robust. Selling mechanics work smoothly with anchored hand positions. Village building with costs and preview validation follows clean patterns.
+The core loop feels solid. Reactive signals prevent bugs. Tile validation is robust. Selling mechanics work smoothly with anchored hand positions. Village building/removal with costs, refunds, and preview validation follows clean patterns. Mouse-following tooltip provides great UX feedback.
 
 **Next Focus:**
 Add win condition check, then extract TurnManager and add divine powers.
