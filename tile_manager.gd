@@ -30,6 +30,13 @@ const TILE_TYPE_COLORS = {
 	TileType.MOUNTAIN: Color(0.5, 0.5, 0.5)   # Gray
 }
 
+# Village building costs by tile type (from rules.md lines 120-125)
+const VILLAGE_BUILDING_COSTS = {
+	TileType.PLAINS: 2,
+	TileType.HILLS: 4,
+	TileType.MOUNTAIN: 8
+}
+
 # Icon paths for resource types
 const RESOURCE_TYPE_ICONS = {
 	ResourceType.RESOURCES: "res://icons/wood.svg",

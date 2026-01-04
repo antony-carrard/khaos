@@ -1,6 +1,6 @@
 # Implementation Status
 
-**Last Updated:** 2026-01-04 (Tile selling complete)
+**Last Updated:** 2026-01-04 (Village building costs complete)
 
 This document tracks detailed implementation progress and serves as context for continuing development.
 
@@ -86,6 +86,13 @@ This document tracks detailed implementation progress and serves as context for 
 - ✅ Tiles stay anchored to position when sold (no UI shifting)
 - ✅ Empty slot placeholders with disabled sell button
 
+**Village Building Costs** (board_manager.gd, placement_controller.gd, tile_manager.gd)
+- ✅ Village building costs resources based on tile type (Plains=2, Hills=4, Mountains=8)
+- ✅ Costs 1 action during actions phase
+- ✅ Preview shows red when player can't afford or has no actions
+- ✅ Preview shows red during harvest phase (can only build during actions)
+- ✅ Validation prevents placement without sufficient resources or actions
+
 ---
 
 ## 🔧 Technical Decisions & Patterns
@@ -97,8 +104,8 @@ This document tracks detailed implementation progress and serves as context for 
 signal actions_changed(new_amount: int)
 
 func consume_action() -> bool:
-    actions_remaining -= 1
-    actions_changed.emit(actions_remaining)  # Always emit on change
+	actions_remaining -= 1
+	actions_changed.emit(actions_remaining)  # Always emit on change
 
 # In board_manager.gd (setup)
 current_player.actions_changed.connect(ui.update_actions)
@@ -122,15 +129,15 @@ const HAND_SIZE: int = 3
 var hand: Array = [null, null, null]
 
 func remove_from_hand(index: int):
-    hand[index] = null  # Set to null instead of removing
+	hand[index] = null  # Set to null instead of removing
 
 func draw_tiles(tile_pool, count: int):
-    # Fill first available null slot
-    for tile_def in drawn:
-        for i in range(HAND_SIZE):
-            if hand[i] == null:
-                hand[i] = tile_def
-                break
+	# Fill first available null slot
+	for tile_def in drawn:
+		for i in range(HAND_SIZE):
+			if hand[i] == null:
+				hand[i] = tile_def
+				break
 ```
 
 **Why:** Keeps tiles anchored to their UI positions when sold. Prevents UI shifting/jumping. Empty slots show "Empty" placeholder.
@@ -153,11 +160,6 @@ board_manager (orchestrator)
 
 ## 🚧 Partially Implemented
 
-**Village Placement Cost**
-- Currently villages are free in test mode
-- Need to add resource cost + action consumption
-- Village removal also needs implementation
-
 **Test Mode Shortcuts**
 - Keys 1/2/3 still work for free tile placement (debug only)
 - Should disable in production builds
@@ -167,11 +169,6 @@ board_manager (orchestrator)
 ## ❌ Not Yet Implemented (From rules.md)
 
 ### High Priority (Next Session)
-
-**Village Building Cost**
-- Villages should cost resources (amount TBD)
-- Should consume 1 action
-- Currently: Free placement in test mode
 
 **Win Condition**
 - Check glory threshold at turn end
@@ -255,7 +252,7 @@ This is already marked and ready to extract to `turn_manager.gd`
 
 **Quick Wins:**
 1. ✅ ~~Implement tile selling~~ (DONE)
-2. Add village building cost (validation + resource spend)
+2. ✅ ~~Add village building cost~~ (DONE)
 3. Add glory win condition check
 
 **Medium Tasks:**
@@ -264,20 +261,20 @@ This is already marked and ready to extract to `turn_manager.gd`
 6. Polish UI (disable end turn during harvest, better hover effects)
 
 **Best Starting Point:**
-Start with **village building cost** - simple validation and resource spending, follows established patterns.
+Start with **glory win condition** - check at turn end if player reached threshold, follows established patterns.
 
 ---
 
 ## 📚 Context for New Sessions
 
 **Current State Summary:**
-You have a working turn-based hexagonal tile placement game with resource economy, villages, harvesting, and tile selling. The player draws tiles from a shuffled 63-tile bag, spends resources to place them, sells unwanted tiles, builds villages, and harvests resource types to generate more resources/fervor/glory.
+You have a working turn-based hexagonal tile placement game with resource economy, villages, harvesting, tile selling, and village building. The player draws tiles from a shuffled 63-tile bag, spends resources to place them, sells unwanted tiles, builds villages (costing resources and actions), and harvests resource types to generate more resources/fervor/glory.
 
 **Code Quality:**
 Architecture is clean with manager pattern. Signal-based reactive UI is working well. Turn system is in board_manager but marked for extraction. Fixed-size hand array (3 slots with null) prevents UI shifting.
 
 **What Works Well:**
-The core loop feels solid. Reactive signals prevent bugs. Tile validation is robust. Selling mechanics work smoothly with anchored hand positions.
+The core loop feels solid. Reactive signals prevent bugs. Tile validation is robust. Selling mechanics work smoothly with anchored hand positions. Village building with costs and preview validation follows clean patterns.
 
 **Next Focus:**
-Add village building costs, win condition check, then extract TurnManager and add divine powers.
+Add win condition check, then extract TurnManager and add divine powers.

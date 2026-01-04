@@ -270,6 +270,63 @@ func sell_tile(hand_index: int) -> void:
 		ui.update_hand_display()
 
 
+## Called when player attempts to place a village
+## Validates affordability, consumes resources and action, then places village
+## Returns true if placement succeeded, false otherwise
+func on_village_placed(q: int, r: int) -> bool:
+	# Get the tile at this position to determine cost
+	var tile = tile_manager.get_tile_at(q, r)
+	if not tile:
+		print("ERROR: No tile at position for village placement!")
+		return false
+
+	# Get building cost based on tile type
+	var cost = TileManager.VILLAGE_BUILDING_COSTS[tile.tile_type]
+
+	# Check if player can afford it
+	if current_player.resources < cost:
+		print("Cannot afford village! Need %d resources, have %d" % [cost, current_player.resources])
+		return false
+
+	# In game mode, check phase and consume action
+	if ui_mode == "game":
+		# Can only build during actions phase
+		if current_phase != TurnPhase.ACTIONS:
+			print("Can only build villages during the actions phase!")
+			return false
+
+		# Check if player has actions remaining
+		if current_player.actions_remaining <= 0:
+			print("No actions remaining to build village!")
+			return false
+
+	# Attempt to place the village
+	var success = village_manager.place_village(q, r, current_player)
+	if not success:
+		return false
+
+	# Spend resources
+	if not current_player.spend_resources(cost):
+		print("ERROR: Placed village but couldn't afford it!")
+		# This shouldn't happen since we checked above, but handle it anyway
+		# Remove the village we just placed
+		village_manager.remove_village(q, r)
+		return false
+
+	# Consume action (only in game mode during actions phase)
+	if ui_mode == "game" and current_phase == TurnPhase.ACTIONS:
+		if not consume_action():
+			print("ERROR: Placed village but had no actions!")
+			return false
+
+	print("Built village on %s tile for %d resources" % [
+		TileManager.TileType.keys()[tile.tile_type],
+		cost
+	])
+
+	return true
+
+
 # ========== TURN SYSTEM METHODS (Extract to TurnManager later) ==========
 
 ## Starts the harvest phase of the turn.

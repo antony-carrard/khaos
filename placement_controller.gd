@@ -107,9 +107,8 @@ func handle_mouse_input(event: InputEvent) -> void:
 				if axial != Vector2i(-999, -999):
 					var success = false
 					if current_mode == PlacementMode.VILLAGE_PLACE:
-						# Pass current player as owner
-						var owner = board_manager.current_player if board_manager else null
-						success = village_manager.place_village(axial.x, axial.y, owner)
+						# Use board_manager to handle costs and actions
+						success = board_manager.on_village_placed(axial.x, axial.y)
 					else:
 						success = village_manager.remove_village(axial.x, axial.y)
 
@@ -193,7 +192,26 @@ func update_village_preview() -> void:
 	# Update color based on validity
 	var is_valid = false
 	if current_mode == PlacementMode.VILLAGE_PLACE:
+		# Check basic placement validity
 		is_valid = not village_manager.has_village_at(q, r)
+
+		# Also check affordability and actions
+		if is_valid and board_manager:
+			var tile = tile_manager.get_tile_at(q, r)
+			if tile:
+				var cost = TileManager.VILLAGE_BUILDING_COSTS[tile.tile_type]
+				var player = board_manager.current_player
+
+				# Check if player can afford it
+				if player and player.resources < cost:
+					is_valid = false
+
+				# In game mode, check actions
+				if player and board_manager.ui_mode == "game":
+					if board_manager.current_phase != board_manager.TurnPhase.ACTIONS:
+						is_valid = false
+					elif player.actions_remaining <= 0:
+						is_valid = false
 	else:  # VILLAGE_REMOVE
 		is_valid = village_manager.has_village_at(q, r)
 
