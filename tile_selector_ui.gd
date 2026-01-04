@@ -26,6 +26,8 @@ var harvest_buttons_container: HBoxContainer = null
 var actions_label: Label = null
 var end_turn_button: Button = null
 var turn_phase_container: Control = null
+var village_place_button: Button = null
+var village_remove_button: Button = null
 
 # UI mode: "test" or "game"
 var ui_mode: String = "game"  # Default to game UI
@@ -86,6 +88,8 @@ func initialize(colors: Dictionary, _board_manager = null, mode: String = "game"
 		tile_count_label = Label.new()
 		tile_count_label.text = "Tiles: 63"
 		tile_count_label.add_theme_color_override("font_color", Color.WHITE)
+		tile_count_label.add_theme_color_override("font_outline_color", Color.BLACK)
+		tile_count_label.add_theme_constant_override("outline_size", 4)
 		tile_count_label.add_theme_font_size_override("font_size", 14)
 		tile_count_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		hand_vbox.add_child(tile_count_label)
@@ -124,6 +128,8 @@ func initialize(colors: Dictionary, _board_manager = null, mode: String = "game"
 		actions_label = Label.new()
 		actions_label.text = "Actions: 3/3"
 		actions_label.add_theme_color_override("font_color", Color.WHITE)
+		actions_label.add_theme_color_override("font_outline_color", Color.BLACK)
+		actions_label.add_theme_constant_override("outline_size", 5)
 		actions_label.add_theme_font_size_override("font_size", 16)
 		actions_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		actions_label.visible = false
@@ -140,8 +146,8 @@ func initialize(colors: Dictionary, _board_manager = null, mode: String = "game"
 		village_hbox.add_theme_constant_override("separation", 10)
 		right_vbox.add_child(village_hbox)
 
-		create_button(village_hbox, "Place Village", Color(0.8, 0.5, 0.2), 130, _on_village_place_pressed)
-		create_button(village_hbox, "Remove Village", Color(0.7, 0.3, 0.2), 130, _on_village_remove_pressed)
+		village_place_button = create_button_ref(village_hbox, "Place Village", Color(0.8, 0.5, 0.2), 130, _on_village_place_pressed)
+		village_remove_button = create_button_ref(village_hbox, "Remove Village", Color(0.7, 0.3, 0.2), 130, _on_village_remove_pressed)
 
 		# End turn button
 		end_turn_button = Button.new()
@@ -245,6 +251,35 @@ func create_button(parent: Control, label: String, base_color: Color, width: int
 	buttons.append(button)
 
 
+## Create a button and return reference (for buttons we need to enable/disable later)
+func create_button_ref(parent: Control, label: String, base_color: Color, width: int, callback: Callable) -> Button:
+	var button = Button.new()
+	button.text = label
+	button.custom_minimum_size = Vector2(width, 50)
+
+	# Create button styles with color variations
+	var style_normal = create_button_style(base_color)
+	var style_hover = create_button_style(base_color.lightened(0.2))
+	var style_pressed = create_button_style(base_color.darkened(0.2))
+	var style_disabled = create_button_style(base_color.darkened(0.5))
+
+	button.add_theme_stylebox_override("normal", style_normal)
+	button.add_theme_stylebox_override("hover", style_hover)
+	button.add_theme_stylebox_override("pressed", style_pressed)
+	button.add_theme_stylebox_override("disabled", style_disabled)
+
+	# Text styling
+	button.add_theme_color_override("font_color", Color.WHITE)
+	button.add_theme_font_size_override("font_size", 18 if width == 120 else 16)
+
+	button.pressed.connect(callback)
+
+	parent.add_child(button)
+	buttons.append(button)
+
+	return button
+
+
 func create_button_style(bg_color: Color) -> StyleBoxFlat:
 	var style = StyleBoxFlat.new()
 	style.bg_color = bg_color
@@ -315,6 +350,8 @@ func create_resource_row(parent: VBoxContainer, icon_path: String, initial_value
 	var label = Label.new()
 	label.text = initial_value
 	label.add_theme_color_override("font_color", Color.WHITE)
+	label.add_theme_color_override("font_outline_color", Color.BLACK)
+	label.add_theme_constant_override("outline_size", 4)
 	label.add_theme_font_size_override("font_size", 16)
 	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	hbox.add_child(label)
@@ -378,6 +415,9 @@ func update_hand_display() -> void:
 			tile_count_label.add_theme_color_override("font_color", Color.YELLOW)
 		else:
 			tile_count_label.add_theme_color_override("font_color", Color.WHITE)
+		# Maintain outline
+		tile_count_label.add_theme_color_override("font_outline_color", Color.BLACK)
+		tile_count_label.add_theme_constant_override("outline_size", 4)
 
 
 ## Create an empty placeholder for an empty hand slot
@@ -431,10 +471,19 @@ func create_empty_card_placeholder() -> void:
 
 ## Create a visual card for a tile in the hand
 func create_hand_card(hand_index: int, tile_def) -> void:
-	# Check if player can afford this tile
-	var can_afford = true
+	# Check affordability and action availability separately
+	var can_afford_resources = true
+	var can_place = true
+	var has_actions = true
 	if board_manager and board_manager.current_player:
-		can_afford = board_manager.current_player.can_afford_tile(tile_def)
+		var in_actions_phase = (board_manager.current_phase == board_manager.TurnPhase.ACTIONS)
+		can_afford_resources = board_manager.current_player.can_afford_tile(tile_def)
+		can_place = board_manager.current_player.can_place_tile(tile_def, board_manager.ui_mode == "game", in_actions_phase)
+		# Check if player has actions (for selling)
+		if board_manager.ui_mode == "game" and in_actions_phase:
+			has_actions = board_manager.current_player.actions_remaining > 0
+		else:
+			has_actions = (board_manager.ui_mode != "game" or in_actions_phase)
 
 	# Container for card + sell button
 	var card_vbox = VBoxContainer.new()
@@ -446,13 +495,19 @@ func create_hand_card(hand_index: int, tile_def) -> void:
 	var card_style = StyleBoxFlat.new()
 	var tile_color = tile_type_colors[tile_def.tile_type]
 
-	# Gray out if can't afford
-	if can_afford:
+	# Visual feedback based on state
+	if not can_afford_resources:
+		# Can't afford resources - red border, very dark
+		card_style.bg_color = tile_color.darkened(0.6)
+		card_style.border_color = Color.RED
+	elif not can_place:
+		# Can afford but no actions - just darker, normal border
+		card_style.bg_color = tile_color.darkened(0.5)
+		card_style.border_color = tile_color.darkened(0.2)
+	else:
+		# Can place - normal colors
 		card_style.bg_color = tile_color.darkened(0.3)
 		card_style.border_color = tile_color.lightened(0.3)
-	else:
-		card_style.bg_color = tile_color.darkened(0.6)  # Much darker
-		card_style.border_color = Color.RED  # Red border for unaffordable
 
 	card_style.border_width_left = 2
 	card_style.border_width_right = 2
@@ -483,7 +538,11 @@ func create_hand_card(hand_index: int, tile_def) -> void:
 	# Tile type label
 	var type_label = Label.new()
 	type_label.text = TileManager.TileType.keys()[tile_def.tile_type]
-	type_label.add_theme_color_override("font_color", Color.WHITE)
+	# Dim text when disabled
+	if can_place:
+		type_label.add_theme_color_override("font_color", Color.WHITE)
+	else:
+		type_label.add_theme_color_override("font_color", Color(0.5, 0.5, 0.5))
 	type_label.add_theme_font_size_override("font_size", 12)
 	type_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	vbox.add_child(type_label)
@@ -500,12 +559,20 @@ func create_hand_card(hand_index: int, tile_def) -> void:
 	if icon_texture:
 		icon_texture_rect.texture = icon_texture
 
+	# Desaturate and dim icon when disabled
+	if not can_place:
+		icon_texture_rect.modulate = Color(0.4, 0.4, 0.4)
+
 	vbox.add_child(icon_texture_rect)
 
 	# Yield value
 	var yield_label = Label.new()
 	yield_label.text = "Yield: %d" % tile_def.yield_value
-	yield_label.add_theme_color_override("font_color", Color.WHITE)
+	# Dim text when disabled
+	if can_place:
+		yield_label.add_theme_color_override("font_color", Color.WHITE)
+	else:
+		yield_label.add_theme_color_override("font_color", Color(0.5, 0.5, 0.5))
 	yield_label.add_theme_font_size_override("font_size", 11)
 	yield_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	vbox.add_child(yield_label)
@@ -513,11 +580,14 @@ func create_hand_card(hand_index: int, tile_def) -> void:
 	# Buy price
 	var buy_label = Label.new()
 	buy_label.text = "Cost: %d" % tile_def.buy_price
-	# Red if can't afford, yellow if can
-	if can_afford:
+	# Yellow if can place, red if specifically can't afford resources, gray otherwise
+	if can_place:
 		buy_label.add_theme_color_override("font_color", Color.YELLOW)
-	else:
+	elif not can_afford_resources:
 		buy_label.add_theme_color_override("font_color", Color.RED)
+	else:
+		# No actions - use same gray as other dimmed text
+		buy_label.add_theme_color_override("font_color", Color(0.5, 0.5, 0.5))
 	buy_label.add_theme_font_size_override("font_size", 10)
 	buy_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	vbox.add_child(buy_label)
@@ -528,6 +598,7 @@ func create_hand_card(hand_index: int, tile_def) -> void:
 	button.flat = true
 	button.focus_mode = Control.FOCUS_NONE  # Prevent focus indicator
 	button.mouse_filter = Control.MOUSE_FILTER_PASS
+	button.disabled = not can_place  # Disable if can't place (resources or actions)
 	button.pressed.connect(_on_hand_card_pressed.bind(hand_index))
 	card.add_child(button)
 
@@ -539,10 +610,13 @@ func create_hand_card(hand_index: int, tile_def) -> void:
 		# Sellable tile - green button
 		sell_button.text = "Sell (%d)" % tile_def.sell_price
 		var sell_style = create_button_style(Color(0.3, 0.6, 0.3))
+		var sell_disabled_style = create_button_style(Color(0.2, 0.4, 0.2))
 		sell_button.add_theme_stylebox_override("normal", sell_style)
 		sell_button.add_theme_stylebox_override("hover", create_button_style(Color(0.4, 0.7, 0.4)))
 		sell_button.add_theme_stylebox_override("pressed", create_button_style(Color(0.2, 0.5, 0.2)))
+		sell_button.add_theme_stylebox_override("disabled", sell_disabled_style)
 		sell_button.add_theme_color_override("font_color", Color.WHITE)
+		sell_button.disabled = not has_actions  # Disable only if no actions (not if can't afford)
 		sell_button.pressed.connect(_on_sell_button_pressed.bind(hand_index))
 	else:
 		# Glory tile - grayed out disabled button
@@ -640,13 +714,22 @@ func update_actions(remaining: int) -> void:
 	if actions_label:
 		actions_label.text = "Actions: %d/3" % remaining
 
-		# Color feedback
+		# Color feedback with consistent outline
 		if remaining == 0:
 			actions_label.add_theme_color_override("font_color", Color.RED)
 		elif remaining == 1:
 			actions_label.add_theme_color_override("font_color", Color.YELLOW)
 		else:
 			actions_label.add_theme_color_override("font_color", Color.WHITE)
+		# Maintain outline
+		actions_label.add_theme_color_override("font_outline_color", Color.BLACK)
+		actions_label.add_theme_constant_override("outline_size", 5)
+
+	# Disable village buttons when no actions remaining
+	if village_place_button:
+		village_place_button.disabled = (remaining <= 0)
+	if village_remove_button:
+		village_remove_button.disabled = (remaining <= 0)
 
 	# Update hand cards affordability (they might be grayed if no actions)
 	update_hand_display()

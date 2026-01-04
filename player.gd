@@ -37,9 +37,18 @@ func initialize(name: String = "Player 1", starting_resources: int = 0, starting
 	glory = 0
 
 
-## Check if player can afford a tile
+## Check if player can afford a tile (resources only, doesn't check actions)
 func can_afford_tile(tile_def) -> bool:
 	return resources >= tile_def.buy_price
+
+
+## Check if player can place a tile (resources AND actions in game mode)
+func can_place_tile(tile_def, game_mode: bool, in_actions_phase: bool) -> bool:
+	if not can_afford_tile(tile_def):
+		return false
+	if game_mode and in_actions_phase and actions_remaining <= 0:
+		return false
+	return true
 
 
 ## Spend resources (returns false if can't afford)

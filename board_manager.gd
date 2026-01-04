@@ -153,11 +153,15 @@ func _on_tile_selected_from_hand(hand_index: int) -> void:
 		print("No tile in this slot!")
 		return
 
-	# Check if player can afford it
-	if not current_player.can_afford_tile(tile_def):
-		print("Cannot afford tile! Need %d resources, have %d" % [
-			tile_def.buy_price, current_player.resources
-		])
+	# Check if player can afford and place it
+	var in_actions_phase = (current_phase == TurnPhase.ACTIONS)
+	if not current_player.can_place_tile(tile_def, ui_mode == "game", in_actions_phase):
+		if not current_player.can_afford_tile(tile_def):
+			print("Cannot afford tile! Need %d resources, have %d" % [
+				tile_def.buy_price, current_player.resources
+			])
+		elif ui_mode == "game" and in_actions_phase and current_player.actions_remaining <= 0:
+			print("No actions remaining to place tile!")
 		return
 
 	print("Selected tile from hand: %s %s (yield=%d, cost=%d)" % [

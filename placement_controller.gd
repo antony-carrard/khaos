@@ -299,8 +299,17 @@ func update_tile_preview() -> void:
 	preview_tile.set_tile_type(current_tile_type, TileManager.TILE_TYPE_COLORS[current_tile_type])
 	preview_tile.global_position = board_manager.axial_to_world(q, r, height)
 
-	# Check if placement is valid
+	# Check if placement is valid (grid rules)
 	var valid = tile_manager.is_valid_placement(q, r, current_tile_type)
+
+	# Also check if player can afford and has actions (in game mode)
+	if valid and board_manager.ui_mode == "game" and selected_tile_def:
+		var player = board_manager.current_player
+		if player:
+			var in_actions_phase = (board_manager.current_phase == board_manager.TurnPhase.ACTIONS)
+			if not player.can_place_tile(selected_tile_def, true, in_actions_phase):
+				valid = false
+
 	preview_tile.set_highlight(true, valid)
 
 
