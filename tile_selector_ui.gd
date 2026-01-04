@@ -1,8 +1,12 @@
 extends Control
 
+# Constants
+const HAND_SIZE: int = 3  # Number of tiles in hand
+
 # Signals
 signal tile_type_selected(tile_type: int)
 signal tile_selected_from_hand(hand_index: int)
+signal tile_sold_from_hand(hand_index: int)
 signal village_place_selected()
 signal village_remove_selected()
 
@@ -45,12 +49,11 @@ func initialize(colors: Dictionary, _board_manager = null, mode: String = "game"
 	margin.anchor_right = 1.0
 	margin.anchor_top = 1.0
 	margin.anchor_bottom = 1.0
-	margin.offset_top = -140  # Taller for tile cards
-	margin.offset_bottom = -20
+	margin.offset_top = -200  # Positions UI vertically (negative = up from bottom anchor)
 	margin.add_theme_constant_override("margin_left", 20)
 	margin.add_theme_constant_override("margin_right", 20)
 	margin.add_theme_constant_override("margin_top", 10)
-	margin.add_theme_constant_override("margin_bottom", 10)
+	margin.add_theme_constant_override("margin_bottom", 25)  # Gap from screen bottom (>20px to avoid camera pan zone)
 	margin.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(margin)
 
@@ -307,10 +310,13 @@ func update_hand_display() -> void:
 	# Get current hand from board manager
 	var hand = board_manager.get_hand()
 
-	# Create a card for each tile in hand
-	for i in range(hand.size()):
-		var tile_def = hand[i]
-		create_hand_card(i, tile_def)
+	# Always show HAND_SIZE slots (with placeholders for empty slots)
+	for i in range(HAND_SIZE):
+		if i < hand.size() and hand[i] != null:
+			var tile_def = hand[i]
+			create_hand_card(i, tile_def)
+		else:
+			create_empty_card_placeholder()
 
 	# Update tile count label
 	if tile_count_label and board_manager.tile_pool:
@@ -324,12 +330,65 @@ func update_hand_display() -> void:
 			tile_count_label.add_theme_color_override("font_color", Color.WHITE)
 
 
+## Create an empty placeholder for an empty hand slot
+func create_empty_card_placeholder() -> void:
+	# Container for placeholder
+	var card_vbox = VBoxContainer.new()
+	card_vbox.add_theme_constant_override("separation", 5)
+	hand_container.add_child(card_vbox)
+
+	# Empty card placeholder
+	var card = PanelContainer.new()
+	var card_style = StyleBoxFlat.new()
+	card_style.bg_color = Color(0.2, 0.2, 0.2, 0.3)  # Very dark and transparent
+	card_style.border_color = Color(0.3, 0.3, 0.3, 0.5)
+	card_style.border_width_left = 2
+	card_style.border_width_right = 2
+	card_style.border_width_top = 2
+	card_style.border_width_bottom = 2
+	card_style.corner_radius_top_left = 8
+	card_style.corner_radius_top_right = 8
+	card_style.corner_radius_bottom_left = 8
+	card_style.corner_radius_bottom_right = 8
+	card.add_theme_stylebox_override("panel", card_style)
+	card.custom_minimum_size = Vector2(100, 110)
+	card_vbox.add_child(card)
+
+	# Center label "Empty"
+	var label = Label.new()
+	label.text = "Empty"
+	label.add_theme_color_override("font_color", Color(0.4, 0.4, 0.4))
+	label.add_theme_font_size_override("font_size", 14)
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	label.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	card.add_child(label)
+
+	# Disabled sell button (for visual consistency)
+	var sell_button = Button.new()
+	sell_button.text = "Sell (-)"
+	sell_button.disabled = true
+	sell_button.custom_minimum_size = Vector2(100, 25)
+	var disabled_style = create_button_style(Color(0.25, 0.25, 0.25, 0.4))
+	sell_button.add_theme_stylebox_override("normal", disabled_style)
+	sell_button.add_theme_stylebox_override("disabled", disabled_style)
+	sell_button.add_theme_color_override("font_color", Color(0.4, 0.4, 0.4))
+	sell_button.add_theme_font_size_override("font_size", 10)
+	card_vbox.add_child(sell_button)
+
+
 ## Create a visual card for a tile in the hand
 func create_hand_card(hand_index: int, tile_def) -> void:
 	# Check if player can afford this tile
 	var can_afford = true
 	if board_manager and board_manager.current_player:
 		can_afford = board_manager.current_player.can_afford_tile(tile_def)
+
+	# Container for card + sell button
+	var card_vbox = VBoxContainer.new()
+	card_vbox.add_theme_constant_override("separation", 5)
+	hand_container.add_child(card_vbox)
 
 	# Card container
 	var card = PanelContainer.new()
@@ -354,7 +413,7 @@ func create_hand_card(hand_index: int, tile_def) -> void:
 	card_style.corner_radius_bottom_right = 8
 	card.add_theme_stylebox_override("panel", card_style)
 	card.custom_minimum_size = Vector2(100, 110)
-	hand_container.add_child(card)
+	card_vbox.add_child(card)
 
 	# Inner margin for padding
 	var margin = MarginContainer.new()
@@ -420,9 +479,38 @@ func create_hand_card(hand_index: int, tile_def) -> void:
 	button.pressed.connect(_on_hand_card_pressed.bind(hand_index))
 	card.add_child(button)
 
+	# Sell button BELOW the card (always present for consistency)
+	var sell_button = Button.new()
+	sell_button.custom_minimum_size = Vector2(100, 25)
+
+	if tile_def.sell_price > 0:
+		# Sellable tile - green button
+		sell_button.text = "Sell (%d)" % tile_def.sell_price
+		var sell_style = create_button_style(Color(0.3, 0.6, 0.3))
+		sell_button.add_theme_stylebox_override("normal", sell_style)
+		sell_button.add_theme_stylebox_override("hover", create_button_style(Color(0.4, 0.7, 0.4)))
+		sell_button.add_theme_stylebox_override("pressed", create_button_style(Color(0.2, 0.5, 0.2)))
+		sell_button.add_theme_color_override("font_color", Color.WHITE)
+		sell_button.pressed.connect(_on_sell_button_pressed.bind(hand_index))
+	else:
+		# Glory tile - grayed out disabled button
+		sell_button.text = "Sell (-)"
+		sell_button.disabled = true
+		var disabled_style = create_button_style(Color(0.3, 0.3, 0.3))
+		sell_button.add_theme_stylebox_override("normal", disabled_style)
+		sell_button.add_theme_stylebox_override("disabled", disabled_style)
+		sell_button.add_theme_color_override("font_color", Color(0.5, 0.5, 0.5))
+
+	sell_button.add_theme_font_size_override("font_size", 10)
+	card_vbox.add_child(sell_button)
+
 
 func _on_hand_card_pressed(hand_index: int) -> void:
 	tile_selected_from_hand.emit(hand_index)
+
+
+func _on_sell_button_pressed(hand_index: int) -> void:
+	tile_sold_from_hand.emit(hand_index)
 
 
 func _on_end_turn_pressed() -> void:

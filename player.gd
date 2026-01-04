@@ -12,8 +12,9 @@ var resources: int = 0    # For building villages & buying tiles
 var fervor: int = 0       # For divine powers
 var glory: int = 0        # Victory points
 
-# Player's hand of tiles
-var hand: Array = []  # Array of TilePool.TileDefinition
+# Player's hand of tiles (fixed size array with null for empty slots)
+const HAND_SIZE: int = 3
+var hand: Array = [null, null, null]  # Array of TilePool.TileDefinition or null
 
 # Placed villages (for later scoring/tracking)
 var placed_villages: Array = []
@@ -83,17 +84,29 @@ func add_glory(amount: int) -> void:
 
 
 ## Draw tiles into hand from tile pool
+## Fills empty slots (null values) in the hand
 func draw_tiles(tile_pool, count: int) -> void:
 	var drawn = tile_pool.draw_tiles(count)
-	hand.append_array(drawn)
-	print("%s: Drew %d tiles. Hand size: %d" % [player_name, drawn.size(), hand.size()])
+	var drawn_count = 0
+
+	for tile_def in drawn:
+		# Find first empty slot
+		for i in range(HAND_SIZE):
+			if hand[i] == null:
+				hand[i] = tile_def
+				drawn_count += 1
+				break
+
+	print("%s: Drew %d tiles into hand" % [player_name, drawn_count])
 
 
-## Remove tile from hand (after placement/selling)
+## Remove tile from hand (sets slot to null instead of removing)
 func remove_from_hand(index: int) -> bool:
-	if index < 0 or index >= hand.size():
+	if index < 0 or index >= HAND_SIZE:
 		return false
-	hand.remove_at(index)
+	if hand[index] == null:
+		return false
+	hand[index] = null
 	return true
 
 

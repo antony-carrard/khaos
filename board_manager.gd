@@ -121,6 +121,7 @@ func setup_ui() -> void:
 	# Connect UI signals to placement controller
 	ui.tile_type_selected.connect(placement_controller.select_tile_type)
 	ui.tile_selected_from_hand.connect(_on_tile_selected_from_hand)
+	ui.tile_sold_from_hand.connect(sell_tile)
 	ui.village_place_selected.connect(placement_controller.select_village_place_mode)
 	ui.village_remove_selected.connect(placement_controller.select_village_remove_mode)
 
@@ -144,10 +145,13 @@ func setup_ui() -> void:
 
 ## Handle tile selection from hand
 func _on_tile_selected_from_hand(hand_index: int) -> void:
-	if hand_index < 0 or hand_index >= current_player.hand.size():
+	if hand_index < 0 or hand_index >= current_player.HAND_SIZE:
 		return
 
 	var tile_def = current_player.hand[hand_index]
+	if tile_def == null:
+		print("No tile in this slot!")
+		return
 
 	# Check if player can afford it
 	if not current_player.can_afford_tile(tile_def):
@@ -169,10 +173,13 @@ func _on_tile_selected_from_hand(hand_index: int) -> void:
 
 ## Called by placement_controller when a tile from hand is successfully placed
 func on_tile_placed_from_hand(hand_index: int) -> void:
-	if hand_index < 0 or hand_index >= current_player.hand.size():
+	if hand_index < 0 or hand_index >= current_player.HAND_SIZE:
 		return
 
 	var placed_tile = current_player.hand[hand_index]
+	if placed_tile == null:
+		print("ERROR: No tile in this slot!")
+		return
 
 	# Spend resources
 	if not current_player.spend_resources(placed_tile.buy_price):
@@ -190,14 +197,73 @@ func on_tile_placed_from_hand(hand_index: int) -> void:
 		TileManager.ResourceType.keys()[placed_tile.resource_type]
 	])
 
-	# Remove tile from hand
+	# Remove tile from hand (sets slot to null)
 	current_player.remove_from_hand(hand_index)
 
-	# Draw replacement tile to refill hand
-	current_player.draw_tiles(tile_pool, 1)
+	# Note: In the current game design, tiles are only refilled at end of turn
+	# Not drawing a replacement tile here
 
-	if tile_pool.get_remaining_count() == 0 and current_player.hand.size() == 0:
+	# Check if hand is completely empty and no tiles left
+	var hand_has_tiles = false
+	for tile in current_player.hand:
+		if tile != null:
+			hand_has_tiles = true
+			break
+
+	if tile_pool.get_remaining_count() == 0 and not hand_has_tiles:
 		print("Game Over! No tiles left in bag or hand.")
+
+	# Update UI to reflect hand changes
+	if ui and ui_mode == "game":
+		ui.update_hand_display()
+
+
+## Sell a tile from hand for resources
+## Returns resources equal to tile's sell_price
+## Consumes 1 action (in game mode during actions phase)
+func sell_tile(hand_index: int) -> void:
+	if hand_index < 0 or hand_index >= current_player.HAND_SIZE:
+		print("ERROR: Invalid hand index for selling: %d" % hand_index)
+		return
+
+	var tile = current_player.hand[hand_index]
+	if tile == null:
+		print("ERROR: No tile in this slot to sell!")
+		return
+
+	# Check if tile can be sold (Glory tiles have sell_price = 0)
+	if tile.sell_price <= 0:
+		print("Cannot sell this tile! Glory tiles cannot be sold.")
+		return
+
+	# In game mode, check phase and consume action
+	if ui_mode == "game":
+		# Can only sell during actions phase
+		if current_phase != TurnPhase.ACTIONS:
+			print("Can only sell tiles during the actions phase!")
+			return
+
+		# Check if player has actions remaining
+		if current_player.actions_remaining <= 0:
+			print("No actions remaining to sell tile!")
+			return
+
+		# Consume 1 action
+		if not consume_action():
+			print("ERROR: Failed to consume action for selling tile!")
+			return
+
+	# Give player resources
+	current_player.add_resources(tile.sell_price)
+
+	print("Sold %s %s tile for %d resources" % [
+		TileManager.ResourceType.keys()[tile.resource_type],
+		TileManager.TileType.keys()[tile.tile_type],
+		tile.sell_price
+	])
+
+	# Remove tile from hand (no replacement drawn when selling)
+	current_player.remove_from_hand(hand_index)
 
 	# Update UI to reflect hand changes
 	if ui and ui_mode == "game":
@@ -312,10 +378,11 @@ func consume_action() -> bool:
 func end_turn() -> void:
 	print("=== END TURN ===")
 
-	# Discard current hand
-	current_player.hand.clear()
+	# Discard current hand (reset to empty slots)
+	for i in range(current_player.HAND_SIZE):
+		current_player.hand[i] = null
 
-	# Draw 3 new tiles
+	# Draw 3 new tiles (fills empty slots)
 	current_player.draw_tiles(tile_pool, 3)
 
 	# Start new turn (gives +1 resource, +1 fervor, resets actions to 3)

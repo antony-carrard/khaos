@@ -1,6 +1,6 @@
 # Implementation Status
 
-**Last Updated:** 2024 (Turn system complete)
+**Last Updated:** 2026-01-04 (Tile selling complete)
 
 This document tracks detailed implementation progress and serves as context for continuing development.
 
@@ -77,6 +77,15 @@ This document tracks detailed implementation progress and serves as context for 
 - ✅ Initial hand of 3 tiles
 - ✅ Starting resources: 10 resources, 10 fervor (configurable)
 
+**Tile Selling** (board_manager.gd, tile_selector_ui.gd, player.gd)
+- ✅ Sell button on each hand card (green for sellable, gray disabled for Glory)
+- ✅ Sell tile from hand for resources (Plains=1, Hills=2, Mountains=4)
+- ✅ Glory tiles cannot be sold (sell_price = 0)
+- ✅ Costs 1 action during actions phase
+- ✅ Fixed-size hand array (3 slots) with null for empty slots
+- ✅ Tiles stay anchored to position when sold (no UI shifting)
+- ✅ Empty slot placeholders with disabled sell button
+
 ---
 
 ## 🔧 Technical Decisions & Patterns
@@ -104,6 +113,27 @@ current_player.consume_action()  # No manual ui.update_actions() needed
 - `owner` → `player_owner` (Node.owner is scene root)
 - `get_position()` → `get_grid_position()` (Node3D.get_position() is world position)
 - `set_owner()` → `set_player_owner()` (Node.set_owner() is scene owner)
+
+### Fixed-Size Hand Array Pattern
+**Pattern:**
+```gdscript
+# In player.gd
+const HAND_SIZE: int = 3
+var hand: Array = [null, null, null]
+
+func remove_from_hand(index: int):
+    hand[index] = null  # Set to null instead of removing
+
+func draw_tiles(tile_pool, count: int):
+    # Fill first available null slot
+    for tile_def in drawn:
+        for i in range(HAND_SIZE):
+            if hand[i] == null:
+                hand[i] = tile_def
+                break
+```
+
+**Why:** Keeps tiles anchored to their UI positions when sold. Prevents UI shifting/jumping. Empty slots show "Empty" placeholder.
 
 ### Manager Organization
 ```
@@ -137,12 +167,6 @@ board_manager (orchestrator)
 ## ❌ Not Yet Implemented (From rules.md)
 
 ### High Priority (Next Session)
-
-**Selling Tiles**
-- Infrastructure ready (`sell_price` on tiles)
-- Need: UI button + logic to sell tile from hand
-- Action: Discard tile, gain `sell_price` resources
-- Costs 1 action
 
 **Village Building Cost**
 - Villages should cost resources (amount TBD)
@@ -229,31 +253,31 @@ This is already marked and ready to extract to `turn_manager.gd`
 
 ## 💡 Next Session Recommendations
 
-**Quick Wins (1-2 hours):**
-1. Implement tile selling (easy, infrastructure ready)
-2. Add village building cost (just validation + resource spend)
+**Quick Wins:**
+1. ✅ ~~Implement tile selling~~ (DONE)
+2. Add village building cost (validation + resource spend)
 3. Add glory win condition check
 
-**Medium Tasks (2-4 hours):**
+**Medium Tasks:**
 4. Extract TurnManager class (marked in code)
 5. Implement first divine power (as template for others)
-6. Polish UI (disable harvest during actions phase, etc.)
+6. Polish UI (disable end turn during harvest, better hover effects)
 
 **Best Starting Point:**
-Start with **selling tiles** - it's a small feature that exercises the existing systems and gives immediate gameplay value.
+Start with **village building cost** - simple validation and resource spending, follows established patterns.
 
 ---
 
 ## 📚 Context for New Sessions
 
 **Current State Summary:**
-You have a working turn-based hexagonal tile placement game with resource economy, villages, and harvesting. The player draws tiles from a shuffled 63-tile bag, spends resources to place them, builds villages, and harvests resource types to generate more resources/fervor/glory.
+You have a working turn-based hexagonal tile placement game with resource economy, villages, harvesting, and tile selling. The player draws tiles from a shuffled 63-tile bag, spends resources to place them, sells unwanted tiles, builds villages, and harvests resource types to generate more resources/fervor/glory.
 
 **Code Quality:**
-Architecture is clean with manager pattern. Signal-based reactive UI is working well. Turn system is in board_manager but marked for extraction.
+Architecture is clean with manager pattern. Signal-based reactive UI is working well. Turn system is in board_manager but marked for extraction. Fixed-size hand array (3 slots with null) prevents UI shifting.
 
 **What Works Well:**
-The core loop feels solid. Reactive signals prevent bugs. Tile validation is robust.
+The core loop feels solid. Reactive signals prevent bugs. Tile validation is robust. Selling mechanics work smoothly with anchored hand positions.
 
 **Next Focus:**
-Add selling mechanics, village costs, and win condition. Then extract TurnManager and add divine powers.
+Add village building costs, win condition check, then extract TurnManager and add divine powers.
