@@ -1,12 +1,23 @@
 # Implementation Status
 
-**Last Updated:** 2026-01-07 (TurnManager extraction)
+**Last Updated:** 2026-01-07 (Setup Phase Implementation)
 
 This document tracks detailed implementation progress and serves as context for continuing development.
 
 ## Recent Changes (2026-01-07)
 
-**TurnManager Extraction (Latest):**
+**Setup Phase Implementation (Latest):**
+- **Implemented complete setup phase per rules.md (lines 44-67)**
+- **Players now start in SETUP phase** instead of having tiles auto-placed
+- **Draw 2 PLAINS tiles from pool** - player.gd `initialize_setup_tiles()` draws from tile_pool
+- **Place 2 tiles + free villages** - placement_controller auto-places villages during setup (no cost)
+- **Setup UI with gold borders** - tile_selector_ui.gd shows special setup cards, centered layout
+- **Proper phase transition** - after 2 tiles placed → draw 3 tiles into hand → HARVEST phase
+- **UI updates correctly** - setup tiles disappear, normal hand appears with newly drawn tiles
+- **Files modified:** player.gd (setup_tiles array), turn_manager.gd (setup phase logic), tile_selector_ui.gd (setup UI), placement_controller.gd (auto-villages), board_manager.gd (removed auto-placement)
+- **Result:** Game now follows rules.md setup sequence correctly
+
+**TurnManager Extraction (Earlier):**
 - **Extracted turn logic to dedicated TurnManager class** - moved ~170 lines from board_manager.gd
 - **board_manager.gd reduced** from 651 → 461 lines (29% reduction)
 - **Created turn_manager.gd** (247 lines) with clean Phase enum (SETUP/HARVEST/ACTIONS)
@@ -80,17 +91,27 @@ This document tracks detailed implementation progress and serves as context for 
 
 **Turn System** (turn_manager.gd - extracted and complete!)
 - ✅ Turn phases (SETUP, HARVEST, ACTIONS) with Phase enum
+- ✅ **Setup phase** - player places 2 PLAINS tiles with free villages
+  - `start_setup_phase()` - draws 2 PLAINS from pool, shows setup UI
+  - `on_setup_tile_placed()` - tracks progress, removes placed tiles, updates UI
+  - `complete_setup_phase()` - draws 3 tiles into hand, transitions to harvest
 - ✅ Harvest phase with smart type detection
   - Auto-harvest if only one resource type available
   - Show choice UI if multiple types
 - ✅ Actions phase (3 actions per turn)
 - ✅ Action validation helpers: `can_perform_action()`, `consume_action()`
-- ✅ Phase query helpers: `is_harvest_phase()`, `is_actions_phase()`
+- ✅ Phase query helpers: `is_setup_phase()`, `is_harvest_phase()`, `is_actions_phase()`
 - ✅ End turn flow (discard → draw 3 → reset actions → harvest)
 - ✅ Turn start bonus (+1 resource, +1 fervor)
 - ✅ Signal-based phase changes and turn events
 
 **User Interface** (tile_selector_ui.gd)
+- ✅ **Setup phase UI**
+  - Gold-bordered tile cards with "FREE" label
+  - "Setup Phase - Place Your Starting Tiles" title
+  - Center-aligned layout (prevents shifting when tiles placed)
+  - Compact "✓ Placed" placeholders (same width as tiles)
+  - Automatically transitions to normal hand display after setup
 - ✅ Hand display with visual tile cards
   - Color-coded by tile type
   - Shows resource icon and yield value
@@ -107,12 +128,16 @@ This document tracks detailed implementation progress and serves as context for 
 - ✅ Three modes: TILE, VILLAGE_PLACE, VILLAGE_REMOVE
 - ✅ Valid/invalid preview coloring
 - ✅ Hand tile placement integration
+- ✅ **Setup phase support** - auto-places villages for free during setup
 - ✅ ESC to cancel placement
 
 **Starting Conditions**
-- ✅ Starting tile always PLAINS (draw/return loop until PLAINS found)
-- ✅ Initial hand of 3 tiles
-- ✅ Starting resources: 10 resources, 10 fervor (configurable)
+- ✅ **Setup phase** - players place 2 PLAINS tiles with villages (per rules.md lines 53-63)
+  - 2 PLAINS tiles drawn from tile pool (random RESOURCES/FERVOR mix)
+  - Villages auto-placed for free (no resource cost during setup)
+  - After setup complete: draw 3 tiles into hand
+- ✅ Starting resources: +1 resource, +1 fervor from `start_turn()` after setup
+- ✅ Test mode: 999 resources/fervor/actions for design testing
 
 **Tile Economics**
 - ✅ **Placing tiles is FREE** - no resource cost, only consumes 1 action
@@ -285,14 +310,6 @@ turn_manager (turn flow)
 
 ### High Priority (Next Session)
 
-**Setup Phase** (rules.md lines 44-67)
-- Implement proper game initialization (see **SETUP_PHASE_PLAN.md**)
-- Give each player 2 specific PLAINS tiles (1 RESOURCES, 1 FERVOR)
-- Player places 2 tiles + villages (free, no resource cost)
-- Second tile must be adjacent to first
-- After setup: draw 3 tiles from bag, start harvest phase
-- **Current bug:** Game auto-places 1 random tile and skips setup entirely
-
 **UI Polish**
 - ✅ ~~Show tile pool remaining count~~ (DONE - shows above hand with color coding)
 - ✅ ~~Win condition & victory screen~~ (DONE - complete endgame system implemented)
@@ -369,6 +386,7 @@ turn_manager (turn flow)
 2. ✅ ~~Add village building cost~~ (DONE)
 3. ✅ ~~Fix action validation~~ (DONE)
 4. ✅ ~~Implement end game detection and point counting~~ (DONE)
+5. ✅ ~~Implement setup phase~~ (DONE)
 
 **Medium Tasks:**
 1. Implement first divine power (as template for others)
@@ -377,20 +395,20 @@ turn_manager (turn flow)
 4. Add multiplayer player switching (see MULTIPLAYER_PLAN.md)
 
 **Best Starting Point:**
-Start with **setup phase** - implement proper game initialization per rules.md (2 PLAINS tiles with villages). See **SETUP_PHASE_PLAN.md** for detailed implementation guide.
+Start with **divine powers** - implement fervor spending for special abilities. Create a powers UI and implement 1-2 basic powers as templates for the rest.
 
 ---
 
 ## 📚 Context for New Sessions
 
 **Current State Summary:**
-You have a **fully playable** turn-based hexagonal tile placement game with complete victory conditions. Players draw tiles from a 63-tile bag, place them on a hex grid, build villages, harvest resources/fervor/glory, and compete for the highest score. The game ends when the tile bag empties, triggering final scoring with detailed breakdowns including village points (by terrain), resource/fervor pairs, raw glory, and territory bonuses from contiguous village groups. VictoryManager uses flood-fill algorithm to find connected village clusters.
+You have a **fully playable** turn-based hexagonal tile placement game with complete victory conditions. **Game now starts with proper setup phase** - players place 2 PLAINS tiles with free villages, then draw 3 tiles and begin normal gameplay. Players harvest resources/fervor/glory from villages, place tiles (free, 1 action), build villages (costs resources + 1 action), and compete for the highest score. The game ends when the tile bag empties, triggering final scoring with detailed breakdowns including village points (by terrain), resource/fervor pairs, raw glory, and territory bonuses from contiguous village groups.
 
 **Code Quality:**
-Architecture is clean with manager pattern. **TurnManager successfully extracted** - turn logic now in dedicated class with Phase enum and validation helpers. Signal-based reactive UI is working well. VictoryManager handles all scoring logic. board_manager reduced by 29% (461 lines). Action validation simplified to 1-line helper calls. Fixed-size hand array (3 slots with null) prevents UI shifting. Endgame system is multiplayer-ready (uses array format for scores). Per-tile village costs stored in TileDefinition allow design flexibility.
+Architecture is clean with manager pattern. **Setup phase fully implemented** - special UI with gold-bordered cards, auto-village placement, proper phase transitions. **TurnManager successfully extracted** - turn logic now in dedicated class with Phase enum (SETUP/HARVEST/ACTIONS) and validation helpers. Signal-based reactive UI is working well. VictoryManager handles all scoring logic. board_manager streamlined (removed auto-placement). Action validation simplified to 1-line helper calls. Fixed-size hand array (3 slots with null) prevents UI shifting. Endgame system is multiplayer-ready.
 
 **What Works Well:**
-The game is now fully playable from start to finish! Core gameplay loop is solid. Victory screen provides comprehensive score breakdown. Territory calculation using BFS graph traversal works efficiently. Reactive signals prevent bugs. Action validation prevents confusing errors. Visual feedback is consistent and clear. Endgame notification keeps players informed.
+The game is now fully playable from start to finish following rules.md! Setup phase provides proper game initialization. Core gameplay loop is solid. Victory screen provides comprehensive score breakdown. Territory calculation using BFS graph traversal works efficiently. Reactive signals prevent bugs. Action validation prevents confusing errors. Visual feedback is consistent and clear. Setup UI transitions smoothly to normal game UI.
 
 **Next Focus:**
 Add divine powers (fervor spending for special abilities), then implement multiplayer player switching, then add god-specific abilities.
