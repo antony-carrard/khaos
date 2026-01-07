@@ -15,6 +15,7 @@ var tile_manager: TileManager
 var village_manager: VillageManager
 var placement_controller: PlacementController
 var tile_pool: TilePool
+var turn_manager: TurnManager
 
 # UI
 var ui: Control = null
@@ -24,15 +25,6 @@ var camera: Camera3D = null
 
 # Player (for now, single player)
 var current_player: Player = null
-
-# ========== TURN SYSTEM (Extract to TurnManager later) ==========
-enum TurnPhase { HARVEST, ACTIONS }
-var current_phase: TurnPhase = TurnPhase.HARVEST
-
-# Game end state
-var game_ended: bool = false
-var final_round_triggered: bool = false
-var triggering_player: Player = null
 
 
 func _ready() -> void:
@@ -58,6 +50,15 @@ func _ready() -> void:
 	var starting_resources = 999 if test_mode else 0
 	var starting_fervor = 999 if test_mode else 0
 	current_player.initialize("Player 1", starting_resources, starting_fervor)
+
+	# Create and initialize turn manager
+	turn_manager = TurnManager.new()
+	add_child(turn_manager)
+	turn_manager.initialize(current_player, village_manager, tile_manager, tile_pool, self)
+
+	# Connect turn manager signals
+	turn_manager.phase_changed.connect(_on_phase_changed)
+	turn_manager.turn_ended.connect(_on_turn_ended)
 
 	# Cross-reference managers (for validation)
 	tile_manager.village_manager = village_manager
@@ -114,7 +115,7 @@ func _ready() -> void:
 	# Test mode: unlimited actions for placing many tiles
 	if test_mode:
 		current_player.set_actions(999)
-	start_harvest_phase()
+	turn_manager.start_harvest_phase()
 
 	# Create UI
 	setup_ui()
@@ -142,9 +143,12 @@ func setup_ui() -> void:
 	current_player.glory_changed.connect(ui.update_glory)
 	current_player.actions_changed.connect(ui.update_actions)
 
+	# Set UI reference in turn_manager
+	turn_manager.set_ui(ui)
+
 	# Update displays
 	ui.update_hand_display()
-	ui.update_turn_phase(current_phase)  # Show/hide phase-specific UI
+	ui.update_turn_phase(turn_manager.current_phase)  # Show/hide phase-specific UI
 	# Trigger initial signal emissions to update UI
 	current_player.resources_changed.emit(current_player.resources)
 	current_player.fervor_changed.emit(current_player.fervor)
@@ -163,8 +167,7 @@ func _on_tile_selected_from_hand(hand_index: int) -> void:
 		return
 
 	# Check if player has actions during actions phase
-	var in_actions_phase = (current_phase == TurnPhase.ACTIONS)
-	if in_actions_phase and current_player.actions_remaining <= 0:
+	if turn_manager.is_actions_phase() and current_player.actions_remaining <= 0:
 		print("No actions remaining to place tile!")
 		return
 
@@ -190,8 +193,8 @@ func on_tile_placed_from_hand(hand_index: int) -> void:
 		return
 
 	# Consume action (during actions phase)
-	if current_phase == TurnPhase.ACTIONS:
-		if not consume_action():
+	if turn_manager.is_actions_phase():
+		if not turn_manager.consume_action("place tile"):
 			print("ERROR: Placed tile but had no actions!")
 			return
 
@@ -239,19 +242,8 @@ func sell_tile(hand_index: int) -> void:
 		print("Cannot sell this tile! Glory tiles cannot be sold.")
 		return
 
-	# Can only sell during actions phase
-	if current_phase != TurnPhase.ACTIONS:
-		print("Can only sell tiles during the actions phase!")
-		return
-
-	# Check if player has actions remaining
-	if current_player.actions_remaining <= 0:
-		print("No actions remaining to sell tile!")
-		return
-
-	# Consume 1 action
-	if not consume_action():
-		print("ERROR: Failed to consume action for selling tile!")
+	# Consume 1 action (validates phase and action count)
+	if not turn_manager.consume_action("sell tile"):
 		return
 
 	# Give player resources
@@ -293,14 +285,8 @@ func on_village_placed(q: int, r: int) -> bool:
 		print("Cannot afford village! Need %d resources, have %d" % [cost, current_player.resources])
 		return false
 
-	# Can only build during actions phase
-	if current_phase != TurnPhase.ACTIONS:
-		print("Can only build villages during the actions phase!")
-		return false
-
-	# Check if player has actions remaining
-	if current_player.actions_remaining <= 0:
-		print("No actions remaining to build village!")
+	# Consume 1 action (validates phase and action count)
+	if not turn_manager.consume_action("build village"):
 		return false
 
 	# Attempt to place the village
@@ -315,12 +301,6 @@ func on_village_placed(q: int, r: int) -> bool:
 		# Remove the village we just placed
 		village_manager.remove_village(q, r)
 		return false
-
-	# Consume action (during actions phase)
-	if current_phase == TurnPhase.ACTIONS:
-		if not consume_action():
-			print("ERROR: Placed village but had no actions!")
-			return false
 
 	print("Built village for %d resources" % cost)
 
@@ -352,14 +332,8 @@ func on_village_removed(q: int, r: int) -> bool:
 	var building_cost = tile.village_building_cost
 	var refund = building_cost / 2
 
-	# Can only remove during actions phase
-	if current_phase != TurnPhase.ACTIONS:
-		print("Can only remove villages during the actions phase!")
-		return false
-
-	# Check if player has actions remaining
-	if current_player.actions_remaining <= 0:
-		print("No actions remaining to remove village!")
+	# Consume 1 action (validates phase and action count)
+	if not turn_manager.consume_action("remove village"):
 		return false
 
 	# Remove the village
@@ -370,188 +344,9 @@ func on_village_removed(q: int, r: int) -> bool:
 	# Give refund
 	current_player.add_resources(refund)
 
-	# Consume action (during actions phase)
-	if current_phase == TurnPhase.ACTIONS:
-		if not consume_action():
-			print("ERROR: Removed village but had no actions!")
-			return false
-
 	print("Removed village, received %d resources refund" % refund)
 
 	return true
-
-
-# ========== TURN SYSTEM METHODS (Extract to TurnManager later) ==========
-
-## Starts the harvest phase of the turn.
-## Determines available harvest types and shows UI or auto-harvests if only one option.
-func start_harvest_phase() -> void:
-	current_phase = TurnPhase.HARVEST
-
-	# Cancel any active placement mode when entering harvest phase
-	if placement_controller:
-		placement_controller.cancel_placement()
-
-	var harvest_types = _get_available_harvest_types()
-
-	print("=== HARVEST PHASE ===")
-	print("Available harvest types: %s" % [harvest_types])
-
-	if harvest_types.is_empty():
-		print("No villages to harvest from! Skipping to actions phase.")
-		current_phase = TurnPhase.ACTIONS
-		if ui:
-			ui.update_turn_phase(current_phase)
-		return
-
-	if harvest_types.size() == 1:
-		# Auto-harvest the only available type
-		print("Auto-harvesting %s (only option)" % TileManager.ResourceType.keys()[harvest_types[0]])
-		harvest(harvest_types[0])
-	else:
-		# Show harvest UI for player choice
-		if ui:
-			ui.show_harvest_options(harvest_types)
-
-
-## Gets the available harvest types based on player's villages.
-## Returns array of ResourceType enums that have at least one village.
-func _get_available_harvest_types() -> Array[int]:
-	var types: Array[int] = []
-	var villages = village_manager.get_villages_for_player(current_player)
-
-	# Count villages on each resource type
-	var type_counts = {
-		TileManager.ResourceType.RESOURCES: 0,
-		TileManager.ResourceType.FERVOR: 0,
-		TileManager.ResourceType.GLORY: 0
-	}
-
-	for village in villages:
-		var tile = tile_manager.get_tile_at(village.q, village.r)
-		if tile:
-			type_counts[tile.resource_type] += 1
-
-	# Add types that have at least one village
-	for type in type_counts:
-		if type_counts[type] > 0:
-			types.append(type)
-
-	return types
-
-
-## Harvests resources of the specified type from all player villages.
-## Adds the total yield to the player's resources/fervor/glory.
-## Transitions to actions phase after harvesting.
-func harvest(resource_type: int) -> void:
-	var villages = village_manager.get_villages_for_player(current_player)
-	var total = 0
-	var village_count = 0
-
-	for village in villages:
-		var tile = tile_manager.get_tile_at(village.q, village.r)
-		if tile and tile.resource_type == resource_type:
-			total += tile.yield_value
-			village_count += 1
-
-	# Add to player resources
-	match resource_type:
-		TileManager.ResourceType.RESOURCES:
-			current_player.add_resources(total)
-		TileManager.ResourceType.FERVOR:
-			current_player.add_fervor(total)
-		TileManager.ResourceType.GLORY:
-			current_player.add_glory(total)
-
-	print("Harvested %d %s from %d villages" % [
-		total,
-		TileManager.ResourceType.keys()[resource_type],
-		village_count
-	])
-
-	# Transition to actions phase
-	current_phase = TurnPhase.ACTIONS
-	print("=== ACTIONS PHASE ===")
-	print("Actions remaining: %d" % current_player.actions_remaining)
-
-	if ui:
-		ui.update_turn_phase(current_phase)
-
-
-## Consumes one action from the current player.
-## Returns true if action was consumed, false if no actions remaining.
-func consume_action() -> bool:
-	var success = current_player.consume_action()
-	if not success:
-		print("No actions remaining!")
-	else:
-		print("Action consumed. Remaining: %d" % current_player.actions_remaining)
-	return success
-
-
-## Ends the current turn and starts a new one.
-## Discards hand, draws new tiles, resets actions, and starts harvest phase.
-func end_turn() -> void:
-	print("=== END TURN ===")
-
-	# Cancel any active placement mode when ending turn
-	if placement_controller:
-		placement_controller.cancel_placement()
-
-	# Check for game end BEFORE discarding/drawing tiles
-	if tile_pool.is_empty() and not final_round_triggered:
-		final_round_triggered = true
-		triggering_player = current_player
-		print("=== FINAL ROUND TRIGGERED ===")
-		print("Tile bag is empty. This is the last turn.")
-		if ui:
-			ui.show_final_round_notification()
-
-	# Discard current hand (reset to empty slots)
-	for i in range(current_player.HAND_SIZE):
-		current_player.hand[i] = null
-
-	# Draw 3 new tiles (fills empty slots, if any remain)
-	current_player.draw_tiles(tile_pool, 3)
-
-	# Start new turn (gives +1 resource, +1 fervor, resets actions to 3)
-	current_player.start_turn()
-
-	# Reset to harvest phase
-	start_harvest_phase()
-
-	# Update UI (hand display only - signals handle the rest)
-	if ui:
-		ui.update_hand_display()
-
-	# Check if final round is complete (single player: end immediately after final turn)
-	if final_round_triggered:
-		_trigger_game_end()
-		return  # Don't print "New turn started" if game is over
-
-	print("New turn started!")
-
-
-## Triggers game end and displays victory screen.
-## Called when final round is complete.
-func _trigger_game_end() -> void:
-	game_ended = true
-	print("=== GAME OVER ===")
-
-	# Calculate final scores
-	var victory_mgr = VictoryManager.new()
-	var score_data = victory_mgr.calculate_player_score(
-		current_player, village_manager, tile_manager, self
-	)
-
-	# Show victory screen (array format for future multiplayer support)
-	if ui:
-		ui.show_victory_screen([{
-			"player": current_player,
-			"scores": score_data
-		}])
-
-# ========== END TURN SYSTEM ==========
 
 
 # Hexagonal coordinate conversion utilities
@@ -648,3 +443,19 @@ func get_axial_at_mouse(mouse_pos: Vector2) -> Vector2i:
 		return world_to_axial(hit_position)
 
 	return Vector2i(-999, -999)
+
+
+# Signal handlers for turn manager events
+
+## Called when turn phase changes (e.g., HARVEST -> ACTIONS)
+func _on_phase_changed(new_phase: int) -> void:
+	# Cancel any active placement when phase changes
+	if placement_controller:
+		placement_controller.cancel_placement()
+
+
+## Called when turn ends (before discarding/drawing)
+func _on_turn_ended() -> void:
+	# Cancel any active placement when turn ends
+	if placement_controller:
+		placement_controller.cancel_placement()

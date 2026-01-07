@@ -12,13 +12,13 @@
 1. **Verbose action validation** - This pattern repeats 4+ times:
 ```gdscript
 if current_phase != TurnPhase.ACTIONS:
-    print("Can only X during the actions phase!")
-    return
+	print("Can only X during the actions phase!")
+	return
 if current_player.actions_remaining <= 0:
-    print("No actions remaining!")
-    return
+	print("No actions remaining!")
+	return
 if not consume_action():
-    return
+	return
 ```
 
 2. **board_manager is too big** - 550+ lines, doing orchestration + turn flow + UI setup
@@ -56,9 +56,9 @@ if not consume_action():
 class_name TurnManager
 
 enum Phase {
-    SETUP,    # TODO: Initial tile/village placement (not implemented yet)
-    HARVEST,
-    ACTIONS
+	SETUP,    # TODO: Initial tile/village placement (not implemented yet)
+	HARVEST,
+	ACTIONS
 }
 
 var current_phase: Phase = Phase.HARVEST
@@ -78,35 +78,35 @@ signal game_ended()
 
 # Validation helpers (KEY IMPROVEMENT!)
 func can_perform_action(action_name: String = "action") -> bool:
-    if current_phase != Phase.ACTIONS:
-        print("Can only %s during actions phase!" % action_name)
-        return false
+	if current_phase != Phase.ACTIONS:
+		print("Can only %s during actions phase!" % action_name)
+		return false
 
-    if current_player.actions_remaining <= 0:
-        print("No actions remaining to %s!" % action_name)
-        return false
+	if current_player.actions_remaining <= 0:
+		print("No actions remaining to %s!" % action_name)
+		return false
 
-    return true
+	return true
 
 func consume_action(action_name: String = "action") -> bool:
-    if not can_perform_action(action_name):
-        return false
+	if not can_perform_action(action_name):
+		return false
 
-    if not current_player.consume_action():
-        print("ERROR: Failed to consume action for %s" % action_name)
-        return false
+	if not current_player.consume_action():
+		print("ERROR: Failed to consume action for %s" % action_name)
+		return false
 
-    return true
+	return true
 
 # Phase query helpers
 func is_setup_phase() -> bool:
-    return current_phase == Phase.SETUP
+	return current_phase == Phase.SETUP
 
 func is_harvest_phase() -> bool:
-    return current_phase == Phase.HARVEST
+	return current_phase == Phase.HARVEST
 
 func is_actions_phase() -> bool:
-    return current_phase == Phase.ACTIONS
+	return current_phase == Phase.ACTIONS
 ```
 
 ### Phase 2: Move Turn Logic (45 min)
@@ -145,17 +145,17 @@ turn_manager.turn_ended.connect(_on_turn_ended)
 ```gdscript
 # Before (5 lines):
 if current_phase != TurnPhase.ACTIONS:
-    print("Can only sell tiles during the actions phase!")
-    return
+	print("Can only sell tiles during the actions phase!")
+	return
 if current_player.actions_remaining <= 0:
-    print("No actions remaining to sell tile!")
-    return
+	print("No actions remaining to sell tile!")
+	return
 if not consume_action():
-    return
+	return
 
 # After (1 line):
 if not turn_manager.consume_action("sell tile"):
-    return
+	return
 ```
 
 **Update these functions:**

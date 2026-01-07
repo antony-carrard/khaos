@@ -453,7 +453,7 @@ func create_hand_card(hand_index: int, tile_def) -> void:
 	var can_place = true
 	var has_actions = true
 	if board_manager and board_manager.current_player:
-		var in_actions_phase = (board_manager.current_phase == board_manager.TurnPhase.ACTIONS)
+		var in_actions_phase = board_manager.turn_manager.is_actions_phase()
 		can_place = board_manager.current_player.can_place_tile(in_actions_phase)
 		# Check if player has actions (for selling)
 		if in_actions_phase:
@@ -597,7 +597,7 @@ func _on_sell_button_pressed(hand_index: int) -> void:
 
 func _on_end_turn_pressed() -> void:
 	if board_manager:
-		board_manager.end_turn()
+		board_manager.turn_manager.end_turn()
 
 
 ## Shows harvest option buttons based on available types
@@ -635,7 +635,7 @@ func show_harvest_options(available_types: Array[int]) -> void:
 
 func _on_harvest_button_pressed(resource_type: int) -> void:
 	if board_manager:
-		board_manager.harvest(resource_type)
+		board_manager.turn_manager.harvest(resource_type)
 
 
 func _get_resource_color(res_type: int) -> Color:
@@ -652,12 +652,12 @@ func _get_resource_color(res_type: int) -> Color:
 
 ## Updates UI based on current turn phase
 func update_turn_phase(phase: int) -> void:
-	if phase == 0:  # HARVEST phase
+	if phase == TurnManager.Phase.HARVEST:
 		if harvest_buttons_container:
 			harvest_buttons_container.visible = true
 		if actions_label:
 			actions_label.visible = false
-	else:  # ACTIONS phase
+	else:  # ACTIONS phase (or SETUP, which doesn't exist yet)
 		if harvest_buttons_container:
 			harvest_buttons_container.visible = false
 		if actions_label:

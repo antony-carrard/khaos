@@ -1,10 +1,24 @@
 # Implementation Status
 
-**Last Updated:** 2026-01-07 (Simplified tile economics)
+**Last Updated:** 2026-01-07 (TurnManager extraction)
 
 This document tracks detailed implementation progress and serves as context for continuing development.
 
 ## Recent Changes (2026-01-07)
+
+**TurnManager Extraction (Latest):**
+- **Extracted turn logic to dedicated TurnManager class** - moved ~170 lines from board_manager.gd
+- **board_manager.gd reduced** from 651 → 461 lines (29% reduction)
+- **Created turn_manager.gd** (247 lines) with clean Phase enum (SETUP/HARVEST/ACTIONS)
+- **Simplified action validation** - reduced 5-line checks to 1-line helper calls:
+  - `turn_manager.consume_action("action name")` handles phase + action validation
+  - Applied to: sell_tile, place_village, remove_village, place_tile
+- **Added validation helpers:** `can_perform_action()`, `is_harvest_phase()`, `is_actions_phase()`
+- **Signal-based architecture:** `phase_changed`, `turn_started`, `turn_ended`, `game_ended`
+- **Updated all references:** placement_controller.gd, tile_selector_ui.gd use turn_manager
+- **Result:** Cleaner separation of concerns, easier to extend for multiplayer/divine powers
+
+## Earlier Changes (2026-01-07)
 
 **Simplified Tile Economics:**
 - **Tiles are now FREE to place** - removed buy_price entirely, only consumes 1 action
@@ -64,15 +78,17 @@ This document tracks detailed implementation progress and serves as context for 
 - ✅ Return tile to bag (for starting tile selection)
 - ✅ Remaining count tracking
 
-**Turn System** (board_manager.gd - marked for extraction)
-- ✅ Turn phases (HARVEST, ACTIONS)
+**Turn System** (turn_manager.gd - extracted and complete!)
+- ✅ Turn phases (SETUP, HARVEST, ACTIONS) with Phase enum
 - ✅ Harvest phase with smart type detection
   - Auto-harvest if only one resource type available
   - Show choice UI if multiple types
 - ✅ Actions phase (3 actions per turn)
-- ✅ Action consumption on tile placement
+- ✅ Action validation helpers: `can_perform_action()`, `consume_action()`
+- ✅ Phase query helpers: `is_harvest_phase()`, `is_actions_phase()`
 - ✅ End turn flow (discard → draw 3 → reset actions → harvest)
 - ✅ Turn start bonus (+1 resource, +1 fervor)
+- ✅ Signal-based phase changes and turn events
 
 **User Interface** (tile_selector_ui.gd)
 - ✅ Hand display with visual tile cards
@@ -238,9 +254,14 @@ func show_village_sell_tooltip(visible: bool, amount: int = 0) -> void:
 ### Manager Organization
 ```
 board_manager (orchestrator)
-├── Owns: tile_manager, village_manager, placement_controller, tile_pool, player
-├── Handles: turn flow, harvest logic, action consumption
-└── TODO: Extract turn system to TurnManager class
+├── Owns: tile_manager, village_manager, placement_controller, tile_pool, turn_manager, player
+├── Handles: tile/village placement coordination, UI setup, scene initialization
+└── Delegates: turn flow to turn_manager
+
+turn_manager (turn flow)
+├── Owns: references to player, village_manager, tile_manager, tile_pool
+├── Handles: phase management, harvest logic, action validation, game end detection
+└── Emits: phase_changed, turn_started, turn_ended, game_ended signals
 ```
 
 ### UI Initialization Order
@@ -306,14 +327,8 @@ board_manager (orchestrator)
 
 ## 📝 Code Quality TODOs
 
-**Extraction Candidates:**
-```gdscript
-# board_manager.gd lines 181-312
-# ========== TURN SYSTEM (Extract to TurnManager later) ==========
-# ... turn phase logic ...
-# ========== END TURN SYSTEM ==========
-```
-This is already marked and ready to extract to `turn_manager.gd`
+**Completed Extractions:**
+- ✅ **TurnManager extracted** (2026-01-07) - Turn system now in dedicated turn_manager.gd class
 
 **Debug Logging:**
 - Consider creating Logger singleton (see README.md for pattern)
@@ -350,7 +365,7 @@ This is already marked and ready to extract to `turn_manager.gd`
 **Medium Tasks:**
 1. Implement first divine power (as template for others)
 2. Polish UI (disable end turn during harvest, better hover effects)
-3. Extract TurnManager class (marked in code)
+3. ✅ ~~Extract TurnManager class~~ (DONE)
 4. Add multiplayer player switching (see MULTIPLAYER_PLAN.md)
 
 **Best Starting Point:**
@@ -364,7 +379,7 @@ Start with **divine powers** - implement one god's powers as a template (e.g., B
 You have a **fully playable** turn-based hexagonal tile placement game with complete victory conditions. Players draw tiles from a 63-tile bag, place them on a hex grid, build villages, harvest resources/fervor/glory, and compete for the highest score. The game ends when the tile bag empties, triggering final scoring with detailed breakdowns including village points (by terrain), resource/fervor pairs, raw glory, and territory bonuses from contiguous village groups. VictoryManager uses flood-fill algorithm to find connected village clusters.
 
 **Code Quality:**
-Architecture is clean with manager pattern. Signal-based reactive UI is working well. New VictoryManager handles all scoring logic. Turn system is in board_manager but marked for extraction. Fixed-size hand array (3 slots with null) prevents UI shifting. Endgame system is multiplayer-ready (uses array format for scores). Per-tile village costs stored in TileDefinition allow design flexibility.
+Architecture is clean with manager pattern. **TurnManager successfully extracted** - turn logic now in dedicated class with Phase enum and validation helpers. Signal-based reactive UI is working well. VictoryManager handles all scoring logic. board_manager reduced by 29% (461 lines). Action validation simplified to 1-line helper calls. Fixed-size hand array (3 slots with null) prevents UI shifting. Endgame system is multiplayer-ready (uses array format for scores). Per-tile village costs stored in TileDefinition allow design flexibility.
 
 **What Works Well:**
 The game is now fully playable from start to finish! Core gameplay loop is solid. Victory screen provides comprehensive score breakdown. Territory calculation using BFS graph traversal works efficiently. Reactive signals prevent bugs. Action validation prevents confusing errors. Visual feedback is consistent and clear. Endgame notification keeps players informed.

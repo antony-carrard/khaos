@@ -217,7 +217,7 @@ func update_village_preview() -> void:
 
 				# Check actions
 				if player:
-					if board_manager.current_phase != board_manager.TurnPhase.ACTIONS:
+					if not board_manager.turn_manager.is_actions_phase():
 						is_valid = false
 					elif player.actions_remaining <= 0:
 						is_valid = false
@@ -304,7 +304,7 @@ func update_tile_preview() -> void:
 	if valid and selected_tile_def:
 		var player = board_manager.current_player
 		if player:
-			var in_actions_phase = (board_manager.current_phase == board_manager.TurnPhase.ACTIONS)
+			var in_actions_phase = board_manager.turn_manager.is_actions_phase()
 			if in_actions_phase and player.actions_remaining <= 0:
 				valid = false
 
