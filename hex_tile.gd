@@ -11,8 +11,8 @@ var tile_type: int = 0  # Stores TileManager.TileType value
 # Resource properties
 var resource_type: int = 0  # TileManager.ResourceType (RESOURCES/FERVOR/GLORY)
 var yield_value: int = 0    # How much this tile produces when harvested
-var buy_price: int = 0      # Cost in resources to place this tile
-var sell_price: int = 0     # Value when sold (0 if not sellable)
+var village_building_cost: int = 0  # Cost in resources to build a village on this tile
+var sell_price: int = 0     # Value when sold from hand (0 if not sellable)
 
 # Visual feedback
 var is_highlighted: bool = false
@@ -75,10 +75,10 @@ func update_visual() -> void:
 
 ## Sets the resource properties of this tile and updates the visual display.
 ## Creates icon mesh and value label if they don't exist.
-func set_resource_properties(res_type: int, yield_val: int, buy_val: int, sell_val: int, icon_path: String) -> void:
+func set_resource_properties(res_type: int, yield_val: int, village_cost: int, sell_val: int, icon_path: String) -> void:
 	resource_type = res_type
 	yield_value = yield_val
-	buy_price = buy_val
+	village_building_cost = village_cost
 	sell_price = sell_val
 
 	# Create icon mesh if it doesn't exist (flat quad on top of tile)

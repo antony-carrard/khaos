@@ -30,13 +30,6 @@ const TILE_TYPE_COLORS = {
 	TileType.MOUNTAIN: Color(0.5, 0.5, 0.5)   # Gray
 }
 
-# Village building costs by tile type (from rules.md lines 120-125)
-const VILLAGE_BUILDING_COSTS = {
-	TileType.PLAINS: 2,
-	TileType.HILLS: 4,
-	TileType.MOUNTAIN: 8
-}
-
 # Icon paths for resource types
 const RESOURCE_TYPE_ICONS = {
 	ResourceType.RESOURCES: "res://icons/wood.svg",
@@ -72,7 +65,7 @@ func initialize(tile_scene: PackedScene, _hex_size: float, _tile_height: float) 
 ## Returns true if placement succeeded, false if invalid placement.
 ## Emits tile_placed signal on success.
 func place_tile(q: int, r: int, tile_type: TileType, res_type: ResourceType = ResourceType.RESOURCES,
-				yield_val: int = 1, buy_val: int = 0, sell_val: int = 0) -> bool:
+				yield_val: int = 1, village_cost: int = 0, sell_val: int = 0) -> bool:
 	var height = TILE_TYPE_TO_HEIGHT[tile_type]
 
 	if not is_valid_placement(q, r, tile_type):
@@ -86,13 +79,13 @@ func place_tile(q: int, r: int, tile_type: TileType, res_type: ResourceType = Re
 
 	# Set resource properties with icon
 	var icon_path = RESOURCE_TYPE_ICONS[res_type]
-	tile.set_resource_properties(res_type, yield_val, buy_val, sell_val, icon_path)
+	tile.set_resource_properties(res_type, yield_val, village_cost, sell_val, icon_path)
 
 	var key = Vector3i(q, r, height)
 	placed_tiles[key] = tile
 
-	print("Placed %s tile at q=%d, r=%d, height=%d (Resource: %s, Yield: %d)" %
-		  [TileType.keys()[tile_type], q, r, height, ResourceType.keys()[res_type], yield_val])
+	print("Placed %s tile at q=%d, r=%d, height=%d (Resource: %s, Yield: %d, Village Cost: %d)" %
+		  [TileType.keys()[tile_type], q, r, height, ResourceType.keys()[res_type], yield_val, village_cost])
 	tile_placed.emit(q, r, height, tile_type)
 	return true
 

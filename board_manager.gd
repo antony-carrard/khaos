@@ -8,7 +8,7 @@ extends Node3D
 @export var hex_size: float = 1.0  # Distance from center to corner
 @export var tile_height: float = 0.3  # Height of each tile level
 @export var max_stack_height: int = 3  # Maximum tiles that can be stacked
-@export_enum("test", "game") var ui_mode: String = "game"  # UI mode: test (debug) or game (full)
+@export var test_mode: bool = false  # Test mode: unlimited resources/actions for testing
 
 # Manager components
 var tile_manager: TileManager
@@ -54,7 +54,10 @@ func _ready() -> void:
 	# Create player
 	current_player = Player.new()
 	add_child(current_player)
-	current_player.initialize("Player 1", 10, 10)  # Start with 0 resources/fervor
+	# Test mode: unlimited resources for design/testing. Normal: start with 0
+	var starting_resources = 999 if test_mode else 0
+	var starting_fervor = 999 if test_mode else 0
+	current_player.initialize("Player 1", starting_resources, starting_fervor)
 
 	# Cross-reference managers (for validation)
 	tile_manager.village_manager = village_manager
@@ -101,13 +104,16 @@ func _ready() -> void:
 			TileManager.ResourceType.keys()[first_tile.resource_type]
 		])
 		var success = tile_manager.place_tile(0, 0, first_tile.tile_type, first_tile.resource_type,
-								first_tile.yield_value, first_tile.buy_price, first_tile.sell_price)
+								first_tile.yield_value, first_tile.village_building_cost, first_tile.sell_price)
 		print("Initial tile placement success: %s" % success)
 	else:
 		push_error("Failed to draw PLAINS tile from pool!")
 
 	# Give player starting turn bonus and start harvest phase
 	current_player.start_turn()
+	# Test mode: unlimited actions for placing many tiles
+	if test_mode:
+		current_player.set_actions(999)
 	start_harvest_phase()
 
 	# Create UI
@@ -121,7 +127,7 @@ func setup_ui() -> void:
 	var ui_script = load("res://tile_selector_ui.gd")
 	ui = ui_script.new()
 	canvas_layer.add_child(ui)
-	ui.initialize(TileManager.TILE_TYPE_COLORS, self, ui_mode)
+	ui.initialize(TileManager.TILE_TYPE_COLORS, self)
 
 	# Connect UI signals to placement controller
 	ui.tile_type_selected.connect(placement_controller.select_tile_type)
@@ -131,21 +137,19 @@ func setup_ui() -> void:
 	ui.village_remove_selected.connect(placement_controller.select_village_remove_mode)
 
 	# Connect player signals to UI
-	if ui_mode == "game":
-		current_player.resources_changed.connect(ui.update_resources)
-		current_player.fervor_changed.connect(ui.update_fervor)
-		current_player.glory_changed.connect(ui.update_glory)
-		current_player.actions_changed.connect(ui.update_actions)
+	current_player.resources_changed.connect(ui.update_resources)
+	current_player.fervor_changed.connect(ui.update_fervor)
+	current_player.glory_changed.connect(ui.update_glory)
+	current_player.actions_changed.connect(ui.update_actions)
 
-	# Update displays (only in game mode)
-	if ui_mode == "game":
-		ui.update_hand_display()
-		ui.update_turn_phase(current_phase)  # Show/hide phase-specific UI
-		# Trigger initial signal emissions to update UI
-		current_player.resources_changed.emit(current_player.resources)
-		current_player.fervor_changed.emit(current_player.fervor)
-		current_player.glory_changed.emit(current_player.glory)
-		current_player.actions_changed.emit(current_player.actions_remaining)
+	# Update displays
+	ui.update_hand_display()
+	ui.update_turn_phase(current_phase)  # Show/hide phase-specific UI
+	# Trigger initial signal emissions to update UI
+	current_player.resources_changed.emit(current_player.resources)
+	current_player.fervor_changed.emit(current_player.fervor)
+	current_player.glory_changed.emit(current_player.glory)
+	current_player.actions_changed.emit(current_player.actions_remaining)
 
 
 ## Handle tile selection from hand
@@ -158,22 +162,17 @@ func _on_tile_selected_from_hand(hand_index: int) -> void:
 		print("No tile in this slot!")
 		return
 
-	# Check if player can afford and place it
+	# Check if player has actions during actions phase
 	var in_actions_phase = (current_phase == TurnPhase.ACTIONS)
-	if not current_player.can_place_tile(tile_def, ui_mode == "game", in_actions_phase):
-		if not current_player.can_afford_tile(tile_def):
-			print("Cannot afford tile! Need %d resources, have %d" % [
-				tile_def.buy_price, current_player.resources
-			])
-		elif ui_mode == "game" and in_actions_phase and current_player.actions_remaining <= 0:
-			print("No actions remaining to place tile!")
+	if in_actions_phase and current_player.actions_remaining <= 0:
+		print("No actions remaining to place tile!")
 		return
 
-	print("Selected tile from hand: %s %s (yield=%d, cost=%d)" % [
+	print("Selected tile from hand: %s %s (yield=%d, village_cost=%d)" % [
 		TileManager.TileType.keys()[tile_def.tile_type],
 		TileManager.ResourceType.keys()[tile_def.resource_type],
 		tile_def.yield_value,
-		tile_def.buy_price
+		tile_def.village_building_cost
 	])
 
 	# Enter placement mode with this specific tile
@@ -190,18 +189,13 @@ func on_tile_placed_from_hand(hand_index: int) -> void:
 		print("ERROR: No tile in this slot!")
 		return
 
-	# Spend resources
-	if not current_player.spend_resources(placed_tile.buy_price):
-		print("ERROR: Placed tile but couldn't afford it!")
-		return
-
-	# Consume action (only in game mode during actions phase)
-	if ui_mode == "game" and current_phase == TurnPhase.ACTIONS:
+	# Consume action (during actions phase)
+	if current_phase == TurnPhase.ACTIONS:
 		if not consume_action():
 			print("ERROR: Placed tile but had no actions!")
 			return
 
-	print("Consumed tile from hand: %s %s" % [
+	print("Placed tile from hand: %s %s" % [
 		TileManager.TileType.keys()[placed_tile.tile_type],
 		TileManager.ResourceType.keys()[placed_tile.resource_type]
 	])
@@ -223,7 +217,7 @@ func on_tile_placed_from_hand(hand_index: int) -> void:
 		print("Game Over! No tiles left in bag or hand.")
 
 	# Update UI to reflect hand changes
-	if ui and ui_mode == "game":
+	if ui:
 		ui.update_hand_display()
 
 
@@ -245,22 +239,20 @@ func sell_tile(hand_index: int) -> void:
 		print("Cannot sell this tile! Glory tiles cannot be sold.")
 		return
 
-	# In game mode, check phase and consume action
-	if ui_mode == "game":
-		# Can only sell during actions phase
-		if current_phase != TurnPhase.ACTIONS:
-			print("Can only sell tiles during the actions phase!")
-			return
+	# Can only sell during actions phase
+	if current_phase != TurnPhase.ACTIONS:
+		print("Can only sell tiles during the actions phase!")
+		return
 
-		# Check if player has actions remaining
-		if current_player.actions_remaining <= 0:
-			print("No actions remaining to sell tile!")
-			return
+	# Check if player has actions remaining
+	if current_player.actions_remaining <= 0:
+		print("No actions remaining to sell tile!")
+		return
 
-		# Consume 1 action
-		if not consume_action():
-			print("ERROR: Failed to consume action for selling tile!")
-			return
+	# Consume 1 action
+	if not consume_action():
+		print("ERROR: Failed to consume action for selling tile!")
+		return
 
 	# Give player resources
 	current_player.add_resources(tile.sell_price)
@@ -279,7 +271,7 @@ func sell_tile(hand_index: int) -> void:
 		placement_controller.cancel_placement()
 
 	# Update UI to reflect hand changes
-	if ui and ui_mode == "game":
+	if ui:
 		ui.update_hand_display()
 
 
@@ -293,25 +285,23 @@ func on_village_placed(q: int, r: int) -> bool:
 		print("ERROR: No tile at position for village placement!")
 		return false
 
-	# Get building cost based on tile type
-	var cost = TileManager.VILLAGE_BUILDING_COSTS[tile.tile_type]
+	# Get building cost from tile
+	var cost = tile.village_building_cost
 
 	# Check if player can afford it
 	if current_player.resources < cost:
 		print("Cannot afford village! Need %d resources, have %d" % [cost, current_player.resources])
 		return false
 
-	# In game mode, check phase and consume action
-	if ui_mode == "game":
-		# Can only build during actions phase
-		if current_phase != TurnPhase.ACTIONS:
-			print("Can only build villages during the actions phase!")
-			return false
+	# Can only build during actions phase
+	if current_phase != TurnPhase.ACTIONS:
+		print("Can only build villages during the actions phase!")
+		return false
 
-		# Check if player has actions remaining
-		if current_player.actions_remaining <= 0:
-			print("No actions remaining to build village!")
-			return false
+	# Check if player has actions remaining
+	if current_player.actions_remaining <= 0:
+		print("No actions remaining to build village!")
+		return false
 
 	# Attempt to place the village
 	var success = village_manager.place_village(q, r, current_player)
@@ -326,16 +316,13 @@ func on_village_placed(q: int, r: int) -> bool:
 		village_manager.remove_village(q, r)
 		return false
 
-	# Consume action (only in game mode during actions phase)
-	if ui_mode == "game" and current_phase == TurnPhase.ACTIONS:
+	# Consume action (during actions phase)
+	if current_phase == TurnPhase.ACTIONS:
 		if not consume_action():
 			print("ERROR: Placed village but had no actions!")
 			return false
 
-	print("Built village on %s tile for %d resources" % [
-		TileManager.TileType.keys()[tile.tile_type],
-		cost
-	])
+	print("Built village for %d resources" % cost)
 
 	return true
 
@@ -362,20 +349,18 @@ func on_village_removed(q: int, r: int) -> bool:
 		return false
 
 	# Calculate refund (half the building cost)
-	var building_cost = TileManager.VILLAGE_BUILDING_COSTS[tile.tile_type]
+	var building_cost = tile.village_building_cost
 	var refund = building_cost / 2
 
-	# In game mode, check phase and consume action
-	if ui_mode == "game":
-		# Can only remove during actions phase
-		if current_phase != TurnPhase.ACTIONS:
-			print("Can only remove villages during the actions phase!")
-			return false
+	# Can only remove during actions phase
+	if current_phase != TurnPhase.ACTIONS:
+		print("Can only remove villages during the actions phase!")
+		return false
 
-		# Check if player has actions remaining
-		if current_player.actions_remaining <= 0:
-			print("No actions remaining to remove village!")
-			return false
+	# Check if player has actions remaining
+	if current_player.actions_remaining <= 0:
+		print("No actions remaining to remove village!")
+		return false
 
 	# Remove the village
 	var success = village_manager.remove_village(q, r)
@@ -385,16 +370,13 @@ func on_village_removed(q: int, r: int) -> bool:
 	# Give refund
 	current_player.add_resources(refund)
 
-	# Consume action (only in game mode during actions phase)
-	if ui_mode == "game" and current_phase == TurnPhase.ACTIONS:
+	# Consume action (during actions phase)
+	if current_phase == TurnPhase.ACTIONS:
 		if not consume_action():
 			print("ERROR: Removed village but had no actions!")
 			return false
 
-	print("Removed village from %s tile, received %d resources refund" % [
-		TileManager.TileType.keys()[tile.tile_type],
-		refund
-	])
+	print("Removed village, received %d resources refund" % refund)
 
 	return true
 
@@ -418,7 +400,7 @@ func start_harvest_phase() -> void:
 	if harvest_types.is_empty():
 		print("No villages to harvest from! Skipping to actions phase.")
 		current_phase = TurnPhase.ACTIONS
-		if ui and ui_mode == "game":
+		if ui:
 			ui.update_turn_phase(current_phase)
 		return
 
@@ -428,7 +410,7 @@ func start_harvest_phase() -> void:
 		harvest(harvest_types[0])
 	else:
 		# Show harvest UI for player choice
-		if ui and ui_mode == "game":
+		if ui:
 			ui.show_harvest_options(harvest_types)
 
 
@@ -492,7 +474,7 @@ func harvest(resource_type: int) -> void:
 	print("=== ACTIONS PHASE ===")
 	print("Actions remaining: %d" % current_player.actions_remaining)
 
-	if ui and ui_mode == "game":
+	if ui:
 		ui.update_turn_phase(current_phase)
 
 
@@ -539,7 +521,7 @@ func end_turn() -> void:
 	start_harvest_phase()
 
 	# Update UI (hand display only - signals handle the rest)
-	if ui and ui_mode == "game":
+	if ui:
 		ui.update_hand_display()
 
 	# Check if final round is complete (single player: end immediately after final turn)

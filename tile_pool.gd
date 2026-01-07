@@ -10,14 +10,14 @@ class TileDefinition:
 	var tile_type: int  # TileManager.TileType
 	var resource_type: int  # TileManager.ResourceType
 	var yield_value: int
-	var buy_price: int
-	var sell_price: int
+	var village_building_cost: int  # Cost to build a village on this tile
+	var sell_price: int  # Resources gained when selling tile from hand
 
-	func _init(t_type: int, r_type: int, yield_val: int, buy_val: int, sell_val: int):
+	func _init(t_type: int, r_type: int, yield_val: int, village_cost: int, sell_val: int):
 		tile_type = t_type
 		resource_type = r_type
 		yield_value = yield_val
-		buy_price = buy_val
+		village_building_cost = village_cost
 		sell_price = sell_val
 
 # The tile bag (pool of available tiles)
@@ -33,7 +33,7 @@ func initialize() -> void:
 	removed_tiles.clear()
 
 	# PLAINS (28 total): 14 Resources + 14 Fervor
-	# yield=1, buy=2, sell=1
+	# yield=1, village_cost=2, sell=1
 	for i in range(14):
 		tile_bag.append(TileDefinition.new(
 			TileManager.TileType.PLAINS,
@@ -48,18 +48,18 @@ func initialize() -> void:
 		))
 
 	# HILLS (21 total): 9 Resources + 9 Fervor + 3 Glory
-	# yield=2, buy=4, sell=2 (glory sell=0)
+	# yield=2, village_cost=4, sell=1 (glory sell=0)
 	for i in range(9):
 		tile_bag.append(TileDefinition.new(
 			TileManager.TileType.HILLS,
 			TileManager.ResourceType.RESOURCES,
-			2, 4, 2
+			2, 4, 1
 		))
 	for i in range(9):
 		tile_bag.append(TileDefinition.new(
 			TileManager.TileType.HILLS,
 			TileManager.ResourceType.FERVOR,
-			2, 4, 2
+			2, 4, 1
 		))
 	for i in range(3):
 		tile_bag.append(TileDefinition.new(
@@ -69,18 +69,18 @@ func initialize() -> void:
 		))
 
 	# MOUNTAINS (14 total): 4 Resources + 4 Fervor + 6 Glory
-	# yield=4, buy=8, sell=4 (glory sell=0)
+	# yield=4, village_cost=8, sell=1 (glory sell=0)
 	for i in range(4):
 		tile_bag.append(TileDefinition.new(
 			TileManager.TileType.MOUNTAIN,
 			TileManager.ResourceType.RESOURCES,
-			4, 8, 4
+			4, 8, 1
 		))
 	for i in range(4):
 		tile_bag.append(TileDefinition.new(
 			TileManager.TileType.MOUNTAIN,
 			TileManager.ResourceType.FERVOR,
-			4, 8, 4
+			4, 8, 1
 		))
 	for i in range(6):
 		tile_bag.append(TileDefinition.new(
@@ -104,11 +104,11 @@ func draw_tile() -> TileDefinition:
 
 	var tile = tile_bag.pop_back()
 	removed_tiles.append(tile)
-	print("TilePool: Drew %s %s tile (yield=%d, buy=%d, sell=%d). Remaining: %d" % [
+	print("TilePool: Drew %s %s tile (yield=%d, village_cost=%d, sell=%d). Remaining: %d" % [
 		TileManager.ResourceType.keys()[tile.resource_type],
 		TileManager.TileType.keys()[tile.tile_type],
 		tile.yield_value,
-		tile.buy_price,
+		tile.village_building_cost,
 		tile.sell_price,
 		tile_bag.size()
 	])

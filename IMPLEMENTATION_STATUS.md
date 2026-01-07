@@ -1,8 +1,27 @@
 # Implementation Status
 
-**Last Updated:** 2026-01-04 (Endgame and victory system complete)
+**Last Updated:** 2026-01-07 (Simplified tile economics)
 
 This document tracks detailed implementation progress and serves as context for continuing development.
+
+## Recent Changes (2026-01-07)
+
+**Simplified Tile Economics:**
+- **Tiles are now FREE to place** - removed buy_price entirely, only consumes 1 action
+- **Unified sell price** - all non-Glory tiles sell for 1 resource (was varied 1-4)
+- **Per-tile village costs** - each tile stores its own village_building_cost instead of using per-type defaults
+  - Allows future design flexibility (e.g., high-yield mountains costing more to build on)
+  - Current defaults remain: Plains=2, Hills=4, Mountains=8
+- **UI simplified** - removed cost display and red "unaffordable" borders from hand cards
+
+**Cleaned Up Test Mode:**
+- **Removed `ui_mode` checks from game logic** - game rules are now consistent
+- **Added `@export var test_mode`** in board_manager - toggle in editor Inspector
+- **Test mode now affects ONLY starting conditions:**
+  - Normal: Start with 0 resources, 0 fervor, 3 actions per turn
+  - Test: Start with 999 resources, 999 fervor, 999 actions (for design/testing)
+- **Debug keyboard shortcuts (1/2/3 for quick tile placement)** guarded by `OS.is_debug_build()`
+- **Result:** Removed ~50 lines of scattered conditionals, much cleaner architecture
 
 ---
 
@@ -37,7 +56,10 @@ This document tracks detailed implementation progress and serves as context for 
   - 28 Plains (14 Resources, 14 Fervor)
   - 21 Hills (9 Resources, 9 Fervor, 3 Glory)
   - 14 Mountains (4 Resources, 4 Fervor, 6 Glory)
-- ✅ TileDefinition class (blueprint pattern)
+- ✅ TileDefinition class with per-tile properties:
+  - tile_type, resource_type, yield_value
+  - village_building_cost (per-tile, allows design flexibility)
+  - sell_price (resources gained when sold from hand)
 - ✅ Draw/shuffle mechanics
 - ✅ Return tile to bag (for starting tile selection)
 - ✅ Remaining count tracking
@@ -55,14 +77,13 @@ This document tracks detailed implementation progress and serves as context for 
 **User Interface** (tile_selector_ui.gd)
 - ✅ Hand display with visual tile cards
   - Color-coded by tile type
-  - Shows resource icon, yield, cost
-  - Grays out unaffordable tiles (red border)
+  - Shows resource icon and yield value
+  - Dims tiles when no actions available (gray border)
 - ✅ Resource panel (wood/pray/star icons with counts)
 - ✅ Turn phase UI
   - Harvest buttons (shows only available types)
   - Actions counter (visible only during actions phase)
   - End turn button
-- ✅ Test mode vs Game mode (ui_mode toggle)
 - ✅ Signal-connected reactive updates (no manual UI calls needed!)
 
 **Placement Controller** (placement_controller.gd)
@@ -77,24 +98,30 @@ This document tracks detailed implementation progress and serves as context for 
 - ✅ Initial hand of 3 tiles
 - ✅ Starting resources: 10 resources, 10 fervor (configurable)
 
-**Tile Selling** (board_manager.gd, tile_selector_ui.gd, player.gd)
-- ✅ Sell button on each hand card (green for sellable, gray disabled for Glory)
-- ✅ Sell tile from hand for resources (Plains=1, Hills=2, Mountains=4)
-- ✅ Glory tiles cannot be sold (sell_price = 0)
-- ✅ Costs 1 action during actions phase
-- ✅ Fixed-size hand array (3 slots) with null for empty slots
-- ✅ Tiles stay anchored to position when sold (no UI shifting)
-- ✅ Empty slot placeholders with disabled sell button
+**Tile Economics**
+- ✅ **Placing tiles is FREE** - no resource cost, only consumes 1 action
+- ✅ **Selling tiles** (board_manager.gd, tile_selector_ui.gd):
+  - Sell button on each hand card (green for sellable, gray disabled for Glory)
+  - All non-Glory tiles sell for 1 resource (unified pricing)
+  - Glory tiles cannot be sold (sell_price = 0)
+  - Costs 1 action during actions phase
+  - Fixed-size hand array (3 slots) with null for empty slots
+  - Tiles stay anchored to position when sold (no UI shifting)
+  - Empty slot placeholders with disabled sell button
 
-**Village Building Costs** (board_manager.gd, placement_controller.gd, tile_manager.gd)
-- ✅ Village building costs resources based on tile type (Plains=2, Hills=4, Mountains=8)
+**Village Building** (board_manager.gd, placement_controller.gd, hex_tile.gd)
+- ✅ **Per-tile village costs** stored in each tile (not per-type)
+  - Current defaults: Plains=2, Hills=4, Mountains=8
+  - Allows future design flexibility (e.g., high-yield tiles cost more)
 - ✅ Costs 1 action during actions phase
 - ✅ Preview shows red when player can't afford or has no actions
 - ✅ Preview shows red during harvest phase (can only build during actions)
 - ✅ Validation prevents placement without sufficient resources or actions
 
 **Village Selling/Removal** (board_manager.gd, placement_controller.gd, tile_selector_ui.gd)
-- ✅ Remove your own villages for half the building cost refund (Plains=1, Hills=2, Mountains=4)
+- ✅ Remove your own villages for half the building cost refund
+  - Refund calculated from tile's village_building_cost / 2
+  - Typical refunds: Plains=1, Hills=2, Mountains=4
 - ✅ Costs 1 action during actions phase
 - ✅ Mouse-following tooltip shows refund amount when hovering villages
 - ✅ Tooltip only appears in remove mode when hovering your own villages
@@ -102,15 +129,15 @@ This document tracks detailed implementation progress and serves as context for 
 - ✅ Guard clause pattern for clean early returns in preview code
 
 **Action Validation & UI Polish** (player.gd, board_manager.gd, placement_controller.gd, tile_selector_ui.gd)
-- ✅ `can_place_tile()` validates both resources AND actions
+- ✅ `can_place_tile()` validates actions only (tiles are free to place)
 - ✅ Prevents tile placement when actions exhausted
 - ✅ Preview shows red when no actions available
 - ✅ Black text outlines for better visibility (actions, resources, tile count)
 - ✅ Auto-disable village/tile buttons when out of actions
 - ✅ Consistent dimming for disabled tiles (text, icons, borders)
-- ✅ Visual feedback separation: red border = unaffordable, gray = no actions
-- ✅ Can sell tiles regardless of placement affordability (only requires actions)
-- ✅ No focus indicators on disabled/unaffordable buttons
+- ✅ Visual feedback: gray/dimmed when no actions available
+- ✅ Can sell tiles when you have actions available
+- ✅ No focus indicators on disabled buttons
 - ✅ Placement mode auto-cancels when phase changes
 
 **Endgame & Victory System** (victory_manager.gd, board_manager.gd, tile_selector_ui.gd)
@@ -226,9 +253,10 @@ board_manager (orchestrator)
 
 ## 🚧 Partially Implemented
 
-**Test Mode Shortcuts**
-- Keys 1/2/3 still work for free tile placement (debug only)
-- Should disable in production builds
+**Debug Features**
+- ✅ Keys 1/2/3 for quick tile placement (guarded by `OS.is_debug_build()`)
+- ✅ Test mode toggle (`@export var test_mode`) for unlimited resources
+- No remaining test/debug issues
 
 ---
 
@@ -336,7 +364,7 @@ Start with **divine powers** - implement one god's powers as a template (e.g., B
 You have a **fully playable** turn-based hexagonal tile placement game with complete victory conditions. Players draw tiles from a 63-tile bag, place them on a hex grid, build villages, harvest resources/fervor/glory, and compete for the highest score. The game ends when the tile bag empties, triggering final scoring with detailed breakdowns including village points (by terrain), resource/fervor pairs, raw glory, and territory bonuses from contiguous village groups. VictoryManager uses flood-fill algorithm to find connected village clusters.
 
 **Code Quality:**
-Architecture is clean with manager pattern. Signal-based reactive UI is working well. New VictoryManager handles all scoring logic. Turn system is in board_manager but marked for extraction. Fixed-size hand array (3 slots with null) prevents UI shifting. Endgame system is multiplayer-ready (uses array format for scores).
+Architecture is clean with manager pattern. Signal-based reactive UI is working well. New VictoryManager handles all scoring logic. Turn system is in board_manager but marked for extraction. Fixed-size hand array (3 slots with null) prevents UI shifting. Endgame system is multiplayer-ready (uses array format for scores). Per-tile village costs stored in TileDefinition allow design flexibility.
 
 **What Works Well:**
 The game is now fully playable from start to finish! Core gameplay loop is solid. Victory screen provides comprehensive score breakdown. Territory calculation using BFS graph traversal works efficiently. Reactive signals prevent bugs. Action validation prevents confusing errors. Visual feedback is consistent and clear. Endgame notification keeps players informed.

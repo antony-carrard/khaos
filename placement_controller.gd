@@ -27,8 +27,6 @@ var village_manager: VillageManager = null
 var camera: Camera3D = null
 var board_manager = null  # For coordinate conversion helpers
 
-# Debug mode
-var debug_mode: bool = OS.is_debug_build()
 
 # Initialization flag
 var is_ready: bool = false
@@ -81,7 +79,7 @@ func handle_mouse_input(event: InputEvent) -> void:
 							selected_tile_def.tile_type,
 							selected_tile_def.resource_type,
 							selected_tile_def.yield_value,
-							selected_tile_def.buy_price,
+							selected_tile_def.village_building_cost,
 							selected_tile_def.sell_price
 						)
 					else:
@@ -129,8 +127,8 @@ func handle_keyboard_input(event: InputEvent) -> void:
 			preview_village.visible = false
 		return
 
-	# Keyboard shortcuts (DEBUG ONLY - disabled in exported game)
-	if not debug_mode:
+	# Debug keyboard shortcuts (only in debug builds)
+	if not OS.is_debug_build():
 		return
 
 	if event.keycode == KEY_1:
@@ -210,15 +208,15 @@ func update_village_preview() -> void:
 		if is_valid and board_manager:
 			var tile = tile_manager.get_tile_at(q, r)
 			if tile:
-				var cost = TileManager.VILLAGE_BUILDING_COSTS[tile.tile_type]
+				var cost = tile.village_building_cost
 				var player = board_manager.current_player
 
 				# Check if player can afford it
 				if player and player.resources < cost:
 					is_valid = false
 
-				# In game mode, check actions
-				if player and board_manager.ui_mode == "game":
+				# Check actions
+				if player:
 					if board_manager.current_phase != board_manager.TurnPhase.ACTIONS:
 						is_valid = false
 					elif player.actions_remaining <= 0:
@@ -238,7 +236,7 @@ func update_village_preview() -> void:
 			if is_valid:
 				var tile = tile_manager.get_tile_at(q, r)
 				if tile:
-					var building_cost = TileManager.VILLAGE_BUILDING_COSTS[tile.tile_type]
+					var building_cost = tile.village_building_cost
 					var sell_refund = building_cost / 2  # Half price refund
 					board_manager.ui.show_village_sell_tooltip(true, sell_refund)
 			else:
@@ -302,12 +300,12 @@ func update_tile_preview() -> void:
 	# Check if placement is valid (grid rules)
 	var valid = tile_manager.is_valid_placement(q, r, current_tile_type)
 
-	# Also check if player can afford and has actions (in game mode)
-	if valid and board_manager.ui_mode == "game" and selected_tile_def:
+	# Also check if player has actions
+	if valid and selected_tile_def:
 		var player = board_manager.current_player
 		if player:
 			var in_actions_phase = (board_manager.current_phase == board_manager.TurnPhase.ACTIONS)
-			if not player.can_place_tile(selected_tile_def, true, in_actions_phase):
+			if in_actions_phase and player.actions_remaining <= 0:
 				valid = false
 
 	preview_tile.set_highlight(true, valid)

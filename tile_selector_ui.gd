@@ -29,8 +29,6 @@ var turn_phase_container: Control = null
 var village_place_button: Button = null
 var village_remove_button: Button = null
 
-# UI mode: "test" or "game"
-var ui_mode: String = "game"  # Default to game UI
 var debug_buttons_container: HBoxContainer = null
 
 # Mouse-following tooltip for village sell value
@@ -44,10 +42,9 @@ func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 
 
-func initialize(colors: Dictionary, _board_manager = null, mode: String = "game") -> void:
+func initialize(colors: Dictionary, _board_manager = null) -> void:
 	tile_type_colors = colors
 	board_manager = _board_manager
-	ui_mode = mode
 
 	# Container anchored to bottom of screen
 	var margin = MarginContainer.new()
@@ -69,116 +66,97 @@ func initialize(colors: Dictionary, _board_manager = null, mode: String = "game"
 	main_hbox.add_theme_constant_override("separation", 20)
 	margin.add_child(main_hbox)
 
-	if ui_mode == "game":
-		# GAME UI - Resource display on left
-		var resource_panel = create_resource_panel()
-		main_hbox.add_child(resource_panel)
+	# Resource display on left
+	var resource_panel = create_resource_panel()
+	main_hbox.add_child(resource_panel)
 
-		# Separator
-		var sep1 = Control.new()
-		sep1.custom_minimum_size = Vector2(15, 0)
-		main_hbox.add_child(sep1)
+	# Separator
+	var sep1 = Control.new()
+	sep1.custom_minimum_size = Vector2(15, 0)
+	main_hbox.add_child(sep1)
 
-		# Hand display in center
-		var hand_vbox = VBoxContainer.new()
-		hand_vbox.add_theme_constant_override("separation", 5)
-		main_hbox.add_child(hand_vbox)
+	# Hand display in center
+	var hand_vbox = VBoxContainer.new()
+	hand_vbox.add_theme_constant_override("separation", 5)
+	main_hbox.add_child(hand_vbox)
 
-		# Tile count label (above hand)
-		tile_count_label = Label.new()
-		tile_count_label.text = "Tiles: 63"
-		tile_count_label.add_theme_color_override("font_color", Color.WHITE)
-		tile_count_label.add_theme_color_override("font_outline_color", Color.BLACK)
-		tile_count_label.add_theme_constant_override("outline_size", 4)
-		tile_count_label.add_theme_font_size_override("font_size", 14)
-		tile_count_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		hand_vbox.add_child(tile_count_label)
+	# Tile count label (above hand)
+	tile_count_label = Label.new()
+	tile_count_label.text = "Tiles: 63"
+	tile_count_label.add_theme_color_override("font_color", Color.WHITE)
+	tile_count_label.add_theme_color_override("font_outline_color", Color.BLACK)
+	tile_count_label.add_theme_constant_override("outline_size", 4)
+	tile_count_label.add_theme_font_size_override("font_size", 14)
+	tile_count_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	hand_vbox.add_child(tile_count_label)
 
-		# Hand panel
-		var hand_panel = PanelContainer.new()
-		var hand_style = StyleBoxFlat.new()
-		hand_style.bg_color = Color(0.1, 0.1, 0.1, 0.8)
-		hand_style.corner_radius_top_left = 10
-		hand_style.corner_radius_top_right = 10
-		hand_style.corner_radius_bottom_left = 10
-		hand_style.corner_radius_bottom_right = 10
-		hand_panel.add_theme_stylebox_override("panel", hand_style)
-		hand_vbox.add_child(hand_panel)
+	# Hand panel
+	var hand_panel = PanelContainer.new()
+	var hand_style = StyleBoxFlat.new()
+	hand_style.bg_color = Color(0.1, 0.1, 0.1, 0.8)
+	hand_style.corner_radius_top_left = 10
+	hand_style.corner_radius_top_right = 10
+	hand_style.corner_radius_bottom_left = 10
+	hand_style.corner_radius_bottom_right = 10
+	hand_panel.add_theme_stylebox_override("panel", hand_style)
+	hand_vbox.add_child(hand_panel)
 
-		hand_container = HBoxContainer.new()
-		hand_container.add_theme_constant_override("separation", 10)
-		hand_panel.add_child(hand_container)
+	hand_container = HBoxContainer.new()
+	hand_container.add_theme_constant_override("separation", 10)
+	hand_panel.add_child(hand_container)
 
-		# Separator
-		var separator = Control.new()
-		separator.custom_minimum_size = Vector2(30, 0)
-		main_hbox.add_child(separator)
+	# Separator
+	var separator = Control.new()
+	separator.custom_minimum_size = Vector2(30, 0)
+	main_hbox.add_child(separator)
 
-		# Turn phase and actions panel (right side)
-		var right_vbox = VBoxContainer.new()
-		right_vbox.add_theme_constant_override("separation", 10)
-		main_hbox.add_child(right_vbox)
+	# Turn phase and actions panel (right side)
+	var right_vbox = VBoxContainer.new()
+	right_vbox.add_theme_constant_override("separation", 10)
+	main_hbox.add_child(right_vbox)
 
-		# Turn phase container (harvest buttons or actions display)
-		turn_phase_container = VBoxContainer.new()
-		turn_phase_container.add_theme_constant_override("separation", 8)
-		right_vbox.add_child(turn_phase_container)
+	# Turn phase container (harvest buttons or actions display)
+	turn_phase_container = VBoxContainer.new()
+	turn_phase_container.add_theme_constant_override("separation", 8)
+	right_vbox.add_child(turn_phase_container)
 
-		# Actions display (shown during actions phase)
-		actions_label = Label.new()
-		actions_label.text = "Actions: 3/3"
-		actions_label.add_theme_color_override("font_color", Color.WHITE)
-		actions_label.add_theme_color_override("font_outline_color", Color.BLACK)
-		actions_label.add_theme_constant_override("outline_size", 5)
-		actions_label.add_theme_font_size_override("font_size", 16)
-		actions_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		actions_label.visible = false
-		turn_phase_container.add_child(actions_label)
+	# Actions display (shown during actions phase)
+	actions_label = Label.new()
+	actions_label.text = "Actions: 3/3"
+	actions_label.add_theme_color_override("font_color", Color.WHITE)
+	actions_label.add_theme_color_override("font_outline_color", Color.BLACK)
+	actions_label.add_theme_constant_override("outline_size", 5)
+	actions_label.add_theme_font_size_override("font_size", 16)
+	actions_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	actions_label.visible = false
+	turn_phase_container.add_child(actions_label)
 
-		# Harvest buttons container (shown during harvest phase)
-		harvest_buttons_container = HBoxContainer.new()
-		harvest_buttons_container.add_theme_constant_override("separation", 10)
-		harvest_buttons_container.visible = false
-		turn_phase_container.add_child(harvest_buttons_container)
+	# Harvest buttons container (shown during harvest phase)
+	harvest_buttons_container = HBoxContainer.new()
+	harvest_buttons_container.add_theme_constant_override("separation", 10)
+	harvest_buttons_container.visible = false
+	turn_phase_container.add_child(harvest_buttons_container)
 
-		# Village buttons
-		var village_hbox = HBoxContainer.new()
-		village_hbox.add_theme_constant_override("separation", 10)
-		right_vbox.add_child(village_hbox)
+	# Village buttons
+	var village_hbox = HBoxContainer.new()
+	village_hbox.add_theme_constant_override("separation", 10)
+	right_vbox.add_child(village_hbox)
 
-		village_place_button = create_button_ref(village_hbox, "Place Village", Color(0.8, 0.5, 0.2), 130, _on_village_place_pressed)
-		village_remove_button = create_button_ref(village_hbox, "Remove Village", Color(0.7, 0.3, 0.2), 130, _on_village_remove_pressed)
+	village_place_button = create_button_ref(village_hbox, "Place Village", Color(0.8, 0.5, 0.2), 130, _on_village_place_pressed)
+	village_remove_button = create_button_ref(village_hbox, "Remove Village", Color(0.7, 0.3, 0.2), 130, _on_village_remove_pressed)
 
-		# End turn button
-		end_turn_button = Button.new()
-		end_turn_button.text = "End Turn"
-		end_turn_button.custom_minimum_size = Vector2(270, 40)
-		var end_turn_style = create_button_style(Color(0.2, 0.6, 0.8))
-		end_turn_button.add_theme_stylebox_override("normal", end_turn_style)
-		end_turn_button.add_theme_stylebox_override("hover", create_button_style(Color(0.3, 0.7, 0.9)))
-		end_turn_button.add_theme_stylebox_override("pressed", create_button_style(Color(0.15, 0.5, 0.7)))
-		end_turn_button.add_theme_color_override("font_color", Color.WHITE)
-		end_turn_button.add_theme_font_size_override("font_size", 18)
-		end_turn_button.pressed.connect(_on_end_turn_pressed)
-		right_vbox.add_child(end_turn_button)
-
-	elif ui_mode == "test":
-		# TEST UI - Debug tile placement buttons
-		debug_buttons_container = HBoxContainer.new()
-		debug_buttons_container.add_theme_constant_override("separation", 15)
-		main_hbox.add_child(debug_buttons_container)
-
-		create_button(debug_buttons_container, "Plains", tile_type_colors[0], 120, _on_tile_button_pressed.bind(0))
-		create_button(debug_buttons_container, "Hills", tile_type_colors[1], 120, _on_tile_button_pressed.bind(1))
-		create_button(debug_buttons_container, "Mountain", tile_type_colors[2], 120, _on_tile_button_pressed.bind(2))
-
-		# Separator
-		var separator = Control.new()
-		separator.custom_minimum_size = Vector2(30, 0)
-		debug_buttons_container.add_child(separator)
-
-		create_button(debug_buttons_container, "Place Village", Color(0.8, 0.5, 0.2), 140, _on_village_place_pressed)
-		create_button(debug_buttons_container, "Remove Village", Color(0.7, 0.3, 0.2), 140, _on_village_remove_pressed)
+	# End turn button
+	end_turn_button = Button.new()
+	end_turn_button.text = "End Turn"
+	end_turn_button.custom_minimum_size = Vector2(270, 40)
+	var end_turn_style = create_button_style(Color(0.2, 0.6, 0.8))
+	end_turn_button.add_theme_stylebox_override("normal", end_turn_style)
+	end_turn_button.add_theme_stylebox_override("hover", create_button_style(Color(0.3, 0.7, 0.9)))
+	end_turn_button.add_theme_stylebox_override("pressed", create_button_style(Color(0.15, 0.5, 0.7)))
+	end_turn_button.add_theme_color_override("font_color", Color.WHITE)
+	end_turn_button.add_theme_font_size_override("font_size", 18)
+	end_turn_button.pressed.connect(_on_end_turn_pressed)
+	right_vbox.add_child(end_turn_button)
 
 	# Create mouse-following village sell tooltip (works in both modes)
 	create_village_sell_tooltip()
@@ -471,19 +449,15 @@ func create_empty_card_placeholder() -> void:
 
 ## Create a visual card for a tile in the hand
 func create_hand_card(hand_index: int, tile_def) -> void:
-	# Check affordability and action availability separately
-	var can_afford_resources = true
+	# Check action availability
 	var can_place = true
 	var has_actions = true
 	if board_manager and board_manager.current_player:
 		var in_actions_phase = (board_manager.current_phase == board_manager.TurnPhase.ACTIONS)
-		can_afford_resources = board_manager.current_player.can_afford_tile(tile_def)
-		can_place = board_manager.current_player.can_place_tile(tile_def, board_manager.ui_mode == "game", in_actions_phase)
+		can_place = board_manager.current_player.can_place_tile(in_actions_phase)
 		# Check if player has actions (for selling)
-		if board_manager.ui_mode == "game" and in_actions_phase:
+		if in_actions_phase:
 			has_actions = board_manager.current_player.actions_remaining > 0
-		else:
-			has_actions = (board_manager.ui_mode != "game" or in_actions_phase)
 
 	# Container for card + sell button
 	var card_vbox = VBoxContainer.new()
@@ -495,13 +469,9 @@ func create_hand_card(hand_index: int, tile_def) -> void:
 	var card_style = StyleBoxFlat.new()
 	var tile_color = tile_type_colors[tile_def.tile_type]
 
-	# Visual feedback based on state
-	if not can_afford_resources:
-		# Can't afford resources - red border, very dark
-		card_style.bg_color = tile_color.darkened(0.6)
-		card_style.border_color = Color.RED
-	elif not can_place:
-		# Can afford but no actions - just darker, normal border
+	# Visual feedback based on actions
+	if not can_place:
+		# No actions - darker
 		card_style.bg_color = tile_color.darkened(0.5)
 		card_style.border_color = tile_color.darkened(0.2)
 	else:
@@ -577,28 +547,13 @@ func create_hand_card(hand_index: int, tile_def) -> void:
 	yield_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	vbox.add_child(yield_label)
 
-	# Buy price
-	var buy_label = Label.new()
-	buy_label.text = "Cost: %d" % tile_def.buy_price
-	# Yellow if can place, red if specifically can't afford resources, gray otherwise
-	if can_place:
-		buy_label.add_theme_color_override("font_color", Color.YELLOW)
-	elif not can_afford_resources:
-		buy_label.add_theme_color_override("font_color", Color.RED)
-	else:
-		# No actions - use same gray as other dimmed text
-		buy_label.add_theme_color_override("font_color", Color(0.5, 0.5, 0.5))
-	buy_label.add_theme_font_size_override("font_size", 10)
-	buy_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	vbox.add_child(buy_label)
-
 	# Make card clickable (invisible button overlay)
 	var button = Button.new()
 	button.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	button.flat = true
 	button.focus_mode = Control.FOCUS_NONE  # Prevent focus indicator
 	button.mouse_filter = Control.MOUSE_FILTER_PASS
-	button.disabled = not can_place  # Disable if can't place (resources or actions)
+	button.disabled = not can_place  # Disable if no actions
 	button.pressed.connect(_on_hand_card_pressed.bind(hand_index))
 	card.add_child(button)
 
