@@ -4,7 +4,7 @@ class_name TurnManager
 
 # Turn phase management
 enum Phase {
-	SETUP,    # TODO: Initial tile/village placement (not implemented yet)
+	SETUP,
 	HARVEST,
 	ACTIONS
 }
