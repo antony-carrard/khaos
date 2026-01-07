@@ -649,13 +649,13 @@ func create_empty_card_placeholder() -> void:
 ## Create a visual card for a tile in the hand
 func create_hand_card(hand_index: int, tile_def) -> void:
 	# Check action availability
-	var can_place = true
-	var has_actions = true
+	var can_place = false
+	var has_actions = false
 	if board_manager and board_manager.current_player:
 		var in_actions_phase = board_manager.turn_manager.is_actions_phase()
-		can_place = board_manager.current_player.can_place_tile(in_actions_phase)
-		# Check if player has actions (for selling)
+		# Can only place/sell tiles during actions phase
 		if in_actions_phase:
+			can_place = board_manager.current_player.actions_remaining > 0
 			has_actions = board_manager.current_player.actions_remaining > 0
 
 	# Container for card + sell button
@@ -869,12 +869,22 @@ func update_turn_phase(phase: int) -> void:
 				harvest_buttons_container.visible = true
 			if actions_label:
 				actions_label.visible = false
+			# Disable village buttons during harvest phase
+			if village_place_button:
+				village_place_button.disabled = true
+			if village_remove_button:
+				village_remove_button.disabled = true
 		TurnManager.Phase.ACTIONS:
 			# Show actions label, hide harvest buttons
 			if harvest_buttons_container:
 				harvest_buttons_container.visible = false
 			if actions_label:
 				actions_label.visible = true
+			# Re-enable village buttons during actions phase (will be disabled if no actions)
+			if village_place_button:
+				village_place_button.disabled = false
+			if village_remove_button:
+				village_remove_button.disabled = false
 
 
 ## Updates the actions display
