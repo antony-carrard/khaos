@@ -162,8 +162,13 @@ func _on_tile_selected_from_hand(hand_index: int) -> void:
 		print("No tile in this slot!")
 		return
 
-	# Check if player has actions during actions phase
-	if turn_manager.is_actions_phase() and current_player.actions_remaining <= 0:
+	# Can only place tiles during actions phase
+	if not turn_manager.is_actions_phase():
+		print("Can only place tiles during actions phase!")
+		return
+
+	# Check if player has actions remaining
+	if current_player.actions_remaining <= 0:
 		print("No actions remaining to place tile!")
 		return
 
@@ -188,11 +193,15 @@ func on_tile_placed_from_hand(hand_index: int) -> void:
 		print("ERROR: No tile in this slot!")
 		return
 
-	# Consume action (during actions phase)
-	if turn_manager.is_actions_phase():
-		if not turn_manager.consume_action("place tile"):
-			print("ERROR: Placed tile but had no actions!")
-			return
+	# Validate phase - can only place tiles during actions phase (setup uses different flow)
+	if not turn_manager.is_actions_phase():
+		print("ERROR: Can only place tiles during actions phase!")
+		return
+
+	# Consume action
+	if not turn_manager.consume_action("place tile"):
+		print("ERROR: Placed tile but had no actions!")
+		return
 
 	print("Placed tile from hand: %s %s" % [
 		TileManager.TileType.keys()[placed_tile.tile_type],
