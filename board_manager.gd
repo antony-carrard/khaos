@@ -79,43 +79,16 @@ func _ready() -> void:
 	add_child(placement_controller)
 	await placement_controller.initialize(tile_manager, village_manager, camera, self)
 
-	# Draw initial hand (3 tiles as per rules.md line 65)
-	print("Tile pool count before drawing hand: %d" % tile_pool.get_remaining_count())
-	current_player.draw_tiles(tile_pool, 3)
-	print("Tile pool count after drawing hand: %d" % tile_pool.get_remaining_count())
-	print("Player hand size: %d" % current_player.hand.size())
+	# Don't draw initial hand yet - happens after setup phase
+	# Don't place any tiles automatically - player places them in setup
+	print("Tile pool count at start: %d" % tile_pool.get_remaining_count())
 
-	# Place first tile from pool as a starting tile (must be PLAINS)
-	var first_tile = null
-	var attempts = 0
-	while first_tile == null or first_tile.tile_type != TileManager.TileType.PLAINS:
-		if first_tile != null:
-			# Put non-PLAINS tile back and shuffle
-			tile_pool.return_tile(first_tile)
-		first_tile = tile_pool.draw_tile()
-		attempts += 1
-		if attempts > 100:  # Safety check
-			push_error("Could not find PLAINS tile for starting position!")
-			break
-
-	print("Tile pool count after drawing starting tile: %d" % tile_pool.get_remaining_count())
-	if first_tile and first_tile.tile_type == TileManager.TileType.PLAINS:
-		print("Placing initial tile at (0,0): %s %s" % [
-			TileManager.TileType.keys()[first_tile.tile_type],
-			TileManager.ResourceType.keys()[first_tile.resource_type]
-		])
-		var success = tile_manager.place_tile(0, 0, first_tile.tile_type, first_tile.resource_type,
-								first_tile.yield_value, first_tile.village_building_cost, first_tile.sell_price)
-		print("Initial tile placement success: %s" % success)
-	else:
-		push_error("Failed to draw PLAINS tile from pool!")
-
-	# Give player starting turn bonus and start harvest phase
-	current_player.start_turn()
 	# Test mode: unlimited actions for placing many tiles
 	if test_mode:
 		current_player.set_actions(999)
-	turn_manager.start_harvest_phase()
+
+	# Start in SETUP phase (not harvest!)
+	turn_manager.start_setup_phase()
 
 	# Create UI
 	setup_ui()
@@ -134,6 +107,7 @@ func setup_ui() -> void:
 	ui.tile_type_selected.connect(placement_controller.select_tile_type)
 	ui.tile_selected_from_hand.connect(_on_tile_selected_from_hand)
 	ui.tile_sold_from_hand.connect(sell_tile)
+	ui.setup_tile_selected.connect(_on_setup_tile_selected)
 	ui.village_place_selected.connect(placement_controller.select_village_place_mode)
 	ui.village_remove_selected.connect(placement_controller.select_village_remove_mode)
 
@@ -154,6 +128,28 @@ func setup_ui() -> void:
 	current_player.fervor_changed.emit(current_player.fervor)
 	current_player.glory_changed.emit(current_player.glory)
 	current_player.actions_changed.emit(current_player.actions_remaining)
+
+
+## Handle setup tile selection during setup phase
+func _on_setup_tile_selected(setup_index: int) -> void:
+	if setup_index < 0 or setup_index >= current_player.setup_tiles.size():
+		return
+
+	var tile_def = current_player.setup_tiles[setup_index]
+	if tile_def == null:
+		print("No setup tile in this slot!")
+		return
+
+	print("Selected setup tile %d: %s %s (yield=%d, village_cost=%d)" % [
+		setup_index + 1,
+		TileManager.TileType.keys()[tile_def.tile_type],
+		TileManager.ResourceType.keys()[tile_def.resource_type],
+		tile_def.yield_value,
+		tile_def.village_building_cost
+	])
+
+	# Enter placement mode with this setup tile
+	placement_controller.select_tile_from_hand(setup_index, tile_def)
 
 
 ## Handle tile selection from hand

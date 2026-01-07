@@ -16,6 +16,10 @@ var glory: int = 0        # Victory points
 const HAND_SIZE: int = 3
 var hand: Array = [null, null, null]  # Array of TilePool.TileDefinition or null
 
+# Setup phase tiles (2 specific PLAINS tiles given at game start)
+var setup_tiles: Array = []  # Array of TilePool.TileDefinition
+var setup_tiles_placed: int = 0  # Track how many setup tiles have been placed (0, 1, or 2)
+
 # Placed villages (for later scoring/tracking)
 var placed_villages: Array = []
 
@@ -138,3 +142,39 @@ func consume_action() -> bool:
 ## Get current hand
 func get_hand() -> Array:
 	return hand
+
+
+## Initialize setup tiles by drawing 2 PLAINS tiles from the tile pool
+## Called at the start of the setup phase
+func initialize_setup_tiles(tile_pool) -> void:
+	setup_tiles.clear()
+	setup_tiles_placed = 0
+
+	# Draw 2 PLAINS tiles from the tile pool
+	var plains_drawn = 0
+	var attempts = 0
+	var max_attempts = 100  # Safety limit
+
+	while plains_drawn < 2 and attempts < max_attempts:
+		var tile = tile_pool.draw_tile()
+		attempts += 1
+
+		if tile == null:
+			push_error("Tile pool is empty! Cannot draw setup tiles.")
+			break
+
+		if tile.tile_type == TileManager.TileType.PLAINS:
+			setup_tiles.append(tile)
+			plains_drawn += 1
+			print("%s: Drew PLAINS %s tile for setup" % [
+				player_name,
+				TileManager.ResourceType.keys()[tile.resource_type]
+			])
+		else:
+			# Return non-PLAINS tile to pool
+			tile_pool.return_tile(tile)
+
+	if plains_drawn < 2:
+		push_error("Could not draw 2 PLAINS tiles for setup! Only got %d" % plains_drawn)
+
+	print("%s: Setup tiles initialized (%d PLAINS tiles)" % [player_name, plains_drawn])

@@ -89,11 +89,76 @@ func is_actions_phase() -> bool:
 	return current_phase == Phase.ACTIONS
 
 
+## Starts the setup phase of the game.
+## Player receives 2 PLAINS tiles and must place them one at a time with villages.
+func start_setup_phase() -> void:
+	current_phase = Phase.SETUP
+	phase_changed.emit(current_phase)
+
+	# Initialize player setup tiles (draws 2 PLAINS from tile pool)
+	current_player.initialize_setup_tiles(tile_pool)
+
+	# Show setup UI
+	if ui:
+		ui.show_setup_phase(current_player.setup_tiles)
+
+	print("=== SETUP PHASE ===")
+	print("Place your 2 starting tiles and villages")
+
+
+## Called when a setup tile is placed during setup phase.
+## Tracks progress and completes setup after 2 tiles are placed.
+func on_setup_tile_placed(setup_index: int) -> void:
+	if not is_setup_phase():
+		push_error("on_setup_tile_placed called outside of setup phase!")
+		return
+
+	# Remove the placed tile from setup tiles array
+	if setup_index >= 0 and setup_index < current_player.setup_tiles.size():
+		current_player.setup_tiles[setup_index] = null
+
+	# Increment counter
+	current_player.setup_tiles_placed += 1
+
+	print("Setup tile %d placed (%d/2)" % [setup_index + 1, current_player.setup_tiles_placed])
+
+	# Update UI to reflect the change
+	if ui:
+		ui.update_setup_tiles_display(current_player.setup_tiles)
+
+	# Check if setup complete (2 tiles placed)
+	if current_player.setup_tiles_placed >= 2:
+		complete_setup_phase()
+
+
+## Completes the setup phase.
+## Draws 3 tiles into hand and transitions to harvest phase.
+func complete_setup_phase() -> void:
+	print("=== SETUP COMPLETE ===")
+
+	# Draw 3 tiles from bag into hand
+	current_player.draw_tiles(tile_pool, 3)
+
+	# Give starting resources (for normal game start)
+	current_player.start_turn()  # +1 resource, +1 fervor, 3 actions
+
+	# Update UI to show the new hand
+	if ui:
+		ui.update_hand_display()
+
+	# Transition to harvest phase
+	start_harvest_phase()
+
+
 ## Starts the harvest phase of the turn.
 ## Determines available harvest types and shows UI or auto-harvests if only one option.
 func start_harvest_phase() -> void:
 	current_phase = Phase.HARVEST
 	phase_changed.emit(current_phase)
+
+	# Update UI to show harvest phase display (hides setup UI, shows hand)
+	if ui:
+		ui.update_turn_phase(current_phase)
 
 	var harvest_types = _get_available_harvest_types()
 

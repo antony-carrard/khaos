@@ -87,9 +87,20 @@ func handle_mouse_input(event: InputEvent) -> void:
 						success = tile_manager.place_tile(preview_position.x, preview_position.y, current_tile_type)
 
 					if success:
-						# Notify board manager to consume tile from hand
-						if selected_hand_index >= 0 and board_manager:
-							board_manager.on_tile_placed_from_hand(selected_hand_index)
+						# Setup phase: auto-place village (free!) and notify turn manager
+						if board_manager.turn_manager.is_setup_phase():
+							village_manager.place_village(
+								preview_position.x, preview_position.y,
+								board_manager.current_player
+							)
+							print("Auto-placed village during setup at (%d, %d)" % [preview_position.x, preview_position.y])
+
+							# Notify turn manager of setup tile placement
+							board_manager.turn_manager.on_setup_tile_placed(selected_hand_index)
+						else:
+							# Normal game: notify board manager to consume tile from hand
+							if selected_hand_index >= 0 and board_manager:
+								board_manager.on_tile_placed_from_hand(selected_hand_index)
 
 						placement_active = false
 						preview_tile.visible = false
