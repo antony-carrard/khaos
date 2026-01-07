@@ -874,6 +874,8 @@ func update_turn_phase(phase: int) -> void:
 				village_place_button.disabled = true
 			if village_remove_button:
 				village_remove_button.disabled = true
+			# Refresh hand display to disable tile cards and sell buttons
+			update_hand_display()
 		TurnManager.Phase.ACTIONS:
 			# Show actions label, hide harvest buttons
 			if harvest_buttons_container:
@@ -885,6 +887,8 @@ func update_turn_phase(phase: int) -> void:
 				village_place_button.disabled = false
 			if village_remove_button:
 				village_remove_button.disabled = false
+			# Refresh hand display to re-enable tile cards and sell buttons
+			update_hand_display()
 
 
 ## Updates the actions display
