@@ -285,6 +285,14 @@ turn_manager (turn flow)
 
 ### High Priority (Next Session)
 
+**Setup Phase** (rules.md lines 44-67)
+- Implement proper game initialization (see **SETUP_PHASE_PLAN.md**)
+- Give each player 2 specific PLAINS tiles (1 RESOURCES, 1 FERVOR)
+- Player places 2 tiles + villages (free, no resource cost)
+- Second tile must be adjacent to first
+- After setup: draw 3 tiles from bag, start harvest phase
+- **Current bug:** Game auto-places 1 random tile and skips setup entirely
+
 **UI Polish**
 - ✅ ~~Show tile pool remaining count~~ (DONE - shows above hand with color coding)
 - ✅ ~~Win condition & victory screen~~ (DONE - complete endgame system implemented)
@@ -369,7 +377,7 @@ turn_manager (turn flow)
 4. Add multiplayer player switching (see MULTIPLAYER_PLAN.md)
 
 **Best Starting Point:**
-Start with **divine powers** - implement one god's powers as a template (e.g., Bicéphales minor power: 4 actions next turn for 3 fervor). Then add god selection at game start.
+Start with **setup phase** - implement proper game initialization per rules.md (2 PLAINS tiles with villages). See **SETUP_PHASE_PLAN.md** for detailed implementation guide.
 
 ---
 

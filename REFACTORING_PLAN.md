@@ -1,8 +1,18 @@
 # TurnManager Extraction Plan
 
-**Status:** Ready to implement
-**Estimated Time:** 2 hours
+**Status:** ✅ COMPLETED (2026-01-07)
+**Actual Time:** ~2 hours
 **Objective:** Extract turn flow logic from board_manager.gd into dedicated TurnManager class
+
+**Result:** Successfully extracted! See commit a09da5d
+- board_manager.gd: 651 → 461 lines (29% reduction)
+- Created turn_manager.gd (247 lines)
+- Simplified action validation from 5 lines to 1 line
+- See IMPLEMENTATION_STATUS.md for full details
+
+---
+
+**NOTE:** This plan is now archived. For the next feature (Setup Phase), see **SETUP_PHASE_PLAN.md**
 
 ---
 
