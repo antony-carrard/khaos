@@ -93,25 +93,31 @@ func _calculate_village_points(player: Player, village_manager: VillageManager,
 
 ## Calculate territory bonus points from contiguous village groups.
 ## Uses flood-fill algorithm to find connected components.
+## Only the LARGEST group scores points (encourages consolidation strategy).
 func _calculate_territory_points(player: Player, village_manager: VillageManager,
                                  board_manager) -> Dictionary:
 	var groups = _find_contiguous_groups(player, village_manager, board_manager)
 	var total_points = 0
 	var breakdown = ""
 
-	# Sort groups by size (largest first) for cleaner display
+	# Sort groups by size (largest first)
 	groups.sort_custom(func(a, b): return a.size() > b.size())
 
-	# Calculate points for each group
-	for group in groups:
-		var size = group.size()
-		var points = _calculate_territory_score(size)
-		total_points += points
+	# Only score the largest group
+	if groups.size() > 0:
+		var largest_size = groups[0].size()
+		total_points = _calculate_territory_score(largest_size)
 
-		if points > 0 or size > 0:  # Show even 0-point groups in SIMPLE mode
-			breakdown += "  Group of %d: %d pts\n" % [size, points]
+		# Only show the largest cluster (the one that scores)
+		breakdown = "  Largest cluster: %d villages" % largest_size
 
-	if breakdown == "":
+		# Debug: Print all groups to console for balancing
+		if groups.size() > 1:
+			var all_sizes = []
+			for group in groups:
+				all_sizes.append(group.size())
+			print("Territory groups: %s (largest scores: %d pts)" % [all_sizes, total_points])
+	else:
 		breakdown = "  No territory bonuses"
 
 	return {
