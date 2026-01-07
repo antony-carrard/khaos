@@ -29,6 +29,11 @@ var current_player: Player = null
 enum TurnPhase { HARVEST, ACTIONS }
 var current_phase: TurnPhase = TurnPhase.HARVEST
 
+# Game end state
+var game_ended: bool = false
+var final_round_triggered: bool = false
+var triggering_player: Player = null
+
 
 func _ready() -> void:
 	# Create and initialize managers
@@ -511,11 +516,20 @@ func end_turn() -> void:
 	if placement_controller:
 		placement_controller.cancel_placement()
 
+	# Check for game end BEFORE discarding/drawing tiles
+	if tile_pool.is_empty() and not final_round_triggered:
+		final_round_triggered = true
+		triggering_player = current_player
+		print("=== FINAL ROUND TRIGGERED ===")
+		print("Tile bag is empty. This is the last turn.")
+		if ui:
+			ui.show_final_round_notification()
+
 	# Discard current hand (reset to empty slots)
 	for i in range(current_player.HAND_SIZE):
 		current_player.hand[i] = null
 
-	# Draw 3 new tiles (fills empty slots)
+	# Draw 3 new tiles (fills empty slots, if any remain)
 	current_player.draw_tiles(tile_pool, 3)
 
 	# Start new turn (gives +1 resource, +1 fervor, resets actions to 3)
@@ -528,7 +542,32 @@ func end_turn() -> void:
 	if ui and ui_mode == "game":
 		ui.update_hand_display()
 
+	# Check if final round is complete (single player: end immediately after final turn)
+	if final_round_triggered:
+		_trigger_game_end()
+		return  # Don't print "New turn started" if game is over
+
 	print("New turn started!")
+
+
+## Triggers game end and displays victory screen.
+## Called when final round is complete.
+func _trigger_game_end() -> void:
+	game_ended = true
+	print("=== GAME OVER ===")
+
+	# Calculate final scores
+	var victory_mgr = VictoryManager.new()
+	var score_data = victory_mgr.calculate_player_score(
+		current_player, village_manager, tile_manager, self
+	)
+
+	# Show victory screen (array format for future multiplayer support)
+	if ui:
+		ui.show_victory_screen([{
+			"player": current_player,
+			"scores": score_data
+		}])
 
 # ========== END TURN SYSTEM ==========
 

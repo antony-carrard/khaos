@@ -1,6 +1,6 @@
 # Implementation Status
 
-**Last Updated:** 2026-01-04 (Action validation and UI polish complete)
+**Last Updated:** 2026-01-04 (Endgame and victory system complete)
 
 This document tracks detailed implementation progress and serves as context for continuing development.
 
@@ -113,6 +113,21 @@ This document tracks detailed implementation progress and serves as context for 
 - ✅ No focus indicators on disabled/unaffordable buttons
 - ✅ Placement mode auto-cancels when phase changes
 
+**Endgame & Victory System** (victory_manager.gd, board_manager.gd, tile_selector_ui.gd)
+- ✅ Game end detection when tile bag empties (board_manager.gd:520-526)
+- ✅ Final round notification with fade-out animation (tile_selector_ui.gd:755-778)
+- ✅ All players complete current round before game ends (fair multiplayer)
+- ✅ Territory calculation using flood-fill algorithm (victory_manager.gd:121-157)
+- ✅ Configurable scoring formula (SIMPLE: n, LINEAR: n-1, PROGRESSIVE: (n-1)×n)
+- ✅ Complete score breakdown (villages, resources/fervor pairs, glory, territory)
+- ✅ Victory screen with detailed scoring display (tile_selector_ui.gd:781-1010)
+- ✅ Winner determination with tie handling
+- ✅ New Game button to restart (reloads scene)
+- ✅ Scoring per rules.md: 1pt/village on plains, 2pts hills, 3pts mountains
+- ✅ Resource/fervor pairs (floor division: 7 resources = 3 points)
+- ✅ Territory groups scored based on contiguous villages (BFS graph traversal)
+- ✅ Multiplayer-ready design (array-based score format)
+
 ---
 
 ## 🔧 Technical Decisions & Patterns
@@ -221,13 +236,9 @@ board_manager (orchestrator)
 
 ### High Priority (Next Session)
 
-**Win Condition**
-- Check glory threshold at turn end
-- Show victory screen
-- Glory target: TBD (30? 50?)
-
 **UI Polish**
 - ✅ ~~Show tile pool remaining count~~ (DONE - shows above hand with color coding)
+- ✅ ~~Win condition & victory screen~~ (DONE - complete endgame system implemented)
 - Better card hover effects
 - Disable end turn during harvest phase
 - Show "must harvest first" feedback
@@ -306,28 +317,29 @@ This is already marked and ready to extract to `turn_manager.gd`
 1. ✅ ~~Implement tile selling~~ (DONE)
 2. ✅ ~~Add village building cost~~ (DONE)
 3. ✅ ~~Fix action validation~~ (DONE)
-4. Implement end game detection and point counting
+4. ✅ ~~Implement end game detection and point counting~~ (DONE)
 
 **Medium Tasks:**
-4. Extract TurnManager class (marked in code)
-5. Implement first divine power (as template for others)
-6. Polish UI (disable end turn during harvest, better hover effects)
+1. Implement first divine power (as template for others)
+2. Polish UI (disable end turn during harvest, better hover effects)
+3. Extract TurnManager class (marked in code)
+4. Add multiplayer player switching (see MULTIPLAYER_PLAN.md)
 
 **Best Starting Point:**
-Start with **end game and victory system** - detect when tile bag is empty, calculate points per rules.md (villages, resource/fervor pairs, glory), show winner.
+Start with **divine powers** - implement one god's powers as a template (e.g., Bicéphales minor power: 4 actions next turn for 3 fervor). Then add god selection at game start.
 
 ---
 
 ## 📚 Context for New Sessions
 
 **Current State Summary:**
-You have a working turn-based hexagonal tile placement game with resource economy, villages, harvesting, tile selling, village building, and village removal. The player draws tiles from a shuffled 63-tile bag, spends resources to place them, sells unwanted tiles, builds villages (costing resources and actions), removes villages for refunds, and harvests resource types to generate more resources/fervor/glory. Action validation prevents invalid moves, and UI provides clear visual feedback for affordability and action availability.
+You have a **fully playable** turn-based hexagonal tile placement game with complete victory conditions. Players draw tiles from a 63-tile bag, place them on a hex grid, build villages, harvest resources/fervor/glory, and compete for the highest score. The game ends when the tile bag empties, triggering final scoring with detailed breakdowns including village points (by terrain), resource/fervor pairs, raw glory, and territory bonuses from contiguous village groups. VictoryManager uses flood-fill algorithm to find connected village clusters.
 
 **Code Quality:**
-Architecture is clean with manager pattern. Signal-based reactive UI is working well. Turn system is in board_manager but marked for extraction. Fixed-size hand array (3 slots with null) prevents UI shifting.
+Architecture is clean with manager pattern. Signal-based reactive UI is working well. New VictoryManager handles all scoring logic. Turn system is in board_manager but marked for extraction. Fixed-size hand array (3 slots with null) prevents UI shifting. Endgame system is multiplayer-ready (uses array format for scores).
 
 **What Works Well:**
-The core loop feels solid. Reactive signals prevent bugs. Tile validation is robust. Selling mechanics work smoothly with anchored hand positions. Village building/removal with costs, refunds, and preview validation follows clean patterns. Mouse-following tooltip provides great UX feedback. Action validation prevents confusing errors. Visual feedback is consistent and clear.
+The game is now fully playable from start to finish! Core gameplay loop is solid. Victory screen provides comprehensive score breakdown. Territory calculation using BFS graph traversal works efficiently. Reactive signals prevent bugs. Action validation prevents confusing errors. Visual feedback is consistent and clear. Endgame notification keeps players informed.
 
 **Next Focus:**
-Implement end game detection and victory point system, then add multiplayer support, then divine powers.
+Add divine powers (fervor spending for special abilities), then implement multiplayer player switching, then add god-specific abilities.
