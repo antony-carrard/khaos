@@ -25,13 +25,16 @@ var placed_villages: Array = []
 
 # Turn tracking
 var actions_remaining: int = 3  # For later: 3 actions per turn
+var max_actions_this_turn: int = 3  # Track max actions for display (includes bonuses)
 var next_turn_bonus_actions: int = 0  # For Bicéphallès' extra action power
+var used_powers_this_turn: Array[int] = []  # Track used powers (PowerType enums)
 
 # Signals
 signal resources_changed(new_amount: int)
 signal fervor_changed(new_amount: int)
 signal glory_changed(new_amount: int)
 signal actions_changed(new_amount: int)
+signal power_used(power_type: int)  # Emitted when a power is used
 
 
 ## Initialize player with starting resources
@@ -125,7 +128,11 @@ func start_turn() -> void:
 	# Apply bonus actions (e.g., Bicéphallès' power)
 	var total_actions = 3 + next_turn_bonus_actions
 	next_turn_bonus_actions = 0  # Reset bonus for next turn
+	max_actions_this_turn = total_actions  # Track max for display
 	set_actions(total_actions)
+
+	# Reset used powers for new turn
+	used_powers_this_turn.clear()
 
 	print("%s: Started turn. +1 resource, +1 fervor, %d actions" % [player_name, total_actions])
 
@@ -148,6 +155,19 @@ func consume_action() -> bool:
 ## Get the actual village building cost for a tile, accounting for god abilities
 func get_village_cost(base_cost: int) -> int:
 	return GodManager.get_village_cost(god, base_cost)
+
+
+## Check if a power has been used this turn
+func has_used_power(power_type: int) -> bool:
+	return used_powers_this_turn.has(power_type)
+
+
+## Mark a power as used this turn
+func mark_power_used(power_type: int) -> void:
+	if not used_powers_this_turn.has(power_type):
+		used_powers_this_turn.append(power_type)
+		power_used.emit(power_type)
+		print("%s: Marked power %d as used this turn" % [player_name, power_type])
 
 
 ## Get current hand

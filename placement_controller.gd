@@ -6,7 +6,8 @@ class_name PlacementController
 enum PlacementMode {
 	TILE,
 	VILLAGE_PLACE,
-	VILLAGE_REMOVE
+	VILLAGE_REMOVE,
+	STEAL_HARVEST  # For Rakun's power - select enemy village to steal harvest
 }
 
 # State
@@ -125,6 +126,18 @@ func handle_mouse_input(event: InputEvent) -> void:
 					if success:
 						placement_active = false
 
+			PlacementMode.STEAL_HARVEST:
+				var viewport = get_viewport()
+				if not viewport:
+					return
+				var mouse_pos = viewport.get_mouse_position()
+				var axial = board_manager.get_axial_at_mouse(mouse_pos)
+				if axial != Vector2i(-999, -999):
+					# Use board_manager to handle the steal
+					var success = board_manager.on_steal_harvest(axial.x, axial.y)
+					if success:
+						placement_active = false
+
 
 func handle_keyboard_input(event: InputEvent) -> void:
 	if not event is InputEventKey or not event.pressed:
@@ -161,7 +174,7 @@ func update_preview() -> void:
 		return
 
 	match current_mode:
-		PlacementMode.VILLAGE_PLACE, PlacementMode.VILLAGE_REMOVE:
+		PlacementMode.VILLAGE_PLACE, PlacementMode.VILLAGE_REMOVE, PlacementMode.STEAL_HARVEST:
 			update_village_preview()
 		PlacementMode.TILE:
 			update_tile_preview()
@@ -211,49 +224,67 @@ func update_village_preview() -> void:
 
 	# Update color based on validity
 	var is_valid = false
-	if current_mode == PlacementMode.VILLAGE_PLACE:
-		# Check basic placement validity
-		is_valid = not village_manager.has_village_at(q, r)
 
-		# Also check affordability and actions
-		if is_valid and board_manager:
-			var tile = tile_manager.get_tile_at(q, r)
-			if tile:
-				var player = board_manager.current_player
-				if player:
-					var cost = player.get_village_cost(tile.village_building_cost)
-					# Check if player can afford it
-					if player.resources < cost:
-						is_valid = false
+	match current_mode:
+		PlacementMode.VILLAGE_PLACE:
+			# Check basic placement validity
+			is_valid = not village_manager.has_village_at(q, r)
 
-				# Check actions
-				if player:
-					if not board_manager.turn_manager.is_actions_phase():
-						is_valid = false
-					elif player.actions_remaining <= 0:
-						is_valid = false
-
-		# Hide tooltip in place mode
-		if board_manager and board_manager.ui:
-			board_manager.ui.show_village_sell_tooltip(false)
-
-	else:  # VILLAGE_REMOVE
-		# Check if village exists and belongs to current player
-		var village = village_manager.get_village_at(q, r)
-		is_valid = village != null and village.player_owner == board_manager.current_player
-
-		# Show sell value tooltip when hovering your own village
-		if board_manager and board_manager.ui:
-			if is_valid:
+			# Also check affordability and actions
+			if is_valid and board_manager:
 				var tile = tile_manager.get_tile_at(q, r)
 				if tile:
 					var player = board_manager.current_player
 					if player:
-						var building_cost = player.get_village_cost(tile.village_building_cost)
-						var sell_refund = building_cost / 2  # Half price refund
-						board_manager.ui.show_village_sell_tooltip(true, sell_refund)
-			else:
+						var cost = player.get_village_cost(tile.village_building_cost)
+						# Check if player can afford it
+						if player.resources < cost:
+							is_valid = false
+
+					# Check actions
+					if player:
+						if not board_manager.turn_manager.is_actions_phase():
+							is_valid = false
+						elif player.actions_remaining <= 0:
+							is_valid = false
+
+			# Hide tooltip in place mode
+			if board_manager and board_manager.ui:
 				board_manager.ui.show_village_sell_tooltip(false)
+
+		PlacementMode.VILLAGE_REMOVE:
+			# Check if village exists and belongs to current player
+			var village = village_manager.get_village_at(q, r)
+			is_valid = village != null and village.player_owner == board_manager.current_player
+
+			# Show sell value tooltip when hovering your own village
+			if board_manager and board_manager.ui:
+				if is_valid:
+					var tile = tile_manager.get_tile_at(q, r)
+					if tile:
+						var player = board_manager.current_player
+						if player:
+							var building_cost = player.get_village_cost(tile.village_building_cost)
+							var sell_refund = building_cost / 2  # Half price refund
+							board_manager.ui.show_village_sell_tooltip(true, sell_refund)
+				else:
+					board_manager.ui.show_village_sell_tooltip(false)
+
+		PlacementMode.STEAL_HARVEST:
+			# Check if village exists and belongs to ENEMY player (not current player)
+			var village = village_manager.get_village_at(q, r)
+			is_valid = village != null and village.player_owner != board_manager.current_player
+
+			# Show harvest value tooltip when hovering enemy village
+			if board_manager and board_manager.ui:
+				if is_valid:
+					var tile = tile_manager.get_tile_at(q, r)
+					if tile:
+						var harvest_value = tile.yield_value
+						# Reuse tooltip to show harvest value
+						board_manager.ui.show_village_sell_tooltip(true, harvest_value)
+				else:
+					board_manager.ui.show_village_sell_tooltip(false)
 
 	village_manager.update_preview_color(preview_village, is_valid)
 
@@ -357,6 +388,13 @@ func select_village_place_mode() -> void:
 ## Shows village preview and waits for player to click to remove.
 func select_village_remove_mode() -> void:
 	current_mode = PlacementMode.VILLAGE_REMOVE
+	placement_active = true
+
+
+## Enters steal harvest mode (Rakun's power).
+## Shows village preview and waits for player to click enemy village.
+func select_steal_harvest_mode() -> void:
+	current_mode = PlacementMode.STEAL_HARVEST
 	placement_active = true
 
 

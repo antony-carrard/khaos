@@ -248,6 +248,26 @@ func harvest(resource_type: int) -> void:
 		ui.update_turn_phase(current_phase)
 
 
+## Triggers a second harvest (for Bicéphallès' power)
+## Shows harvest UI again without changing phase
+func trigger_second_harvest() -> void:
+	var harvest_types = _get_available_harvest_types()
+
+	if harvest_types.is_empty():
+		print("No villages to harvest from!")
+		return
+
+	if harvest_types.size() == 1:
+		# Auto-harvest the only available type
+		print("Auto-harvesting %s (only option)" % TileManager.ResourceType.keys()[harvest_types[0]])
+		harvest(harvest_types[0])
+	else:
+		# Show harvest UI for player choice
+		if ui:
+			ui.show_harvest_options(harvest_types)
+			print("Second harvest: Choose resource type to harvest")
+
+
 ## Ends the current turn and starts a new one.
 ## Discards hand, draws new tiles, resets actions, and starts harvest phase.
 func end_turn() -> void:

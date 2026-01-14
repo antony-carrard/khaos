@@ -123,6 +123,11 @@ static func create_rakun() -> God:
 ## Attempt to activate a power
 ## Returns true if successful, false if player can't afford or action fails
 func activate_power(power: GodPower, player, board_manager) -> bool:
+	# Check if power has already been used this turn
+	if player.has_used_power(power.power_type):
+		print("Power already used this turn!")
+		return false
+
 	# Check if player can afford fervor cost
 	if power.fervor_cost > 0 and player.fervor < power.fervor_cost:
 		print("Not enough fervor! Need %d, have %d" % [power.fervor_cost, player.fervor])
@@ -173,6 +178,9 @@ func activate_power(power: GodPower, player, board_manager) -> bool:
 			print("Power type not implemented: ", power.power_type)
 			return false
 
+	# Mark power as used this turn
+	player.mark_power_used(power.power_type)
+
 	print("Activated power: ", power.power_name)
 	return true
 
@@ -180,6 +188,32 @@ func activate_power(power: GodPower, player, board_manager) -> bool:
 func _power_is_free_action(power: GodPower) -> bool:
 	# Second harvest doesn't consume action (it's already in harvest phase logic)
 	return power.power_type == GodPower.PowerType.SECOND_HARVEST
+
+
+## Check if a power can be activated (for UI updates)
+## Returns true if all requirements are met
+func can_activate_power(power: GodPower, player, turn_manager) -> bool:
+	# Passive powers can't be activated
+	if power.is_passive:
+		return false
+
+	# Check if already used this turn
+	if player.has_used_power(power.power_type):
+		return false
+
+	# Check fervor cost
+	if power.fervor_cost > 0 and player.fervor < power.fervor_cost:
+		return false
+
+	# Check phase
+	if not turn_manager.is_actions_phase():
+		return false
+
+	# Check actions
+	if not _power_is_free_action(power) and player.actions_remaining <= 0:
+		return false
+
+	return true
 
 # ============================================================================
 # POWER IMPLEMENTATIONS
@@ -195,8 +229,12 @@ func _activate_extra_action(player) -> void:
 	print("Next turn will have 4 actions!")
 
 func _activate_second_harvest(player, board_manager) -> void:
-	# TODO: Trigger harvest UI again
-	print("TODO: Implement SECOND_HARVEST")
+	# Trigger harvest UI again (doesn't consume action, costs fervor only)
+	if board_manager.turn_manager:
+		board_manager.turn_manager.trigger_second_harvest()
+		print("Second harvest triggered!")
+	else:
+		push_error("Cannot trigger second harvest: turn_manager not found")
 
 func _activate_change_tile_type(player, board_manager) -> void:
 	# TODO: Enter mode to select own tile and change its resource type
@@ -207,8 +245,10 @@ func _activate_upgrade_tile_keep_village(player, board_manager) -> void:
 	print("TODO: Implement UPGRADE_TILE_KEEP_VILLAGE")
 
 func _activate_steal_harvest(player, board_manager) -> void:
-	# TODO: Enter mode to select enemy village and harvest from it
-	print("TODO: Implement STEAL_HARVEST")
+	# Enter steal harvest selection mode
+	if board_manager.placement_controller:
+		board_manager.placement_controller.select_steal_harvest_mode()
+		print("Steal harvest mode activated - click an enemy village")
 
 func _activate_downgrade_tile_keep_village(player, board_manager) -> void:
 	# TODO: Enter mode to downgrade tile (opposite of upgrade, keeps village)

@@ -49,3 +49,4 @@ shape = SubResource("WorldBoundaryShape3D_ground")
 
 [node name="BoardManager" type="Node3D" parent="."]
 script = ExtResource("1_k6p8v")
+test_mode = true

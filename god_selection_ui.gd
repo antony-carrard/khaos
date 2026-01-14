@@ -28,29 +28,28 @@ func _ready() -> void:
 	title.mouse_filter = Control.MOUSE_FILTER_IGNORE  # Allow clicks to pass through
 	add_child(title)
 
-	# Create god cards container (2x2 grid)
-	var grid = GridContainer.new()
-	grid.columns = 2
-	grid.add_theme_constant_override("h_separation", 40)
-	grid.add_theme_constant_override("v_separation", 40)
-	grid.anchor_left = 0.5
-	grid.anchor_top = 0.5
-	grid.anchor_right = 0.5
-	grid.anchor_bottom = 0.5
-	grid.offset_left = -500  # Center (grid is 1000px wide: 2 cards × 460 + 40 gap)
-	grid.offset_top = -350   # Center (grid is 700px tall: 2 cards × 600 + 40 gap)
-	grid.mouse_filter = Control.MOUSE_FILTER_IGNORE  # Allow clicks to pass through to cards
-	add_child(grid)
+	# Create god cards container (1x4 horizontal row)
+	var hbox = HBoxContainer.new()
+	hbox.alignment = BoxContainer.ALIGNMENT_CENTER
+	hbox.add_theme_constant_override("separation", 30)
+	hbox.anchor_left = 0.5
+	hbox.anchor_top = 0.5
+	hbox.anchor_right = 0.5
+	hbox.anchor_bottom = 0.5
+	hbox.offset_left = -845  # Center (total: 4×400 + 3×30 = 1690px)
+	hbox.offset_top = -280   # Center vertically
+	hbox.mouse_filter = Control.MOUSE_FILTER_IGNORE  # Allow clicks to pass through to cards
+	add_child(hbox)
 
 	# Create card for each god
 	for god in gods:
 		var card = create_god_card(god)
-		grid.add_child(card)
+		hbox.add_child(card)
 
 ## Create a clickable god card
 func create_god_card(god: God) -> Control:
 	var card = PanelContainer.new()
-	card.custom_minimum_size = Vector2(460, 600)
+	card.custom_minimum_size = Vector2(400, 500)  # Smaller cards for 1920x1080
 
 	# Style panel
 	var style = StyleBoxFlat.new()
@@ -89,7 +88,7 @@ func create_god_card(god: God) -> Control:
 
 	# God portrait
 	var portrait = TextureRect.new()
-	portrait.custom_minimum_size = Vector2(420, 280)
+	portrait.custom_minimum_size = Vector2(360, 240)  # Proportionally smaller
 	portrait.expand_mode = TextureRect.EXPAND_FIT_WIDTH_PROPORTIONAL
 	portrait.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	portrait.mouse_filter = Control.MOUSE_FILTER_IGNORE

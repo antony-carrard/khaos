@@ -387,6 +387,42 @@ func on_village_removed(q: int, r: int) -> bool:
 	return true
 
 
+## Handle steal harvest from enemy village (Rakun's power)
+## Adds the tile's yield to the player's resources/fervor/glory
+func on_steal_harvest(q: int, r: int) -> bool:
+	# Check if there's a village at this position
+	var village = village_manager.get_village_at(q, r)
+	if not village:
+		print("No village at position (%d, %d)" % [q, r])
+		return false
+
+	# Check if it's an enemy village (not owned by current player)
+	if village.player_owner == current_player:
+		print("Cannot steal from your own village!")
+		return false
+
+	# Get the tile to determine yield and resource type
+	var tile = tile_manager.get_tile_at(q, r)
+	if not tile:
+		print("ERROR: No tile at village position!")
+		return false
+
+	# Steal the harvest (add yield to player)
+	var harvest_value = tile.yield_value
+	match tile.resource_type:
+		TileManager.ResourceType.RESOURCES:
+			current_player.add_resources(harvest_value)
+			print("Stole %d resources from enemy village" % harvest_value)
+		TileManager.ResourceType.FERVOR:
+			current_player.add_fervor(harvest_value)
+			print("Stole %d fervor from enemy village" % harvest_value)
+		TileManager.ResourceType.GLORY:
+			current_player.add_glory(harvest_value)
+			print("Stole %d glory from enemy village" % harvest_value)
+
+	return true
+
+
 # Hexagonal coordinate conversion utilities
 
 ## Converts axial hex coordinates (q, r) and height to 3D world position.

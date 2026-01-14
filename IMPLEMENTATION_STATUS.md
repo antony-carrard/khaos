@@ -1,8 +1,60 @@
 # Implementation Status
 
-**Last Updated:** 2026-01-07 (Setup Phase Implementation)
+**Last Updated:** 2026-01-14 (Divine Powers Implementation)
 
 This document tracks detailed implementation progress and serves as context for continuing development.
+
+## Recent Changes (2026-01-14)
+
+**Divine Powers System (Latest):**
+- **Implemented data-driven god architecture** - god.gd, god_power.gd, god_manager.gd
+  - PowerType enum for all power types (active + passive)
+  - God class holds powers array
+  - GodManager centralizes all power logic and god definitions
+- **God selection UI at game start** - god_selection_ui.gd
+  - Full-screen overlay with 4 clickable god cards (1×4 horizontal layout)
+  - Shows god portraits, names, and power descriptions
+  - Cards resized to 400×500 to fit 1920×1080 resolution
+  - Fixed clickability with MOUSE_FILTER_IGNORE on all overlay elements
+- **In-game god display** - tile_selector_ui.gd
+  - God panel on left side of UI with horizontal layout (portrait+name left, powers right)
+  - Compact 350×120 god panel with vertically centered content
+  - Active powers (purple, clickable) vs passive (gray, disabled)
+  - Power buttons show fervor cost with SVG pray icon (matching tile button style)
+  - **Once-per-turn limitation** - powers can only be used once per turn
+  - **Dynamic button states** - automatically gray out when:
+    - Player can't afford fervor cost
+    - Power already used this turn
+    - Not in actions phase
+    - No actions remaining
+  - **Reactive UI updates** - connected to multiple signals:
+    - fervor_changed, power_used, actions_changed, phase_changed
+    - Buttons update immediately without "tick lag"
+  - Power buttons wired to god_manager.activate_power()
+- **Village cost refactoring** - player.gd
+  - Added `player.get_village_cost(base_cost)` helper method
+  - Encapsulates god ability modifications (e.g., Le Bâtisseur's flat cost)
+  - Applied in board_manager.gd and placement_controller.gd
+- **Bonus action tracking** - player.gd
+  - Added `max_actions_this_turn` field to track total actions including bonuses
+  - Actions display now shows correct max (e.g., "4/4" not "4/3" with Bicéphallès power)
+- **Resolution fix** - project.godot updated to 1920×1080
+- **Powers implemented:**
+  - ✅ **Le Bâtisseur passive** (FLAT_VILLAGE_COST) - All villages cost 4 resources
+  - ✅ **Bicéphallès EXTRA_ACTION** - Grant +1 action next turn (4 actions total)
+  - ✅ **Bicéphallès SECOND_HARVEST** - Trigger harvest UI again (doesn't consume action)
+  - ✅ **Rakun STEAL_HARVEST** - Click enemy village to steal its harvest
+	- Added STEAL_HARVEST placement mode to placement_controller.gd
+	- Preview shows green on enemy villages, shows yield in tooltip
+	- board_manager.on_steal_harvest() adds tile yield to player resources
+- **Powers remaining:**
+  - ⏳ DESTROY_VILLAGE_FREE (Le Bâtisseur) - Destroy enemy village without paying
+  - ⏳ CHANGE_TILE_TYPE (Augia) - Change resource type of own tiles
+  - ⏳ UPGRADE_TILE_KEEP_VILLAGE (Augia) - Upgrade without destroying village
+  - ⏳ DOWNGRADE_TILE_KEEP_VILLAGE (Rakun) - Downgrade without destroying village
+- **Files modified:** board_manager.gd, player.gd, placement_controller.gd, turn_manager.gd, tile_selector_ui.gd, project.godot
+- **Files created:** god.gd, god_power.gd, god_manager.gd, god_selection_ui.gd, gods/ (images)
+- **Result:** Complete god selection system with 4/8 powers fully functional
 
 ## Recent Changes (2026-01-07)
 
@@ -387,28 +439,34 @@ turn_manager (turn flow)
 3. ✅ ~~Fix action validation~~ (DONE)
 4. ✅ ~~Implement end game detection and point counting~~ (DONE)
 5. ✅ ~~Implement setup phase~~ (DONE)
+6. ✅ ~~Implement divine powers system~~ (DONE - 4/8 powers implemented)
+
+**High Priority (Remaining Powers):**
+1. 🔴 **DESTROY_VILLAGE_FREE** (Le Bâtisseur) - Selection mode for enemy villages, skip refund
+2. 🟡 **CHANGE_TILE_TYPE** (Augia) - Selection mode + mini UI to pick new resource type
+3. 🔴 **UPGRADE_TILE_KEEP_VILLAGE** (Augia) - Extend tile_manager to upgrade without destroying
+4. 🔴 **DOWNGRADE_TILE_KEEP_VILLAGE** (Rakun) - NEW MECHANIC - implement tile downgrade system
 
 **Medium Tasks:**
-1. Implement first divine power (as template for others)
-2. Polish UI (disable end turn during harvest, better hover effects)
-3. ✅ ~~Extract TurnManager class~~ (DONE)
-4. Add multiplayer player switching (see MULTIPLAYER_PLAN.md)
+1. Polish UI (disable end turn during harvest, better hover effects)
+2. Add multiplayer player switching (see MULTIPLAYER_PLAN.md)
+3. Test divine powers thoroughly for balance
 
 **Best Starting Point:**
-Start with **divine powers** - implement fervor spending for special abilities. Create a powers UI and implement 1-2 basic powers as templates for the rest.
+Continue with **remaining divine powers**. Start with DESTROY_VILLAGE_FREE (similar to STEAL_HARVEST pattern), then CHANGE_TILE_TYPE (needs UI), then the complex tile upgrade/downgrade powers.
 
 ---
 
 ## 📚 Context for New Sessions
 
 **Current State Summary:**
-You have a **fully playable** turn-based hexagonal tile placement game with complete victory conditions. **Game now starts with proper setup phase** - players place 2 PLAINS tiles with free villages, then draw 3 tiles and begin normal gameplay. Players harvest resources/fervor/glory from villages, place tiles (free, 1 action), build villages (costs resources + 1 action), and compete for the highest score. The game ends when the tile bag empties, triggering final scoring with detailed breakdowns including village points (by terrain), resource/fervor pairs, raw glory, and territory bonuses from contiguous village groups.
+You have a **fully playable** turn-based hexagonal tile placement game with **divine powers system**. Game starts with god selection (4 clickable cards), then proper setup phase (place 2 PLAINS tiles with free villages), then normal gameplay. Players harvest resources/fervor/glory from villages, place tiles (free, 1 action), build villages (costs resources + 1 action, modified by god abilities), and use divine powers (spend fervor for special abilities). The game ends when the tile bag empties, triggering final scoring. **4 out of 8 powers are fully functional** - Le Bâtisseur's passive (flat village cost), Bicéphallès' two powers (extra action, second harvest), and Rakun's steal harvest.
 
 **Code Quality:**
-Architecture is clean with manager pattern. **Setup phase fully implemented** - special UI with gold-bordered cards, auto-village placement, proper phase transitions. **TurnManager successfully extracted** - turn logic now in dedicated class with Phase enum (SETUP/HARVEST/ACTIONS) and validation helpers. Signal-based reactive UI is working well. VictoryManager handles all scoring logic. board_manager streamlined (removed auto-placement). Action validation simplified to 1-line helper calls. Fixed-size hand array (3 slots with null) prevents UI shifting. Endgame system is multiplayer-ready.
+Architecture is clean with **data-driven god system**. god_power.gd defines power types (enum), god.gd holds power collections, god_manager.gd centralizes all power logic. Player has god reference and `get_village_cost()` helper for god ability modifications. Placement controller supports multiple modes (TILE, VILLAGE_PLACE, VILLAGE_REMOVE, STEAL_HARVEST). God selection UI uses MOUSE_FILTER_IGNORE pattern for proper clickability. In-game UI shows god portrait and clickable power buttons. Signal-based reactive UI working well. All managers properly separated (TileManager, VillageManager, TurnManager, GodManager, VictoryManager).
 
 **What Works Well:**
-The game is now fully playable from start to finish following rules.md! Setup phase provides proper game initialization. Core gameplay loop is solid. Victory screen provides comprehensive score breakdown. Territory calculation using BFS graph traversal works efficiently. Reactive signals prevent bugs. Action validation prevents confusing errors. Visual feedback is consistent and clear. Setup UI transitions smoothly to normal game UI.
+God selection is intuitive and visual. Power buttons provide clear feedback (purple=active, gray=passive, shows cost). STEAL_HARVEST demonstrates the selection mode pattern perfectly - preview colors, tooltip shows harvest value, click to steal. SECOND_HARVEST reuses existing harvest UI seamlessly. Le Bâtisseur's passive applies transparently everywhere costs are checked. Resolution fixed to 1920×1080 with proper UI scaling.
 
 **Next Focus:**
-Add divine powers (fervor spending for special abilities), then implement multiplayer player switching, then add god-specific abilities.
+Complete remaining 4 divine powers (DESTROY_VILLAGE_FREE, CHANGE_TILE_TYPE, UPGRADE_TILE_KEEP_VILLAGE, DOWNGRADE_TILE_KEEP_VILLAGE), then implement multiplayer player switching.
