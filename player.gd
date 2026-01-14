@@ -4,7 +4,7 @@ class_name Player
 
 # Player identity
 var player_name: String = "Player 1"
-var god_type: int = 0  # For later: Bicéphales, Augia, Rakun, Le Bâtisseur
+var god: God = null  # Selected god with powers
 var player_color: Color = Color.BLUE
 
 # Resources (core game currencies)
@@ -25,6 +25,7 @@ var placed_villages: Array = []
 
 # Turn tracking
 var actions_remaining: int = 3  # For later: 3 actions per turn
+var next_turn_bonus_actions: int = 0  # For Bicéphallès' extra action power
 
 # Signals
 signal resources_changed(new_amount: int)
@@ -120,8 +121,13 @@ func remove_from_hand(index: int) -> bool:
 func start_turn() -> void:
 	add_resources(1)
 	add_fervor(1)
-	set_actions(3)
-	print("%s: Started turn. +1 resource, +1 fervor" % player_name)
+
+	# Apply bonus actions (e.g., Bicéphallès' power)
+	var total_actions = 3 + next_turn_bonus_actions
+	next_turn_bonus_actions = 0  # Reset bonus for next turn
+	set_actions(total_actions)
+
+	print("%s: Started turn. +1 resource, +1 fervor, %d actions" % [player_name, total_actions])
 
 
 ## Set actions remaining and emit signal
@@ -137,6 +143,11 @@ func consume_action() -> bool:
 	actions_remaining -= 1
 	actions_changed.emit(actions_remaining)
 	return true
+
+
+## Get the actual village building cost for a tile, accounting for god abilities
+func get_village_cost(base_cost: int) -> int:
+	return GodManager.get_village_cost(god, base_cost)
 
 
 ## Get current hand

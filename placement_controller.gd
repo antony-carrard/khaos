@@ -219,12 +219,12 @@ func update_village_preview() -> void:
 		if is_valid and board_manager:
 			var tile = tile_manager.get_tile_at(q, r)
 			if tile:
-				var cost = tile.village_building_cost
 				var player = board_manager.current_player
-
-				# Check if player can afford it
-				if player and player.resources < cost:
-					is_valid = false
+				if player:
+					var cost = player.get_village_cost(tile.village_building_cost)
+					# Check if player can afford it
+					if player.resources < cost:
+						is_valid = false
 
 				# Check actions
 				if player:
@@ -247,9 +247,11 @@ func update_village_preview() -> void:
 			if is_valid:
 				var tile = tile_manager.get_tile_at(q, r)
 				if tile:
-					var building_cost = tile.village_building_cost
-					var sell_refund = building_cost / 2  # Half price refund
-					board_manager.ui.show_village_sell_tooltip(true, sell_refund)
+					var player = board_manager.current_player
+					if player:
+						var building_cost = player.get_village_cost(tile.village_building_cost)
+						var sell_refund = building_cost / 2  # Half price refund
+						board_manager.ui.show_village_sell_tooltip(true, sell_refund)
 			else:
 				board_manager.ui.show_village_sell_tooltip(false)
 

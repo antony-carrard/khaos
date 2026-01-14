@@ -38,6 +38,11 @@ var debug_buttons_container: HBoxContainer = null
 var village_sell_tooltip: Label = null
 var village_sell_tooltip_panel: PanelContainer = null
 
+# God display
+var god_portrait: TextureRect = null
+var god_name_label: Label = null
+var god_power_buttons: Array[Button] = []  # Buttons for active powers
+
 
 func _ready() -> void:
 	# Full screen overlay that doesn't block mouse input to 3D scene
@@ -68,6 +73,15 @@ func initialize(colors: Dictionary, _board_manager = null) -> void:
 	main_hbox.alignment = BoxContainer.ALIGNMENT_CENTER
 	main_hbox.add_theme_constant_override("separation", 20)
 	margin.add_child(main_hbox)
+
+	# God display on far left
+	var god_panel = create_god_panel()
+	main_hbox.add_child(god_panel)
+
+	# Separator
+	var sep_god = Control.new()
+	sep_god.custom_minimum_size = Vector2(15, 0)
+	main_hbox.add_child(sep_god)
 
 	# Resource display on left
 	var resource_panel = create_resource_panel()
@@ -340,6 +354,62 @@ func create_resource_panel() -> PanelContainer:
 
 	# Glory row
 	glory_label = create_resource_row(vbox, "res://icons/star.svg", "0")
+
+	return panel
+
+
+## Create god display panel (portrait + powers)
+func create_god_panel() -> PanelContainer:
+	var panel = PanelContainer.new()
+	var style = StyleBoxFlat.new()
+	style.bg_color = Color(0.15, 0.15, 0.2, 0.95)
+	style.corner_radius_top_left = 10
+	style.corner_radius_top_right = 10
+	style.corner_radius_bottom_left = 10
+	style.corner_radius_bottom_right = 10
+	style.border_width_left = 2
+	style.border_width_top = 2
+	style.border_width_right = 2
+	style.border_width_bottom = 2
+	style.border_color = Color(0.6, 0.5, 0.3)  # Gold border
+	panel.add_theme_stylebox_override("panel", style)
+	panel.custom_minimum_size = Vector2(180, 140)
+	panel.mouse_filter = Control.MOUSE_FILTER_STOP  # Allow clicking power buttons
+
+	# Inner margin
+	var margin = MarginContainer.new()
+	margin.add_theme_constant_override("margin_left", 10)
+	margin.add_theme_constant_override("margin_right", 10)
+	margin.add_theme_constant_override("margin_top", 10)
+	margin.add_theme_constant_override("margin_bottom", 10)
+	panel.add_child(margin)
+
+	var vbox = VBoxContainer.new()
+	vbox.add_theme_constant_override("separation", 5)
+	margin.add_child(vbox)
+
+	# God portrait
+	god_portrait = TextureRect.new()
+	god_portrait.custom_minimum_size = Vector2(80, 80)
+	god_portrait.expand_mode = TextureRect.EXPAND_FIT_WIDTH_PROPORTIONAL
+	god_portrait.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	vbox.add_child(god_portrait)
+
+	# God name
+	god_name_label = Label.new()
+	god_name_label.text = "No God Selected"
+	god_name_label.add_theme_font_size_override("font_size", 14)
+	god_name_label.add_theme_color_override("font_color", Color(0.9, 0.8, 0.3))
+	god_name_label.add_theme_color_override("font_outline_color", Color.BLACK)
+	god_name_label.add_theme_constant_override("outline_size", 2)
+	god_name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	vbox.add_child(god_name_label)
+
+	# Power buttons container (will be populated when god is selected)
+	var powers_container = VBoxContainer.new()
+	powers_container.name = "PowersContainer"
+	powers_container.add_theme_constant_override("separation", 3)
+	vbox.add_child(powers_container)
 
 	return panel
 
@@ -1190,3 +1260,84 @@ func _create_button_style(bg_color: Color) -> StyleBoxFlat:
 ## Called when New Game button is pressed.
 func _on_new_game() -> void:
 	get_tree().reload_current_scene()
+
+
+## Update god display when player selects a god
+func update_god_display(god: God, god_manager: GodManager) -> void:
+	if not god:
+		return
+
+	# Update portrait
+	if god_portrait and ResourceLoader.exists(god.image_path):
+		god_portrait.texture = load(god.image_path)
+
+	# Update name
+	if god_name_label:
+		god_name_label.text = god.god_name
+
+	# Find powers container
+	var powers_container = null
+	for child in god_name_label.get_parent().get_children():
+		if child.name == "PowersContainer":
+			powers_container = child
+			break
+
+	if not powers_container:
+		push_error("PowersContainer not found in god panel")
+		return
+
+	# Clear existing power buttons
+	for button in god_power_buttons:
+		button.queue_free()
+	god_power_buttons.clear()
+
+	# Add power buttons for all powers (active and passive)
+	for power in god.powers:
+		var button = Button.new()
+		button.custom_minimum_size = Vector2(160, 0)
+		button.mouse_filter = Control.MOUSE_FILTER_STOP
+
+		# Power name and cost
+		var button_text = power.power_name
+		if power.fervor_cost > 0:
+			button_text += "\n(%d fervor)" % power.fervor_cost
+
+		button.text = button_text
+		button.add_theme_font_size_override("font_size", 11)
+
+		# Style based on power type
+		var style = StyleBoxFlat.new()
+		if power.is_passive:
+			# Passive - gray, disabled
+			style.bg_color = Color(0.3, 0.3, 0.3, 0.8)
+			button.disabled = true
+		else:
+			# Active - clickable
+			style.bg_color = Color(0.3, 0.2, 0.5, 0.9)
+			button.pressed.connect(_on_power_button_pressed.bind(power, god_manager))
+
+		style.corner_radius_top_left = 6
+		style.corner_radius_top_right = 6
+		style.corner_radius_bottom_left = 6
+		style.corner_radius_bottom_right = 6
+		button.add_theme_stylebox_override("normal", style)
+
+		powers_container.add_child(button)
+		god_power_buttons.append(button)
+
+	print("God display updated: %s" % god.god_name)
+
+
+## Handle power button press
+func _on_power_button_pressed(power: GodPower, god_manager: GodManager) -> void:
+	if not board_manager or not board_manager.current_player:
+		return
+
+	print("Attempting to activate power: %s" % power.power_name)
+
+	# Attempt to activate power
+	var success = god_manager.activate_power(power, board_manager.current_player, board_manager)
+
+	if not success:
+		print("Failed to activate power: %s" % power.power_name)
+		# TODO: Show error feedback to user

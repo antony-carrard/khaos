@@ -16,6 +16,7 @@ var village_manager: VillageManager
 var placement_controller: PlacementController
 var tile_pool: TilePool
 var turn_manager: TurnManager
+var god_manager: GodManager
 
 # UI
 var ui: Control = null
@@ -56,6 +57,10 @@ func _ready() -> void:
 	add_child(turn_manager)
 	turn_manager.initialize(current_player, village_manager, tile_manager, tile_pool, self)
 
+	# Create god manager
+	god_manager = GodManager.new()
+	add_child(god_manager)
+
 	# Connect turn manager signals
 	turn_manager.phase_changed.connect(_on_phase_changed)
 	turn_manager.turn_ended.connect(_on_turn_ended)
@@ -87,11 +92,39 @@ func _ready() -> void:
 	if test_mode:
 		current_player.set_actions(999)
 
+	# Show god selection UI before starting game
+	await show_god_selection()
+
 	# Start in SETUP phase (not harvest!)
 	turn_manager.start_setup_phase()
 
 	# Create UI
 	setup_ui()
+
+	# Update god display in UI
+	if current_player.god:
+		ui.update_god_display(current_player.god, god_manager)
+
+
+## Show god selection screen and wait for player to choose
+func show_god_selection() -> void:
+	# Create canvas layer for god selection UI
+	var canvas_layer = CanvasLayer.new()
+	add_child(canvas_layer)
+
+	# Create god selection UI
+	var god_selection_script = load("res://god_selection_ui.gd")
+	var god_selection_ui = god_selection_script.new()
+	god_selection_ui.set_anchors_preset(Control.PRESET_FULL_RECT)
+	canvas_layer.add_child(god_selection_ui)
+
+	# Wait for god selection
+	var selected_god = await god_selection_ui.god_selected
+	current_player.god = selected_god
+	print("Player selected: %s" % selected_god.god_name)
+
+	# Remove canvas layer (god selection UI will queue_free itself)
+	canvas_layer.queue_free()
 
 
 func setup_ui() -> void:
@@ -282,8 +315,8 @@ func on_village_placed(q: int, r: int) -> bool:
 		print("ERROR: No tile at position for village placement!")
 		return false
 
-	# Get building cost from tile
-	var cost = tile.village_building_cost
+	# Get building cost from tile (with god ability modification)
+	var cost = current_player.get_village_cost(tile.village_building_cost)
 
 	# Check if player can afford it
 	if current_player.resources < cost:
@@ -333,8 +366,8 @@ func on_village_removed(q: int, r: int) -> bool:
 		print("ERROR: No tile at village position!")
 		return false
 
-	# Calculate refund (half the building cost)
-	var building_cost = tile.village_building_cost
+	# Calculate refund (half the building cost, with god ability modification)
+	var building_cost = current_player.get_village_cost(tile.village_building_cost)
 	var refund = building_cost / 2
 
 	# Consume 1 action (validates phase and action count)

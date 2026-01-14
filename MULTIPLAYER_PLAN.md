@@ -41,10 +41,10 @@ var players: Array[Player] = []  # 2-4 players
 var current_player_index: int = 0
 
 func switch_to_next_player() -> void:
-    current_player_index = (current_player_index + 1) % players.size()
-    current_player = players[current_player_index]
-    # Emit signal for UI updates
-    player_changed.emit(current_player)
+	current_player_index = (current_player_index + 1) % players.size()
+	current_player = players[current_player_index]
+	# Emit signal for UI updates
+	player_changed.emit(current_player)
 ```
 
 **Turn Indicator UI**
@@ -102,8 +102,8 @@ func _on_join_pressed():
     go_to_game()
 
 func get_local_ip() -> String:
-    # Helper to show host's IP
-    return IP.get_local_addresses()[0]
+	# Helper to show host's IP
+	return IP.get_local_addresses()[0]
 ```
 
 **Game Logic Changes**
@@ -114,41 +114,41 @@ var is_host: bool = false
 var local_player_id: int = -1
 
 func _ready():
-    if multiplayer.multiplayer_peer:
-        is_multiplayer = true
-        is_host = multiplayer.is_server()
-        local_player_id = multiplayer.get_unique_id()
+	if multiplayer.multiplayer_peer:
+		is_multiplayer = true
+		is_host = multiplayer.is_server()
+		local_player_id = multiplayer.get_unique_id()
 
-        # Connect signals
-        multiplayer.peer_connected.connect(_on_peer_connected)
-        multiplayer.peer_disconnected.connect(_on_peer_disconnected)
+		# Connect signals
+		multiplayer.peer_connected.connect(_on_peer_connected)
+		multiplayer.peer_disconnected.connect(_on_peer_disconnected)
 
 # Example: Tile placement over network
 func place_tile_from_hand(hand_index: int):
-    if is_multiplayer and not is_host:
-        # Client sends action to host
-        rpc_id(1, "_host_place_tile", local_player_id, hand_index)
-    else:
-        # Host or local game executes directly
-        _execute_place_tile(hand_index)
+	if is_multiplayer and not is_host:
+		# Client sends action to host
+		rpc_id(1, "_host_place_tile", local_player_id, hand_index)
+	else:
+		# Host or local game executes directly
+		_execute_place_tile(hand_index)
 
 @rpc("any_peer", "call_remote", "reliable")
 func _host_place_tile(player_id: int, hand_index: int):
-    # Only host processes this
-    if not is_host:
-        return
+	# Only host processes this
+	if not is_host:
+		return
 
-    # Validate and execute
-    var player = get_player_by_network_id(player_id)
-    if player == current_player:
-        _execute_place_tile(hand_index)
-        # Broadcast state to all clients
-        rpc("_sync_game_state", get_game_state())
+	# Validate and execute
+	var player = get_player_by_network_id(player_id)
+	if player == current_player:
+		_execute_place_tile(hand_index)
+		# Broadcast state to all clients
+		rpc("_sync_game_state", get_game_state())
 
 @rpc("authority", "call_remote", "reliable")
 func _sync_game_state(state: Dictionary):
-    # All clients receive and apply state
-    apply_game_state(state)
+	# All clients receive and apply state
+	apply_game_state(state)
 ```
 
 ### Step 2: Choose NAT Traversal Solution
@@ -187,13 +187,13 @@ func _sync_game_state(state: Dictionary):
 ```gdscript
 # Support hostname:port format in join
 func _on_join_pressed():
-    var parts = ip_input.text.split(":")
-    var host = parts[0]
-    var port = int(parts[1]) if parts.size() > 1 else 7777
+	var parts = ip_input.text.split(":")
+	var host = parts[0]
+	var port = int(parts[1]) if parts.size() > 1 else 7777
 
-    var peer = ENetMultiplayerPeer.new()
-    peer.create_client(host, port)
-    multiplayer.multiplayer_peer = peer
+	var peer = ENetMultiplayerPeer.new()
+	peer.create_client(host, port)
+	multiplayer.multiplayer_peer = peer
 ```
 
 **Pros:**
@@ -267,7 +267,7 @@ import websockets
 clients = {}  # game_id -> set of websockets
 
 async def relay(websocket, path):
-    game_id = path.strip('/')
+	game_id = path.strip('/')
 
     if game_id not in clients:
         clients[game_id] = set()
@@ -340,18 +340,18 @@ Godot has WebRTC support: https://docs.godotengine.org/en/stable/classes/class_w
 func _host_place_tile(player_id: int, hand_index: int):
     var player = get_player_by_network_id(player_id)
 
-    # Validate it's their turn
-    if player != current_player:
-        return
+	# Validate it's their turn
+	if player != current_player:
+		return
 
-    # Validate they can afford it
-    var tile_def = player.hand[hand_index]
-    if not player.can_place_tile(tile_def, true, true):
-        return
+	# Validate they can afford it
+	var tile_def = player.hand[hand_index]
+	if not player.can_place_tile(tile_def, true, true):
+		return
 
-    # Execute and broadcast
-    _execute_place_tile(hand_index)
-    rpc("_sync_game_state", get_game_state())
+	# Execute and broadcast
+	_execute_place_tile(hand_index)
+	rpc("_sync_game_state", get_game_state())
 ```
 
 **Clients are display-only:**
