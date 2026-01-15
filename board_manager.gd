@@ -394,18 +394,24 @@ func on_steal_harvest(q: int, r: int) -> bool:
 	var village = village_manager.get_village_at(q, r)
 	if not village:
 		print("No village at position (%d, %d)" % [q, r])
+		current_player.pending_power = null  # Clear pending power on failure
 		return false
 
 	# Check if it's an enemy village (not owned by current player)
 	if village.player_owner == current_player:
 		print("Cannot steal from your own village!")
+		current_player.pending_power = null  # Clear pending power on failure
 		return false
 
 	# Get the tile to determine yield and resource type
 	var tile = tile_manager.get_tile_at(q, r)
 	if not tile:
 		print("ERROR: No tile at village position!")
+		current_player.pending_power = null  # Clear pending power on failure
 		return false
+
+	# Complete deferred power payment (spend fervor, consume action, mark as used)
+	god_manager.complete_deferred_power(current_player)
 
 	# Steal the harvest (add yield to player)
 	var harvest_value = tile.yield_value
@@ -430,12 +436,17 @@ func on_destroy_village_free(q: int, r: int) -> bool:
 	var village = village_manager.get_village_at(q, r)
 	if not village:
 		print("No village at position (%d, %d)" % [q, r])
+		current_player.pending_power = null  # Clear pending power on failure
 		return false
 
 	# Check if it's an enemy village (not owned by current player)
 	if village.player_owner == current_player:
 		print("Cannot destroy your own village with this power!")
+		current_player.pending_power = null  # Clear pending power on failure
 		return false
+
+	# Complete deferred power payment (spend fervor, consume action, mark as used)
+	god_manager.complete_deferred_power(current_player)
 
 	# Remove the village (no compensation - that's the power!)
 	var success = village_manager.remove_village(q, r)
@@ -443,6 +454,101 @@ func on_destroy_village_free(q: int, r: int) -> bool:
 		print("Destroyed enemy village at (%d, %d) with DESTROY_VILLAGE_FREE power" % [q, r])
 
 	return success
+
+
+## Show resource type selection UI for CHANGE_TILE_TYPE power
+## Displays UI with 3 buttons (RESOURCES, FERVOR, GLORY) to pick new type
+func show_resource_type_selection(q: int, r: int) -> void:
+	# Validate that there's a village at this position owned by current player
+	var village = village_manager.get_village_at(q, r)
+	if not village or village.player_owner != current_player:
+		print("Can only change tile type on your own villages!")
+		return
+
+	# Get the tile
+	var tile = tile_manager.get_tile_at(q, r)
+	if not tile:
+		print("ERROR: No tile at position!")
+		return
+
+	# Show UI to select resource type
+	if ui:
+		ui.show_resource_type_picker(q, r, tile.resource_type, tile.tile_type)
+
+
+## Handle tile resource type change (Augia's power)
+## Changes the resource type of the tile at the given position
+##
+## DESIGN NOTE: This power does NOT check if tiles of the target type exist in the tile pool.
+## This is an intentional digital convenience - the power always works after paying its cost
+## (2 fervor + 1 action). In the physical game, you would swap tiles from the bag, but requiring
+## tile pool checks here would create frustrating "paid but failed" scenarios. The power is
+## already balanced by its once-per-turn limitation and fervor cost.
+func on_change_tile_type(q: int, r: int, new_resource_type: int) -> bool:
+	# Validate village ownership
+	var village = village_manager.get_village_at(q, r)
+	if not village or village.player_owner != current_player:
+		print("Can only change tile type on your own villages!")
+		current_player.pending_power = null  # Clear pending power on failure
+		return false
+
+	# Get the tile
+	var tile = tile_manager.get_tile_at(q, r)
+	if not tile:
+		print("ERROR: No tile at position!")
+		current_player.pending_power = null  # Clear pending power on failure
+		return false
+
+	# Don't allow changing to the same type
+	if tile.resource_type == new_resource_type:
+		print("Tile is already %s type!" % TileManager.ResourceType.keys()[new_resource_type])
+		current_player.pending_power = null  # Clear pending power on failure
+		return false
+
+	# Validate that this resource type is valid for this tile type (no Glory on Plains!)
+	if not _is_valid_resource_type_for_tile(tile.tile_type, new_resource_type):
+		print("Cannot change to %s on a %s tile!" % [
+			TileManager.ResourceType.keys()[new_resource_type],
+			TileManager.TileType.keys()[tile.tile_type]
+		])
+		current_player.pending_power = null  # Clear pending power on failure
+		return false
+
+	# Complete deferred power payment (spend fervor, consume action, mark as used)
+	god_manager.complete_deferred_power(current_player)
+
+	# Change the tile's resource type
+	var old_type = tile.resource_type
+	var icon_path = TileManager.RESOURCE_TYPE_ICONS[new_resource_type]
+	tile.set_resource_properties(
+		new_resource_type,
+		tile.yield_value,
+		tile.village_building_cost,
+		tile.sell_price,
+		icon_path
+	)
+
+	print("Changed tile at (%d, %d) from %s to %s" % [
+		q, r,
+		TileManager.ResourceType.keys()[old_type],
+		TileManager.ResourceType.keys()[new_resource_type]
+	])
+
+	# Cancel placement mode
+	if placement_controller:
+		placement_controller.cancel_placement()
+
+	return true
+
+
+## Check if a resource type is valid for a tile type
+## Glory only exists on Hills and Mountains, not on Plains
+func _is_valid_resource_type_for_tile(tile_type: int, resource_type: int) -> bool:
+	# Glory tiles only exist on Hills (3 glory) and Mountains (6 glory)
+	# Plains can only be Resources or Fervor
+	if tile_type == TileManager.TileType.PLAINS and resource_type == TileManager.ResourceType.GLORY:
+		return false
+	return true
 
 
 # Hexagonal coordinate conversion utilities

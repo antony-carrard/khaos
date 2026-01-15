@@ -8,7 +8,8 @@ enum PlacementMode {
 	VILLAGE_PLACE,
 	VILLAGE_REMOVE,
 	STEAL_HARVEST,  # For Rakun's power - select enemy village to steal harvest
-	DESTROY_VILLAGE_FREE  # For Le Bâtisseur's power - destroy enemy village without compensation
+	DESTROY_VILLAGE_FREE,  # For Le Bâtisseur's power - destroy enemy village without compensation
+	CHANGE_TILE_TYPE  # For Augia's power - change resource type of own tiles
 }
 
 # State
@@ -135,6 +136,13 @@ func handle_mouse_input(event: InputEvent) -> void:
 					if success:
 						placement_active = false
 
+			PlacementMode.CHANGE_TILE_TYPE:
+				var axial = get_axial_at_mouse()
+				if axial != Vector2i(-999, -999):
+					# Show resource type selection UI
+					board_manager.show_resource_type_selection(axial.x, axial.y)
+					# Keep placement_active = true until resource type is selected
+
 
 func handle_keyboard_input(event: InputEvent) -> void:
 	if not event is InputEventKey or not event.pressed:
@@ -172,7 +180,8 @@ func update_preview() -> void:
 
 	match current_mode:
 		PlacementMode.VILLAGE_PLACE, PlacementMode.VILLAGE_REMOVE, \
-		PlacementMode.STEAL_HARVEST, PlacementMode.DESTROY_VILLAGE_FREE:
+		PlacementMode.STEAL_HARVEST, PlacementMode.DESTROY_VILLAGE_FREE, \
+		PlacementMode.CHANGE_TILE_TYPE:
 			update_village_preview()
 		PlacementMode.TILE:
 			update_tile_preview()
@@ -290,6 +299,16 @@ func update_village_preview() -> void:
 			is_valid = village != null and village.player_owner != board_manager.current_player
 
 			# No tooltip needed - destruction is free!
+			if board_manager and board_manager.ui:
+				board_manager.ui.show_village_sell_tooltip(false)
+
+		PlacementMode.CHANGE_TILE_TYPE:
+			# Check if tile exists and optionally has player's village on it
+			# Player can change any tile on the board that they own (has their village)
+			var village = village_manager.get_village_at(q, r)
+			is_valid = village != null and village.player_owner == board_manager.current_player
+
+			# No tooltip needed
 			if board_manager and board_manager.ui:
 				board_manager.ui.show_village_sell_tooltip(false)
 
@@ -412,6 +431,13 @@ func select_destroy_village_free_mode() -> void:
 	placement_active = true
 
 
+## Enters change tile type mode (Augia's power).
+## Shows village preview and waits for player to click their own village to change tile type.
+func select_change_tile_type_mode() -> void:
+	current_mode = PlacementMode.CHANGE_TILE_TYPE
+	placement_active = true
+
+
 ## Helper to get axial coordinates at current mouse position
 ## Returns Vector2i(-999, -999) if no valid position found
 func get_axial_at_mouse() -> Vector2i:
@@ -429,3 +455,7 @@ func cancel_placement() -> void:
 	preview_tile.visible = false
 	if preview_village:
 		preview_village.visible = false
+
+	# Clear pending power if player cancels selection-based power
+	if board_manager and board_manager.current_player:
+		board_manager.current_player.pending_power = null

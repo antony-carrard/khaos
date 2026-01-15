@@ -28,6 +28,7 @@ var actions_remaining: int = 3  # For later: 3 actions per turn
 var max_actions_this_turn: int = 3  # Track max actions for display (includes bonuses)
 var next_turn_bonus_actions: int = 0  # For Bicéphallès' extra action power
 var used_powers_this_turn: Array[int] = []  # Track used powers (PowerType enums)
+var pending_power = null  # Stores GodPower for deferred payment (selection-based powers)
 
 # Signals
 signal resources_changed(new_amount: int)

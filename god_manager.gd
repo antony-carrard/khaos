@@ -143,13 +143,25 @@ func activate_power(power: GodPower, player, board_manager) -> bool:
 		print("No actions remaining")
 		return false
 
-	# Spend fervor
-	if power.fervor_cost > 0:
-		player.spend_fervor(power.fervor_cost)
+	# Check if this power requires deferred payment (selection-based powers)
+	var deferred = _power_requires_deferred_payment(power)
 
-	# Consume action (unless it's a free action like SECOND_HARVEST)
-	if not _power_is_free_action(power):
-		player.consume_action()
+	# For immediate-effect powers, spend resources now
+	# For deferred powers, only validate - payment happens when action completes
+	if not deferred:
+		# Spend fervor
+		if power.fervor_cost > 0:
+			player.spend_fervor(power.fervor_cost)
+
+		# Consume action (unless it's a free action like SECOND_HARVEST)
+		if not _power_is_free_action(power):
+			player.consume_action()
+
+		# Mark power as used this turn
+		player.mark_power_used(power.power_type)
+	else:
+		# Store pending power info for deferred payment
+		player.pending_power = power
 
 	# Execute power effect
 	match power.power_type:
@@ -178,9 +190,6 @@ func activate_power(power: GodPower, player, board_manager) -> bool:
 			print("Power type not implemented: ", power.power_type)
 			return false
 
-	# Mark power as used this turn
-	player.mark_power_used(power.power_type)
-
 	print("Activated power: ", power.power_name)
 	return true
 
@@ -188,6 +197,45 @@ func activate_power(power: GodPower, player, board_manager) -> bool:
 func _power_is_free_action(power: GodPower) -> bool:
 	# Second harvest doesn't consume action (it's already in harvest phase logic)
 	return power.power_type == GodPower.PowerType.SECOND_HARVEST
+
+
+## Check if power requires deferred payment (selection-based powers)
+## Deferred powers only validate on button click, then pay when action completes
+func _power_requires_deferred_payment(power: GodPower) -> bool:
+	match power.power_type:
+		GodPower.PowerType.STEAL_HARVEST, \
+		GodPower.PowerType.DESTROY_VILLAGE_FREE, \
+		GodPower.PowerType.CHANGE_TILE_TYPE, \
+		GodPower.PowerType.UPGRADE_TILE_KEEP_VILLAGE, \
+		GodPower.PowerType.DOWNGRADE_TILE_KEEP_VILLAGE:
+			return true
+		_:
+			return false
+
+
+## Complete a deferred power payment (called when action is executed)
+## Spends fervor, consumes action, and marks power as used
+func complete_deferred_power(player) -> void:
+	if not player.pending_power:
+		return
+
+	var power = player.pending_power
+
+	# Spend fervor
+	if power.fervor_cost > 0:
+		player.spend_fervor(power.fervor_cost)
+
+	# Consume action (unless it's a free action)
+	if not _power_is_free_action(power):
+		player.consume_action()
+
+	# Mark power as used this turn
+	player.mark_power_used(power.power_type)
+
+	# Clear pending power
+	player.pending_power = null
+
+	print("Completed deferred power payment: %s" % power.power_name)
 
 
 ## Check if a power can be activated (for UI updates)
@@ -239,8 +287,10 @@ func _activate_second_harvest(player, board_manager) -> void:
 		push_error("Cannot trigger second harvest: turn_manager not found")
 
 func _activate_change_tile_type(player, board_manager) -> void:
-	# TODO: Enter mode to select own tile and change its resource type
-	print("TODO: Implement CHANGE_TILE_TYPE")
+	# Enter change tile type selection mode
+	if board_manager.placement_controller:
+		board_manager.placement_controller.select_change_tile_type_mode()
+		print("Change tile type mode activated - click your own village to change its tile type")
 
 func _activate_upgrade_tile_keep_village(player, board_manager) -> void:
 	# TODO: Enter mode to upgrade tile (like normal upgrade but keeps village)
