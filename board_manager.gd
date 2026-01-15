@@ -423,6 +423,28 @@ func on_steal_harvest(q: int, r: int) -> bool:
 	return true
 
 
+## Handle free village destruction (Le Bâtisseur's power)
+## Destroys enemy village without paying compensation
+func on_destroy_village_free(q: int, r: int) -> bool:
+	# Check if there's a village at this position
+	var village = village_manager.get_village_at(q, r)
+	if not village:
+		print("No village at position (%d, %d)" % [q, r])
+		return false
+
+	# Check if it's an enemy village (not owned by current player)
+	if village.player_owner == current_player:
+		print("Cannot destroy your own village with this power!")
+		return false
+
+	# Remove the village (no compensation - that's the power!)
+	var success = village_manager.remove_village(q, r)
+	if success:
+		print("Destroyed enemy village at (%d, %d) with DESTROY_VILLAGE_FREE power" % [q, r])
+
+	return success
+
+
 # Hexagonal coordinate conversion utilities
 
 ## Converts axial hex coordinates (q, r) and height to 3D world position.

@@ -220,8 +220,10 @@ func can_activate_power(power: GodPower, player, turn_manager) -> bool:
 # ============================================================================
 
 func _activate_destroy_village_free(player, board_manager) -> void:
-	# TODO: Enter special destroy mode (like remove_village but for enemies, no cost)
-	print("TODO: Implement DESTROY_VILLAGE_FREE")
+	# Enter destroy village selection mode
+	if board_manager.placement_controller:
+		board_manager.placement_controller.select_destroy_village_free_mode()
+		print("Destroy village mode activated - click an enemy village")
 
 func _activate_extra_action(player) -> void:
 	# Grant +1 action for next turn

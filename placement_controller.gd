@@ -7,7 +7,8 @@ enum PlacementMode {
 	TILE,
 	VILLAGE_PLACE,
 	VILLAGE_REMOVE,
-	STEAL_HARVEST  # For Rakun's power - select enemy village to steal harvest
+	STEAL_HARVEST,  # For Rakun's power - select enemy village to steal harvest
+	DESTROY_VILLAGE_FREE  # For Le Bâtisseur's power - destroy enemy village without compensation
 }
 
 # State
@@ -109,32 +110,28 @@ func handle_mouse_input(event: InputEvent) -> void:
 						selected_tile_def = null
 
 			PlacementMode.VILLAGE_PLACE, PlacementMode.VILLAGE_REMOVE:
-				var viewport = get_viewport()
-				if not viewport:
-					return
-				var mouse_pos = viewport.get_mouse_position()
-				var axial = board_manager.get_axial_at_mouse(mouse_pos)
+				var axial = get_axial_at_mouse()
 				if axial != Vector2i(-999, -999):
 					var success = false
 					if current_mode == PlacementMode.VILLAGE_PLACE:
-						# Use board_manager to handle costs and actions
 						success = board_manager.on_village_placed(axial.x, axial.y)
 					else:
-						# Use board_manager to handle refund and actions
 						success = board_manager.on_village_removed(axial.x, axial.y)
 
 					if success:
 						placement_active = false
 
 			PlacementMode.STEAL_HARVEST:
-				var viewport = get_viewport()
-				if not viewport:
-					return
-				var mouse_pos = viewport.get_mouse_position()
-				var axial = board_manager.get_axial_at_mouse(mouse_pos)
+				var axial = get_axial_at_mouse()
 				if axial != Vector2i(-999, -999):
-					# Use board_manager to handle the steal
 					var success = board_manager.on_steal_harvest(axial.x, axial.y)
+					if success:
+						placement_active = false
+
+			PlacementMode.DESTROY_VILLAGE_FREE:
+				var axial = get_axial_at_mouse()
+				if axial != Vector2i(-999, -999):
+					var success = board_manager.on_destroy_village_free(axial.x, axial.y)
 					if success:
 						placement_active = false
 
@@ -174,7 +171,8 @@ func update_preview() -> void:
 		return
 
 	match current_mode:
-		PlacementMode.VILLAGE_PLACE, PlacementMode.VILLAGE_REMOVE, PlacementMode.STEAL_HARVEST:
+		PlacementMode.VILLAGE_PLACE, PlacementMode.VILLAGE_REMOVE, \
+		PlacementMode.STEAL_HARVEST, PlacementMode.DESTROY_VILLAGE_FREE:
 			update_village_preview()
 		PlacementMode.TILE:
 			update_tile_preview()
@@ -286,6 +284,15 @@ func update_village_preview() -> void:
 				else:
 					board_manager.ui.show_village_sell_tooltip(false)
 
+		PlacementMode.DESTROY_VILLAGE_FREE:
+			# Check if village exists and belongs to ENEMY player
+			var village = village_manager.get_village_at(q, r)
+			is_valid = village != null and village.player_owner != board_manager.current_player
+
+			# No tooltip needed - destruction is free!
+			if board_manager and board_manager.ui:
+				board_manager.ui.show_village_sell_tooltip(false)
+
 	village_manager.update_preview_color(preview_village, is_valid)
 
 
@@ -396,6 +403,23 @@ func select_village_remove_mode() -> void:
 func select_steal_harvest_mode() -> void:
 	current_mode = PlacementMode.STEAL_HARVEST
 	placement_active = true
+
+
+## Enters destroy village free mode (Le Bâtisseur's power).
+## Shows village preview and waits for player to click enemy village to destroy.
+func select_destroy_village_free_mode() -> void:
+	current_mode = PlacementMode.DESTROY_VILLAGE_FREE
+	placement_active = true
+
+
+## Helper to get axial coordinates at current mouse position
+## Returns Vector2i(-999, -999) if no valid position found
+func get_axial_at_mouse() -> Vector2i:
+	var viewport = get_viewport()
+	if not viewport:
+		return Vector2i(-999, -999)
+	var mouse_pos = viewport.get_mouse_position()
+	return board_manager.get_axial_at_mouse(mouse_pos)
 
 
 ## Cancels any active placement mode.
