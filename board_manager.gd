@@ -456,6 +456,92 @@ func on_destroy_village_free(q: int, r: int) -> bool:
 	return success
 
 
+## Handle tile upgrade (Augia's power)
+## Upgrades the tile at the given position while preserving the village
+func on_upgrade_tile(q: int, r: int) -> bool:
+	# Check if there's a village at this position
+	var village = village_manager.get_village_at(q, r)
+	if not village:
+		print("No village at position (%d, %d)" % [q, r])
+		current_player.pending_power = null  # Clear pending power on failure
+		return false
+
+	# Check if it's the player's own village
+	if village.player_owner != current_player:
+		print("Can only upgrade your own villages!")
+		current_player.pending_power = null  # Clear pending power on failure
+		return false
+
+	# Get the tile to check if it can be upgraded
+	var tile = tile_manager.get_tile_at(q, r)
+	if not tile:
+		print("ERROR: No tile at position!")
+		current_player.pending_power = null
+		return false
+
+	if tile.tile_type == TileManager.TileType.MOUNTAIN:
+		print("Cannot upgrade MOUNTAIN - already at max level")
+		current_player.pending_power = null
+		return false
+
+	# Complete deferred power payment (spend fervor, consume action, mark as used)
+	god_manager.complete_deferred_power(current_player)
+
+	# Upgrade the tile (preserves resource properties)
+	var success = tile_manager.upgrade_tile(q, r)
+	if success:
+		# Update village position to match new tile height
+		var new_height = tile_manager.get_top_height(q, r)
+		var world_pos = axial_to_world(q, r, new_height)
+		village.global_position = world_pos + Vector3(0, tile_manager.tile_height / 2, 0)
+		print("Upgraded tile at (%d, %d) with UPGRADE_TILE_KEEP_VILLAGE power" % [q, r])
+
+	return success
+
+
+## Handle tile downgrade (Rakun's power)
+## Downgrades the tile at the given position while preserving the village
+func on_downgrade_tile(q: int, r: int) -> bool:
+	# Check if there's a village at this position
+	var village = village_manager.get_village_at(q, r)
+	if not village:
+		print("No village at position (%d, %d)" % [q, r])
+		current_player.pending_power = null  # Clear pending power on failure
+		return false
+
+	# Check if it's the player's own village
+	if village.player_owner != current_player:
+		print("Can only downgrade your own villages!")
+		current_player.pending_power = null  # Clear pending power on failure
+		return false
+
+	# Get the tile to check if it can be downgraded
+	var tile = tile_manager.get_tile_at(q, r)
+	if not tile:
+		print("ERROR: No tile at position!")
+		current_player.pending_power = null
+		return false
+
+	if tile.tile_type == TileManager.TileType.PLAINS:
+		print("Cannot downgrade PLAINS - already at min level")
+		current_player.pending_power = null
+		return false
+
+	# Complete deferred power payment (spend fervor, consume action, mark as used)
+	god_manager.complete_deferred_power(current_player)
+
+	# Downgrade the tile (preserves resource properties)
+	var success = tile_manager.downgrade_tile(q, r)
+	if success:
+		# Update village position to match new tile height
+		var new_height = tile_manager.get_top_height(q, r)
+		var world_pos = axial_to_world(q, r, new_height)
+		village.global_position = world_pos + Vector3(0, tile_manager.tile_height / 2, 0)
+		print("Downgraded tile at (%d, %d) with DOWNGRADE_TILE_KEEP_VILLAGE power" % [q, r])
+
+	return success
+
+
 ## Show resource type selection UI for CHANGE_TILE_TYPE power
 ## Displays UI with 3 buttons (RESOURCES, FERVOR, GLORY) to pick new type
 func show_resource_type_selection(q: int, r: int) -> void:

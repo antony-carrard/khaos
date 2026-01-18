@@ -293,8 +293,10 @@ func _activate_change_tile_type(player, board_manager) -> void:
 		print("Change tile type mode activated - click your own village to change its tile type")
 
 func _activate_upgrade_tile_keep_village(player, board_manager) -> void:
-	# TODO: Enter mode to upgrade tile (like normal upgrade but keeps village)
-	print("TODO: Implement UPGRADE_TILE_KEEP_VILLAGE")
+	# Enter upgrade tile selection mode
+	if board_manager.placement_controller:
+		board_manager.placement_controller.select_upgrade_tile_mode()
+		print("Upgrade tile mode activated - click your own village to upgrade its tile")
 
 func _activate_steal_harvest(player, board_manager) -> void:
 	# Enter steal harvest selection mode
@@ -303,8 +305,10 @@ func _activate_steal_harvest(player, board_manager) -> void:
 		print("Steal harvest mode activated - click an enemy village")
 
 func _activate_downgrade_tile_keep_village(player, board_manager) -> void:
-	# TODO: Enter mode to downgrade tile (opposite of upgrade, keeps village)
-	print("TODO: Implement DOWNGRADE_TILE_KEEP_VILLAGE")
+	# Enter downgrade tile selection mode
+	if board_manager.placement_controller:
+		board_manager.placement_controller.select_downgrade_tile_mode()
+		print("Downgrade tile mode activated - click your own village to downgrade its tile")
 
 # ============================================================================
 # PASSIVE POWER QUERIES

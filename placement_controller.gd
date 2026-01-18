@@ -9,7 +9,9 @@ enum PlacementMode {
 	VILLAGE_REMOVE,
 	STEAL_HARVEST,  # For Rakun's power - select enemy village to steal harvest
 	DESTROY_VILLAGE_FREE,  # For Le Bâtisseur's power - destroy enemy village without compensation
-	CHANGE_TILE_TYPE  # For Augia's power - change resource type of own tiles
+	CHANGE_TILE_TYPE,  # For Augia's power - change resource type of own tiles
+	UPGRADE_TILE_KEEP_VILLAGE,  # For Augia's power - upgrade tile without destroying village
+	DOWNGRADE_TILE_KEEP_VILLAGE  # For Rakun's power - downgrade tile without destroying village
 }
 
 # State
@@ -143,6 +145,20 @@ func handle_mouse_input(event: InputEvent) -> void:
 					board_manager.show_resource_type_selection(axial.x, axial.y)
 					# Keep placement_active = true until resource type is selected
 
+			PlacementMode.UPGRADE_TILE_KEEP_VILLAGE:
+				var axial = get_axial_at_mouse()
+				if axial != Vector2i(-999, -999):
+					var success = board_manager.on_upgrade_tile(axial.x, axial.y)
+					if success:
+						placement_active = false
+
+			PlacementMode.DOWNGRADE_TILE_KEEP_VILLAGE:
+				var axial = get_axial_at_mouse()
+				if axial != Vector2i(-999, -999):
+					var success = board_manager.on_downgrade_tile(axial.x, axial.y)
+					if success:
+						placement_active = false
+
 
 func handle_keyboard_input(event: InputEvent) -> void:
 	if not event is InputEventKey or not event.pressed:
@@ -181,7 +197,8 @@ func update_preview() -> void:
 	match current_mode:
 		PlacementMode.VILLAGE_PLACE, PlacementMode.VILLAGE_REMOVE, \
 		PlacementMode.STEAL_HARVEST, PlacementMode.DESTROY_VILLAGE_FREE, \
-		PlacementMode.CHANGE_TILE_TYPE:
+		PlacementMode.CHANGE_TILE_TYPE, PlacementMode.UPGRADE_TILE_KEEP_VILLAGE, \
+		PlacementMode.DOWNGRADE_TILE_KEEP_VILLAGE:
 			update_village_preview()
 		PlacementMode.TILE:
 			update_tile_preview()
@@ -312,6 +329,34 @@ func update_village_preview() -> void:
 			if board_manager and board_manager.ui:
 				board_manager.ui.show_village_sell_tooltip(false)
 
+		PlacementMode.UPGRADE_TILE_KEEP_VILLAGE:
+			# Check if tile exists and has player's village on it
+			var village = village_manager.get_village_at(q, r)
+			if village != null and village.player_owner == board_manager.current_player:
+				# Check if tile can be upgraded (not already at max level)
+				var tile = tile_manager.get_tile_at(q, r)
+				is_valid = tile != null and tile.tile_type != TileManager.TileType.MOUNTAIN
+			else:
+				is_valid = false
+
+			# No tooltip needed
+			if board_manager and board_manager.ui:
+				board_manager.ui.show_village_sell_tooltip(false)
+
+		PlacementMode.DOWNGRADE_TILE_KEEP_VILLAGE:
+			# Check if tile exists and has player's village on it
+			var village = village_manager.get_village_at(q, r)
+			if village != null and village.player_owner == board_manager.current_player:
+				# Check if tile can be downgraded (not already at min level)
+				var tile = tile_manager.get_tile_at(q, r)
+				is_valid = tile != null and tile.tile_type != TileManager.TileType.PLAINS
+			else:
+				is_valid = false
+
+			# No tooltip needed
+			if board_manager and board_manager.ui:
+				board_manager.ui.show_village_sell_tooltip(false)
+
 	village_manager.update_preview_color(preview_village, is_valid)
 
 
@@ -435,6 +480,20 @@ func select_destroy_village_free_mode() -> void:
 ## Shows village preview and waits for player to click their own village to change tile type.
 func select_change_tile_type_mode() -> void:
 	current_mode = PlacementMode.CHANGE_TILE_TYPE
+	placement_active = true
+
+
+## Enters upgrade tile mode (Augia's power).
+## Shows village preview and waits for player to click their own village to upgrade tile.
+func select_upgrade_tile_mode() -> void:
+	current_mode = PlacementMode.UPGRADE_TILE_KEEP_VILLAGE
+	placement_active = true
+
+
+## Enters downgrade tile mode (Rakun's power).
+## Shows village preview and waits for player to click their own village to downgrade tile.
+func select_downgrade_tile_mode() -> void:
+	current_mode = PlacementMode.DOWNGRADE_TILE_KEEP_VILLAGE
 	placement_active = true
 
 

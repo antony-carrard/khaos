@@ -1,19 +1,48 @@
 # Implementation Status
 
-**Last Updated:** 2026-01-18 (CHANGE_TILE_TYPE Power & Deferred Payment System)
+**Last Updated:** 2026-01-18 (All Divine Powers Complete!)
 
 This document tracks detailed implementation progress and serves as context for continuing development.
 
 ## Recent Changes (2026-01-18)
 
-**CHANGE_TILE_TYPE Power Implementation (Latest):**
+**UPGRADE_TILE_KEEP_VILLAGE & DOWNGRADE_TILE_KEEP_VILLAGE Powers (Latest):**
+- **Implemented Augia's UPGRADE_TILE_KEEP_VILLAGE power** (5 fervor + 1 action)
+  - Upgrades tile from PLAINS→HILLS or HILLS→MOUNTAIN without destroying village
+  - Added `tile_manager.upgrade_tile()` method that **stacks a new tile on top**
+  - Added UPGRADE_TILE_KEEP_VILLAGE placement mode to placement_controller.gd
+  - Preview shows green on own villages with upgradeable tiles (not MOUNTAIN)
+  - Validates tile can be upgraded (not already at max level)
+  - board_manager.on_upgrade_tile() executes the upgrade with deferred payment
+  - **Updates village position** to match new tile height after upgrade
+- **Implemented Rakun's DOWNGRADE_TILE_KEEP_VILLAGE power** (4 fervor + 1 action)
+  - Downgrades tile from MOUNTAIN→HILLS or HILLS→PLAINS without destroying village
+  - Added `tile_manager.downgrade_tile()` method that **removes the top tile**
+  - Added DOWNGRADE_TILE_KEEP_VILLAGE placement mode to placement_controller.gd
+  - Preview shows green on own villages with downgradeable tiles (not PLAINS)
+  - Validates tile can be downgraded (not already at min level)
+  - board_manager.on_downgrade_tile() executes the downgrade with deferred payment
+  - **Updates village position** to match new tile height after downgrade
+- **Both powers use deferred payment system** (pay when action completes, not on button click)
+- **Key insight: Tiles stack vertically!**
+  - MOUNTAIN position = PLAINS (h0) + HILLS (h1) + MOUNTAIN (h2)
+  - HILLS position = PLAINS (h0) + HILLS (h1)
+  - PLAINS position = PLAINS (h0)
+  - **Upgrade = Add tile on top** (bypasses village blocking rule)
+  - **Downgrade = Remove top tile** (reveals tile below)
+  - Resource properties (type, yield, costs) are copied to new top tile
+  - Villages automatically move up/down with terrain height changes
+- **Files modified:** tile_manager.gd, placement_controller.gd, board_manager.gd, god_manager.gd
+- **Result:** All 8 divine powers now fully functional! Complete power system ready for gameplay.
+
+**CHANGE_TILE_TYPE Power Implementation:**
 - **Implemented Augia's CHANGE_TILE_TYPE power** (2 fervor + 1 action)
   - Added CHANGE_TILE_TYPE placement mode to placement_controller.gd
   - Created resource type picker UI modal (tile_selector_ui.gd)
     - Shows 3 buttons: Resources, Fervor, Glory (or 2 if Plains tile)
-    - Purple border matching Augia's theme color
-    - Prevents multiple overlays from spawning
-    - Consumes mouse input to prevent click-through
+	- Purple border matching Augia's theme color
+	- Prevents multiple overlays from spawning
+	- Consumes mouse input to prevent click-through
   - Validates Glory cannot be placed on Plains tiles
   - Design note: Does NOT check tile pool (digital convenience - see board_manager.gd:482-486)
   - Successfully changes tile icon and resource type in-place
@@ -86,13 +115,19 @@ This document tracks detailed implementation progress and serves as context for 
 	- Added CHANGE_TILE_TYPE placement mode to placement_controller.gd
 	- Resource type picker modal UI with dynamic buttons (no Glory on Plains)
 	- board_manager.on_change_tile_type() changes tile icon and resource type in-place
-- **Powers remaining:**
-  - ⏳ UPGRADE_TILE_KEEP_VILLAGE (Augia) - Upgrade without destroying village
-  - ⏳ DOWNGRADE_TILE_KEEP_VILLAGE (Rakun) - Downgrade without destroying village
-- **Files modified:** board_manager.gd, player.gd, placement_controller.gd, turn_manager.gd, tile_selector_ui.gd, project.godot
+  - ✅ **Augia UPGRADE_TILE_KEEP_VILLAGE** - Upgrade tile without destroying village (5 fervor + 1 action)
+	- Added UPGRADE_TILE_KEEP_VILLAGE placement mode to placement_controller.gd
+	- tile_manager.upgrade_tile() preserves resource properties
+	- Preview validates tile can be upgraded (not MOUNTAIN)
+  - ✅ **Rakun DOWNGRADE_TILE_KEEP_VILLAGE** - Downgrade tile without destroying village (4 fervor + 1 action)
+	- Added DOWNGRADE_TILE_KEEP_VILLAGE placement mode to placement_controller.gd
+	- tile_manager.downgrade_tile() preserves resource properties
+	- Preview validates tile can be downgraded (not PLAINS)
+- **All 8 divine powers now complete!**
+- **Files modified:** board_manager.gd, player.gd, placement_controller.gd, turn_manager.gd, tile_selector_ui.gd, tile_manager.gd, god_manager.gd, project.godot
 - **Files created:** god.gd, god_power.gd, god_manager.gd, god_selection_ui.gd, gods/ (images)
-- **Result:** Complete god selection system with 6/8 powers fully functional (CHANGE_TILE_TYPE added 2026-01-18)
-- **TODO:** Test DESTROY_VILLAGE_FREE once multiplayer is implemented (needs enemy villages)
+- **Result:** Complete god selection system with all 8 divine powers fully functional
+- **TODO:** Test multi-target powers once multiplayer is implemented (DESTROY_VILLAGE_FREE, STEAL_HARVEST need enemy villages)
 
 ## Recent Changes (2026-01-07)
 
@@ -479,11 +514,11 @@ turn_manager (turn flow)
 5. ✅ ~~Implement setup phase~~ (DONE)
 6. ✅ ~~Implement divine powers system~~ (DONE - 4/8 powers implemented)
 
-**High Priority (Remaining Powers):**
+**Divine Powers - ALL COMPLETE! ✅**
 1. ✅ **DESTROY_VILLAGE_FREE** (Le Bâtisseur) - DONE
 2. ✅ **CHANGE_TILE_TYPE** (Augia) - DONE (2026-01-18)
-3. 🔴 **UPGRADE_TILE_KEEP_VILLAGE** (Augia) - Extend tile_manager to upgrade without destroying
-4. 🔴 **DOWNGRADE_TILE_KEEP_VILLAGE** (Rakun) - NEW MECHANIC - implement tile downgrade system
+3. ✅ **UPGRADE_TILE_KEEP_VILLAGE** (Augia) - DONE (2026-01-18)
+4. ✅ **DOWNGRADE_TILE_KEEP_VILLAGE** (Rakun) - DONE (2026-01-18)
 
 **Medium Tasks:**
 1. Polish UI (disable end turn during harvest, better hover effects)
@@ -491,20 +526,23 @@ turn_manager (turn flow)
 3. Test divine powers thoroughly for balance
 
 **Best Starting Point:**
-Continue with **remaining divine powers**. DESTROY_VILLAGE_FREE and CHANGE_TILE_TYPE are both done. Next are the complex tile upgrade/downgrade powers (UPGRADE_TILE_KEEP_VILLAGE and DOWNGRADE_TILE_KEEP_VILLAGE).
+All divine powers are now complete! Next focus areas:
+1. **Multiplayer implementation** - Add player switching and turn order (see MULTIPLAYER_PLAN.md)
+2. **UI polish** - Disable end turn during harvest, better hover effects
+3. **Playtesting** - Test all powers thoroughly for balance and edge cases
 
 ---
 
 ## 📚 Context for New Sessions
 
 **Current State Summary:**
-You have a **fully playable** turn-based hexagonal tile placement game with **divine powers system**. Game starts with god selection (4 clickable cards), then proper setup phase (place 2 PLAINS tiles with free villages), then normal gameplay. Players harvest resources/fervor/glory from villages, place tiles (free, 1 action), build villages (costs resources + 1 action, modified by god abilities), and use divine powers (spend fervor for special abilities). The game ends when the tile bag empties, triggering final scoring. **6 out of 8 powers are fully functional** - Le Bâtisseur's passive (flat village cost) + major power (destroy enemy village free), Bicéphallès' two powers (extra action, second harvest), Rakun's steal harvest, and Augia's change tile type. **Deferred payment system** prevents resource loss when canceling selection-based powers.
+You have a **fully playable** turn-based hexagonal tile placement game with **complete divine powers system**. Game starts with god selection (4 clickable cards), then proper setup phase (place 2 PLAINS tiles with free villages), then normal gameplay. Players harvest resources/fervor/glory from villages, place tiles (free, 1 action), build villages (costs resources + 1 action, modified by god abilities), and use divine powers (spend fervor for special abilities). The game ends when the tile bag empties, triggering final scoring. **All 8 divine powers are fully functional** - Le Bâtisseur (flat village cost passive + destroy enemy village free), Bicéphallès (extra action + second harvest), Rakun (steal harvest + downgrade tile), and Augia (change tile type + upgrade tile). **Deferred payment system** prevents resource loss when canceling selection-based powers.
 
 **Code Quality:**
-Architecture is clean with **data-driven god system**. god_power.gd defines power types (enum), god.gd holds power collections, god_manager.gd centralizes all power logic. **Deferred payment system** prevents resource loss on cancellation - immediate powers (EXTRA_ACTION, SECOND_HARVEST) pay upfront, deferred powers (STEAL_HARVEST, DESTROY_VILLAGE_FREE, CHANGE_TILE_TYPE) only pay when action completes. Player has god reference, `get_village_cost()` helper for god ability modifications, and `pending_power` for deferred payments. Placement controller supports 6 modes (TILE, VILLAGE_PLACE, VILLAGE_REMOVE, STEAL_HARVEST, DESTROY_VILLAGE_FREE, CHANGE_TILE_TYPE) with `get_axial_at_mouse()` helper to reduce duplication. God selection UI uses MOUSE_FILTER_IGNORE pattern for proper clickability. In-game UI shows god portrait and clickable power buttons with dynamic states. Signal-based reactive UI working well. All managers properly separated (TileManager, VillageManager, TurnManager, GodManager, VictoryManager).
+Architecture is clean with **data-driven god system**. god_power.gd defines power types (enum), god.gd holds power collections, god_manager.gd centralizes all power logic. **Deferred payment system** prevents resource loss on cancellation - immediate powers (EXTRA_ACTION, SECOND_HARVEST) pay upfront, deferred powers (STEAL_HARVEST, DESTROY_VILLAGE_FREE, CHANGE_TILE_TYPE, UPGRADE_TILE_KEEP_VILLAGE, DOWNGRADE_TILE_KEEP_VILLAGE) only pay when action completes. Player has god reference, `get_village_cost()` helper for god ability modifications, and `pending_power` for deferred payments. Placement controller supports 8 modes (TILE, VILLAGE_PLACE, VILLAGE_REMOVE, STEAL_HARVEST, DESTROY_VILLAGE_FREE, CHANGE_TILE_TYPE, UPGRADE_TILE_KEEP_VILLAGE, DOWNGRADE_TILE_KEEP_VILLAGE) with `get_axial_at_mouse()` helper to reduce duplication. TileManager has `upgrade_tile()` and `downgrade_tile()` methods that preserve resource properties during level changes. God selection UI uses MOUSE_FILTER_IGNORE pattern for proper clickability. In-game UI shows god portrait and clickable power buttons with dynamic states. Signal-based reactive UI working well. All managers properly separated (TileManager, VillageManager, TurnManager, GodManager, VictoryManager).
 
 **What Works Well:**
-God selection is intuitive and visual. Power buttons provide clear feedback (purple=active, gray=passive, shows cost). STEAL_HARVEST demonstrates the selection mode pattern perfectly - preview colors, tooltip shows harvest value, click to steal. SECOND_HARVEST reuses existing harvest UI seamlessly. Le Bâtisseur's passive applies transparently everywhere costs are checked. CHANGE_TILE_TYPE shows elegant modal UI with dynamic button visibility (no Glory on Plains). Deferred payment system prevents frustrating "paid but failed" scenarios. Resolution fixed to 1920×1080 with proper UI scaling.
+God selection is intuitive and visual. Power buttons provide clear feedback (purple=active, gray=passive, shows cost). Selection-based powers (STEAL_HARVEST, DESTROY_VILLAGE_FREE, CHANGE_TILE_TYPE, UPGRADE_TILE_KEEP_VILLAGE, DOWNGRADE_TILE_KEEP_VILLAGE) use consistent pattern - preview colors show validity, click to execute. SECOND_HARVEST reuses existing harvest UI seamlessly. Le Bâtisseur's passive applies transparently everywhere costs are checked. CHANGE_TILE_TYPE shows elegant modal UI with dynamic button visibility (no Glory on Plains). UPGRADE/DOWNGRADE preserve all tile properties while changing height level. Deferred payment system prevents frustrating "paid but failed" scenarios. Resolution fixed to 1920×1080 with proper UI scaling.
 
 **Next Focus:**
-Complete remaining 2 divine powers (UPGRADE_TILE_KEEP_VILLAGE, DOWNGRADE_TILE_KEEP_VILLAGE), then implement multiplayer player switching.
+All divine powers complete! Next priority is **multiplayer implementation** - add player switching, turn order, and test multi-target powers (DESTROY_VILLAGE_FREE, STEAL_HARVEST) with real enemy villages.

@@ -174,3 +174,103 @@ func get_tile_at(q: int, r: int) -> HexTile:
 		return null
 	var key = Vector3i(q, r, top_height)
 	return placed_tiles.get(key, null)
+
+
+## Upgrades the tile at the given position to the next level.
+## PLAINS → HILLS, HILLS → MOUNTAIN
+## Adds a new tile on top, preserving the tile's resource properties.
+## Returns true on success, false if upgrade is not possible.
+func upgrade_tile(q: int, r: int) -> bool:
+	# Get the current top tile
+	var current_tile = get_tile_at(q, r)
+	if not current_tile:
+		print("No tile found at (%d, %d) to upgrade" % [q, r])
+		return false
+
+	# Determine the new tile type
+	var new_tile_type: TileType
+	match current_tile.tile_type:
+		TileType.PLAINS:
+			new_tile_type = TileType.HILLS
+		TileType.HILLS:
+			new_tile_type = TileType.MOUNTAIN
+		TileType.MOUNTAIN:
+			print("Cannot upgrade MOUNTAIN - already at max level")
+			return false
+		_:
+			return false
+
+	# Copy resource properties from current tile to carry forward
+	var res_type = current_tile.resource_type
+	var yield_val = current_tile.yield_value
+	var village_cost = current_tile.village_building_cost
+	var sell_val = current_tile.sell_price
+	var old_tile_type = current_tile.tile_type
+
+	# Place new tile on top (stacking)
+	# Note: This bypasses village blocking - the power specifically allows this
+	var new_height = TILE_TYPE_TO_HEIGHT[new_tile_type]
+	var new_key = Vector3i(q, r, new_height)
+
+	# Check if position is already occupied at new height
+	if placed_tiles.has(new_key):
+		print("Cannot upgrade - tile already exists at height %d" % new_height)
+		return false
+
+	var tile = hex_tile_scene.instantiate() as HexTile
+	add_child(tile)
+	tile.set_grid_position(q, r, new_height)
+	tile.set_tile_type(new_tile_type, TILE_TYPE_COLORS[new_tile_type])
+	tile.global_position = get_parent().axial_to_world(q, r, new_height)
+
+	# Set resource properties with icon
+	var icon_path = RESOURCE_TYPE_ICONS[res_type]
+	tile.set_resource_properties(res_type, yield_val, village_cost, sell_val, icon_path)
+
+	placed_tiles[new_key] = tile
+
+	print("Upgraded tile at (%d, %d) from %s to %s" %
+		  [q, r, TileType.keys()[old_tile_type], TileType.keys()[new_tile_type]])
+
+	return true
+
+
+## Downgrades the tile at the given position to the previous level.
+## MOUNTAIN → HILLS, HILLS → PLAINS
+## Removes the top tile, revealing the one below.
+## Returns true on success, false if downgrade is not possible.
+func downgrade_tile(q: int, r: int) -> bool:
+	# Get the current top tile
+	var current_tile = get_tile_at(q, r)
+	if not current_tile:
+		print("No tile found at (%d, %d) to downgrade" % [q, r])
+		return false
+
+	# Check if can be downgraded
+	var old_tile_type = current_tile.tile_type
+	match current_tile.tile_type:
+		TileType.PLAINS:
+			print("Cannot downgrade PLAINS - already at min level")
+			return false
+		TileType.HILLS, TileType.MOUNTAIN:
+			# Can downgrade
+			pass
+		_:
+			return false
+
+	# Remove the top tile (this reveals the tile below)
+	var old_height = current_tile.height_level
+	var old_key = Vector3i(q, r, old_height)
+	placed_tiles.erase(old_key)
+	current_tile.queue_free()
+
+	# Get the new top tile (which was below)
+	var new_top_tile = get_tile_at(q, r)
+	if not new_top_tile:
+		print("ERROR: No tile below after downgrade!")
+		return false
+
+	print("Downgraded tile at (%d, %d) from %s to %s" %
+		  [q, r, TileType.keys()[old_tile_type], TileType.keys()[new_top_tile.tile_type]])
+
+	return true
