@@ -576,6 +576,8 @@ func on_change_tile_type(q: int, r: int, new_resource_type: int) -> bool:
 	if not village or village.player_owner != current_player:
 		print("Can only change tile type on your own villages!")
 		current_player.pending_power = null  # Clear pending power on failure
+		if placement_controller:
+			placement_controller.cancel_placement()
 		return false
 
 	# Get the tile
@@ -583,12 +585,16 @@ func on_change_tile_type(q: int, r: int, new_resource_type: int) -> bool:
 	if not tile:
 		print("ERROR: No tile at position!")
 		current_player.pending_power = null  # Clear pending power on failure
+		if placement_controller:
+			placement_controller.cancel_placement()
 		return false
 
 	# Don't allow changing to the same type
 	if tile.resource_type == new_resource_type:
 		print("Tile is already %s type!" % TileManager.ResourceType.keys()[new_resource_type])
 		current_player.pending_power = null  # Clear pending power on failure
+		if placement_controller:
+			placement_controller.cancel_placement()
 		return false
 
 	# Validate that this resource type is valid for this tile type (no Glory on Plains!)
@@ -598,6 +604,8 @@ func on_change_tile_type(q: int, r: int, new_resource_type: int) -> bool:
 			TileManager.TileType.keys()[tile.tile_type]
 		])
 		current_player.pending_power = null  # Clear pending power on failure
+		if placement_controller:
+			placement_controller.cancel_placement()
 		return false
 
 	# Complete deferred power payment (spend fervor, consume action, mark as used)

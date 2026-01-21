@@ -1,7 +1,13 @@
 extends Control
 
-# Preload victory screen component
+# Preload UI components
 const VictoryScreenScene = preload("res://ui/victory_screen.gd")
+const ResourceTypePickerScene = preload("res://ui/resource_type_picker.gd")
+const GodPanelScene = preload("res://ui/god_panel.gd")
+const ResourcePanelScene = preload("res://ui/resource_panel.gd")
+const HarvestUIScene = preload("res://ui/harvest_ui.gd")
+const HandDisplayScene = preload("res://ui/hand_display.gd")
+const TooltipManagerScene = preload("res://ui/tooltip_manager.gd")
 
 # Constants
 const HAND_SIZE: int = 3  # Number of tiles in hand
@@ -16,57 +22,56 @@ signal village_remove_selected()
 
 var tile_type_colors: Dictionary = {}
 var buttons: Array[Button] = []
-var hand_container: HBoxContainer = null
-var setup_tiles_container: HBoxContainer = null  # Container for setup phase tiles
-var setup_title_label: Label = null  # "Setup Phase" title
 var board_manager = null  # Reference to get hand data
-var tile_count_label: Label = null  # Shows remaining tiles in bag
 
-# Resource display
-var resource_label: Label = null
-var fervor_label: Label = null
-var glory_label: Label = null
-
-# Turn system UI
-var harvest_buttons_container: HBoxContainer = null
+# Turn system UI (still managed here)
 var actions_label: Label = null
 var end_turn_button: Button = null
 var turn_phase_container: Control = null
 var village_place_button: Button = null
 var village_remove_button: Button = null
 
-var debug_buttons_container: HBoxContainer = null
-
-# Mouse-following tooltip for village sell value
-var village_sell_tooltip: Label = null
-var village_sell_tooltip_panel: PanelContainer = null
-
-# Resource type picker UI (for CHANGE_TILE_TYPE power)
-var resource_type_picker_overlay: ColorRect = null
-var resource_type_picker_q: int = 0  # Tile position to change
-var resource_type_picker_r: int = 0
-
-# God display
-var god_portrait: TextureRect = null
-var god_name_label: Label = null
-var god_power_buttons: Array[Button] = []  # Buttons for active powers
-var god_power_mapping: Dictionary = {}  # Maps Button -> GodPower for updates
-var god_manager_ref: GodManager = null  # Reference to god manager for can_activate checks
-
-# Victory screen component
+# UI Components
 var victory_screen: VictoryScreen = null
+var resource_type_picker: ResourceTypePicker = null
+var god_panel: GodPanel = null
+var resource_panel: ResourcePanel = null
+var harvest_ui: HarvestUI = null
+var hand_display: HandDisplay = null
+var tooltip_manager: TooltipManager = null
+
+# Container references (for hand display)
+var hand_container: HBoxContainer = null
+var setup_tiles_container: HBoxContainer = null
+var setup_title_label: Label = null
+var tile_count_label: Label = null
 
 
 func _ready() -> void:
 	# Full screen overlay that doesn't block mouse input to 3D scene
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	mouse_filter = Control.MOUSE_FILTER_IGNORE
+	mouse_filter = Control.MOUSE_FILTER_PASS
 
-	# Create victory screen component
+	# Create UI components
 	victory_screen = VictoryScreenScene.new()
 	victory_screen.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	add_child(victory_screen)
 
+	tooltip_manager = TooltipManagerScene.new()
+	add_child(tooltip_manager)
+
+	hand_display = HandDisplayScene.new()
+	add_child(hand_display)
+	hand_display.tile_selected_from_hand.connect(_on_hand_card_pressed)
+	hand_display.tile_sold_from_hand.connect(_on_sell_button_pressed)
+	hand_display.setup_tile_selected.connect(_on_setup_tile_pressed)
+
+	# Add resource_type_picker last so it appears on top when shown
+	resource_type_picker = ResourceTypePickerScene.new()
+	resource_type_picker.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	add_child(resource_type_picker)
+	resource_type_picker.resource_type_selected.connect(_on_resource_type_selected)
+	resource_type_picker.picker_cancelled.connect(_on_resource_type_picker_cancelled)
 
 func initialize(colors: Dictionary, _board_manager = null) -> void:
 	tile_type_colors = colors
@@ -83,7 +88,6 @@ func initialize(colors: Dictionary, _board_manager = null) -> void:
 	margin.add_theme_constant_override("margin_right", 20)
 	margin.add_theme_constant_override("margin_top", 10)
 	margin.add_theme_constant_override("margin_bottom", 25)  # Gap from screen bottom (>20px to avoid camera pan zone)
-	margin.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(margin)
 
 	# Main horizontal container
@@ -93,7 +97,7 @@ func initialize(colors: Dictionary, _board_manager = null) -> void:
 	margin.add_child(main_hbox)
 
 	# God display on far left
-	var god_panel = create_god_panel()
+	god_panel = GodPanelScene.new()
 	main_hbox.add_child(god_panel)
 
 	# Separator
@@ -102,7 +106,7 @@ func initialize(colors: Dictionary, _board_manager = null) -> void:
 	main_hbox.add_child(sep_god)
 
 	# Resource display on left
-	var resource_panel = create_resource_panel()
+	resource_panel = ResourcePanelScene.new()
 	main_hbox.add_child(resource_panel)
 
 	# Separator
@@ -200,10 +204,9 @@ func initialize(colors: Dictionary, _board_manager = null) -> void:
 	turn_phase_container.add_child(actions_label)
 
 	# Harvest buttons container (shown during harvest phase)
-	harvest_buttons_container = HBoxContainer.new()
-	harvest_buttons_container.add_theme_constant_override("separation", 10)
-	harvest_buttons_container.visible = false
-	turn_phase_container.add_child(harvest_buttons_container)
+	harvest_ui = HarvestUIScene.new()
+	harvest_ui.harvest_selected.connect(_on_harvest_button_pressed)
+	turn_phase_container.add_child(harvest_ui)
 
 	# Village buttons
 	var village_hbox = HBoxContainer.new()
@@ -225,52 +228,12 @@ func initialize(colors: Dictionary, _board_manager = null) -> void:
 	end_turn_button.add_theme_font_size_override("font_size", 18)
 	end_turn_button.pressed.connect(_on_end_turn_pressed)
 	right_vbox.add_child(end_turn_button)
-
-	# Create mouse-following village sell tooltip (works in both modes)
-	create_village_sell_tooltip()
-
-
-func create_village_sell_tooltip() -> void:
-	# Create a panel container for nice styling
-	village_sell_tooltip_panel = PanelContainer.new()
-	var style = StyleBoxFlat.new()
-	style.bg_color = Color(0.1, 0.1, 0.1, 0.95)  # Almost opaque dark background
-	style.border_color = Color(0.8, 0.6, 0.2)  # Gold border
-	style.border_width_left = 2
-	style.border_width_right = 2
-	style.border_width_top = 2
-	style.border_width_bottom = 2
-	style.corner_radius_top_left = 6
-	style.corner_radius_top_right = 6
-	style.corner_radius_bottom_left = 6
-	style.corner_radius_bottom_right = 6
-	village_sell_tooltip_panel.add_theme_stylebox_override("panel", style)
-	village_sell_tooltip_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE  # Don't block mouse
-	village_sell_tooltip_panel.visible = false
-	add_child(village_sell_tooltip_panel)
-
-	# Inner margin for padding
-	var margin = MarginContainer.new()
-	margin.add_theme_constant_override("margin_left", 10)
-	margin.add_theme_constant_override("margin_right", 10)
-	margin.add_theme_constant_override("margin_top", 6)
-	margin.add_theme_constant_override("margin_bottom", 6)
-	village_sell_tooltip_panel.add_child(margin)
-
-	# Label for the sell value
-	village_sell_tooltip = Label.new()
-	village_sell_tooltip.text = "+2 Resources"
-	village_sell_tooltip.add_theme_color_override("font_color", Color(0.8, 0.9, 0.3))  # Yellow-green
-	village_sell_tooltip.add_theme_font_size_override("font_size", 16)
-	margin.add_child(village_sell_tooltip)
-
-
-func _process(_delta: float) -> void:
-	# Update tooltip position to follow mouse
-	if village_sell_tooltip_panel and village_sell_tooltip_panel.visible:
-		var mouse_pos = get_viewport().get_mouse_position()
-		# Offset the tooltip slightly down and to the right of cursor
-		village_sell_tooltip_panel.position = mouse_pos + Vector2(20, 20)
+	
+	hand_display.initialize(tile_type_colors, board_manager)
+	hand_display.set_hand_container(hand_container)
+	hand_display.set_setup_container(setup_tiles_container)
+	hand_display.set_setup_title_label(setup_title_label)
+	hand_display.set_tile_count_label(tile_count_label)
 
 
 func create_button(parent: Control, label: String, base_color: Color, width: int, callback: Callable) -> void:
@@ -340,153 +303,22 @@ func _on_tile_button_pressed(tile_type: int) -> void:
 	tile_type_selected.emit(tile_type)
 
 
-## Create resource display panel with icons
-func create_resource_panel() -> PanelContainer:
-	var panel = PanelContainer.new()
-	var style = StyleBoxFlat.new()
-	style.bg_color = Color(0.15, 0.15, 0.15, 0.9)
-	style.corner_radius_top_left = 10
-	style.corner_radius_top_right = 10
-	style.corner_radius_bottom_left = 10
-	style.corner_radius_bottom_right = 10
-	panel.add_theme_stylebox_override("panel", style)
-	panel.custom_minimum_size = Vector2(120, 100)
-
-	# Inner margin
-	var margin = MarginContainer.new()
-	margin.add_theme_constant_override("margin_left", 10)
-	margin.add_theme_constant_override("margin_right", 10)
-	margin.add_theme_constant_override("margin_top", 10)
-	margin.add_theme_constant_override("margin_bottom", 10)
-	panel.add_child(margin)
-
-	var vbox = VBoxContainer.new()
-	vbox.add_theme_constant_override("separation", 8)
-	margin.add_child(vbox)
-
-	# Resources row
-	resource_label = create_resource_row(vbox, "res://icons/wood.svg", "0")
-
-	# Fervor row
-	fervor_label = create_resource_row(vbox, "res://icons/pray.svg", "0")
-
-	# Glory row
-	glory_label = create_resource_row(vbox, "res://icons/star.svg", "0")
-
-	return panel
-
-
-## Create god display panel (portrait + powers)
-func create_god_panel() -> PanelContainer:
-	var panel = PanelContainer.new()
-	var style = StyleBoxFlat.new()
-	style.bg_color = Color(0.15, 0.15, 0.2, 0.95)
-	style.corner_radius_top_left = 10
-	style.corner_radius_top_right = 10
-	style.corner_radius_bottom_left = 10
-	style.corner_radius_bottom_right = 10
-	style.border_width_left = 2
-	style.border_width_top = 2
-	style.border_width_right = 2
-	style.border_width_bottom = 2
-	style.border_color = Color(0.6, 0.5, 0.3)  # Gold border
-	panel.add_theme_stylebox_override("panel", style)
-	panel.custom_minimum_size = Vector2(350, 120)  # Wider but shorter
-	panel.mouse_filter = Control.MOUSE_FILTER_STOP  # Allow clicking power buttons
-
-	# Inner margin
-	var margin = MarginContainer.new()
-	margin.add_theme_constant_override("margin_left", 10)
-	margin.add_theme_constant_override("margin_right", 10)
-	margin.add_theme_constant_override("margin_top", 10)
-	margin.add_theme_constant_override("margin_bottom", 10)
-	panel.add_child(margin)
-
-	# Horizontal layout: portrait+name on left, powers on right
-	var hbox = HBoxContainer.new()
-	hbox.add_theme_constant_override("separation", 10)
-	hbox.alignment = BoxContainer.ALIGNMENT_CENTER  # Center vertically
-	margin.add_child(hbox)
-
-	# Left side: portrait with name on top
-	var left_vbox = VBoxContainer.new()
-	left_vbox.add_theme_constant_override("separation", 5)
-	left_vbox.alignment = BoxContainer.ALIGNMENT_CENTER  # Center content
-	hbox.add_child(left_vbox)
-
-	# God name (above portrait)
-	god_name_label = Label.new()
-	god_name_label.text = "No God"
-	god_name_label.add_theme_font_size_override("font_size", 13)
-	god_name_label.add_theme_color_override("font_color", Color(0.9, 0.8, 0.3))
-	god_name_label.add_theme_color_override("font_outline_color", Color.BLACK)
-	god_name_label.add_theme_constant_override("outline_size", 2)
-	god_name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	left_vbox.add_child(god_name_label)
-
-	# God portrait
-	god_portrait = TextureRect.new()
-	god_portrait.custom_minimum_size = Vector2(80, 80)
-	god_portrait.expand_mode = TextureRect.EXPAND_FIT_WIDTH_PROPORTIONAL
-	god_portrait.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	left_vbox.add_child(god_portrait)
-
-	# Right side: Power buttons container
-	var powers_container = VBoxContainer.new()
-	powers_container.name = "PowersContainer"
-	powers_container.add_theme_constant_override("separation", 5)
-	powers_container.alignment = BoxContainer.ALIGNMENT_CENTER  # Center power buttons
-	powers_container.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	hbox.add_child(powers_container)
-
-	return panel
-
-
-## Create a row with icon + label
-func create_resource_row(parent: VBoxContainer, icon_path: String, initial_value: String) -> Label:
-	var hbox = HBoxContainer.new()
-	hbox.add_theme_constant_override("separation", 8)
-	parent.add_child(hbox)
-
-	# Icon
-	var icon = TextureRect.new()
-	icon.custom_minimum_size = Vector2(20, 20)
-	icon.expand_mode = TextureRect.EXPAND_FIT_WIDTH_PROPORTIONAL
-	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	var texture = load(icon_path) as Texture2D
-	if texture:
-		icon.texture = texture
-	hbox.add_child(icon)
-
-	# Label
-	var label = Label.new()
-	label.text = initial_value
-	label.add_theme_color_override("font_color", Color.WHITE)
-	label.add_theme_color_override("font_outline_color", Color.BLACK)
-	label.add_theme_constant_override("outline_size", 4)
-	label.add_theme_font_size_override("font_size", 16)
-	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	hbox.add_child(label)
-
-	return label
-
-
 ## Update resource display (called via signal)
 func update_resources(amount: int) -> void:
-	if resource_label:
-		resource_label.text = str(amount)
+	if resource_panel:
+		resource_panel.update_resources(amount)
 
 
 ## Update fervor display (called via signal)
 func update_fervor(amount: int) -> void:
-	if fervor_label:
-		fervor_label.text = str(amount)
+	if resource_panel:
+		resource_panel.update_fervor(amount)
 
 
 ## Update glory display (called via signal)
 func update_glory(amount: int) -> void:
-	if glory_label:
-		glory_label.text = str(amount)
+	if resource_panel:
+		resource_panel.update_glory(amount)
 
 
 func _on_village_place_pressed() -> void:
@@ -500,120 +332,18 @@ func _on_village_remove_pressed() -> void:
 ## Shows the setup phase UI with setup tiles
 ## Hides normal hand display and shows setup tiles instead
 func show_setup_phase(setup_tiles: Array) -> void:
-	# Hide normal hand display
-	if hand_container:
-		hand_container.get_parent().visible = false
-
-	# Show setup title and container
-	if setup_title_label:
-		setup_title_label.visible = true
-	if setup_tiles_container:
-		setup_tiles_container.get_parent().visible = true
-		update_setup_tiles_display(setup_tiles)
-
-	# Hide harvest/actions UI
-	if harvest_buttons_container:
-		harvest_buttons_container.visible = false
+	if hand_display:
+		hand_display.show_setup_phase(setup_tiles)
+	if harvest_ui:
+		harvest_ui.hide_harvest_options()
 	if actions_label:
 		actions_label.visible = false
-
-	print("Setup phase UI displayed")
 
 
 ## Updates the setup tiles display
 func update_setup_tiles_display(setup_tiles: Array) -> void:
-	if not setup_tiles_container:
-		return
-
-	# Clear existing
-	for child in setup_tiles_container.get_children():
-		child.queue_free()
-
-	# Create cards for each setup tile (or placeholder if already placed)
-	for i in range(setup_tiles.size()):
-		if setup_tiles[i] != null:
-			create_setup_tile_card(i, setup_tiles[i])
-		else:
-			create_placed_setup_tile_placeholder()
-
-
-## Create a visual card for a setup tile (similar to hand card but with gold border)
-func create_setup_tile_card(setup_index: int, tile_def) -> void:
-	# Container for card (no sell button for setup tiles)
-	var card_vbox = VBoxContainer.new()
-	card_vbox.add_theme_constant_override("separation", 5)
-	setup_tiles_container.add_child(card_vbox)
-
-	# Card container with gold border
-	var card = PanelContainer.new()
-	var card_style = StyleBoxFlat.new()
-	var tile_color = tile_type_colors[tile_def.tile_type]
-
-	card_style.bg_color = tile_color.darkened(0.3)
-	card_style.border_color = Color(0.9, 0.8, 0.3)  # Gold border for special setup tiles
-	card_style.border_width_left = 3
-	card_style.border_width_right = 3
-	card_style.border_width_top = 3
-	card_style.border_width_bottom = 3
-	card_style.corner_radius_top_left = 8
-	card_style.corner_radius_top_right = 8
-	card_style.corner_radius_bottom_left = 8
-	card_style.corner_radius_bottom_right = 8
-	card.add_theme_stylebox_override("panel", card_style)
-	card.custom_minimum_size = Vector2(100, 110)
-	card_vbox.add_child(card)
-
-	# Inner margin for padding
-	var margin = MarginContainer.new()
-	margin.add_theme_constant_override("margin_left", 8)
-	margin.add_theme_constant_override("margin_right", 8)
-	margin.add_theme_constant_override("margin_top", 8)
-	margin.add_theme_constant_override("margin_bottom", 8)
-	card.add_child(margin)
-
-	# Card content (vertical layout)
-	var vbox = VBoxContainer.new()
-	vbox.alignment = BoxContainer.ALIGNMENT_CENTER
-	vbox.add_theme_constant_override("separation", 3)
-	margin.add_child(vbox)
-
-	# Tile type label
-	var type_label = Label.new()
-	type_label.text = TileManager.TileType.keys()[tile_def.tile_type]
-	type_label.add_theme_color_override("font_color", Color.WHITE)
-	type_label.add_theme_font_size_override("font_size", 12)
-	type_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	vbox.add_child(type_label)
-
-	# Resource type icon
-	var icon_texture_rect = TextureRect.new()
-	icon_texture_rect.custom_minimum_size = Vector2(32, 32)
-	icon_texture_rect.expand_mode = TextureRect.EXPAND_FIT_WIDTH_PROPORTIONAL
-	icon_texture_rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-
-	var icon_path = TileManager.RESOURCE_TYPE_ICONS[tile_def.resource_type]
-	var icon_texture = load(icon_path) as Texture2D
-	if icon_texture:
-		icon_texture_rect.texture = icon_texture
-
-	vbox.add_child(icon_texture_rect)
-
-	# "FREE" label (no resource cost during setup)
-	var free_label = Label.new()
-	free_label.text = "FREE"
-	free_label.add_theme_color_override("font_color", Color(0.3, 0.9, 0.3))  # Bright green
-	free_label.add_theme_font_size_override("font_size", 14)
-	free_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	vbox.add_child(free_label)
-
-	# Make card clickable
-	var button = Button.new()
-	button.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	button.flat = true
-	button.focus_mode = Control.FOCUS_NONE
-	button.mouse_filter = Control.MOUSE_FILTER_PASS
-	button.pressed.connect(_on_setup_tile_pressed.bind(setup_index))
-	card.add_child(button)
+	if hand_display:
+		hand_display.update_setup_tiles_display(setup_tiles)
 
 
 ## Called when a setup tile card is clicked
@@ -621,267 +351,17 @@ func _on_setup_tile_pressed(setup_index: int) -> void:
 	setup_tile_selected.emit(setup_index)
 
 
-## Create a placeholder for a setup tile that has been placed
-func create_placed_setup_tile_placeholder() -> void:
-	# Same size as tile cards to prevent layout shift
-	var card = PanelContainer.new()
-	var card_style = StyleBoxFlat.new()
-	card_style.bg_color = Color(0.15, 0.15, 0.15, 0.5)  # Dark and transparent
-	card_style.border_color = Color(0.4, 0.4, 0.4, 0.6)
-	card_style.border_width_left = 2
-	card_style.border_width_right = 2
-	card_style.border_width_top = 2
-	card_style.border_width_bottom = 2
-	card_style.corner_radius_top_left = 8
-	card_style.corner_radius_top_right = 8
-	card_style.corner_radius_bottom_left = 8
-	card_style.corner_radius_bottom_right = 8
-	card.add_theme_stylebox_override("panel", card_style)
-	card.custom_minimum_size = Vector2(100, 110)  # Same width as tile cards
-	setup_tiles_container.add_child(card)
-
-	# Margin for padding
-	var margin = MarginContainer.new()
-	margin.add_theme_constant_override("margin_left", 6)
-	margin.add_theme_constant_override("margin_right", 6)
-	margin.add_theme_constant_override("margin_top", 8)
-	margin.add_theme_constant_override("margin_bottom", 8)
-	card.add_child(margin)
-
-	# Center label "Placed"
-	var label = Label.new()
-	label.text = "✓\nPlaced"
-	label.add_theme_color_override("font_color", Color(0.5, 0.8, 0.3))  # Green
-	label.add_theme_font_size_override("font_size", 12)
-	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	label.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	margin.add_child(label)
-
-
 ## Update the hand display with current tiles
 func update_hand_display() -> void:
-	if not hand_container or not board_manager:
-		return
-
-	# Clear existing hand cards
-	for child in hand_container.get_children():
-		child.queue_free()
-
-	# Get current hand from board manager
-	var hand = board_manager.get_hand()
-
-	# Always show HAND_SIZE slots (with placeholders for empty slots)
-	for i in range(HAND_SIZE):
-		if i < hand.size() and hand[i] != null:
-			var tile_def = hand[i]
-			create_hand_card(i, tile_def)
-		else:
-			create_empty_card_placeholder()
-
-	# Update tile count label
-	if tile_count_label and board_manager.tile_pool:
-		var remaining = board_manager.tile_pool.get_remaining_count()
-		tile_count_label.text = "Tiles: %d" % remaining
-		if remaining == 0:
-			tile_count_label.add_theme_color_override("font_color", Color.RED)
-		elif remaining < 10:
-			tile_count_label.add_theme_color_override("font_color", Color.YELLOW)
-		else:
-			tile_count_label.add_theme_color_override("font_color", Color.WHITE)
-		# Maintain outline
-		tile_count_label.add_theme_color_override("font_outline_color", Color.BLACK)
-		tile_count_label.add_theme_constant_override("outline_size", 4)
+	if hand_display:
+		hand_display.update_hand_display()
 
 
-## Create an empty placeholder for an empty hand slot
-func create_empty_card_placeholder() -> void:
-	# Container for placeholder
-	var card_vbox = VBoxContainer.new()
-	card_vbox.add_theme_constant_override("separation", 5)
-	hand_container.add_child(card_vbox)
-
-	# Empty card placeholder
-	var card = PanelContainer.new()
-	var card_style = StyleBoxFlat.new()
-	card_style.bg_color = Color(0.2, 0.2, 0.2, 0.3)  # Very dark and transparent
-	card_style.border_color = Color(0.3, 0.3, 0.3, 0.5)
-	card_style.border_width_left = 2
-	card_style.border_width_right = 2
-	card_style.border_width_top = 2
-	card_style.border_width_bottom = 2
-	card_style.corner_radius_top_left = 8
-	card_style.corner_radius_top_right = 8
-	card_style.corner_radius_bottom_left = 8
-	card_style.corner_radius_bottom_right = 8
-	card.add_theme_stylebox_override("panel", card_style)
-	card.custom_minimum_size = Vector2(100, 110)
-	card_vbox.add_child(card)
-
-	# Center label "Empty"
-	var label = Label.new()
-	label.text = "Empty"
-	label.add_theme_color_override("font_color", Color(0.4, 0.4, 0.4))
-	label.add_theme_font_size_override("font_size", 14)
-	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	label.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	card.add_child(label)
-
-	# Disabled sell button (for visual consistency)
-	var sell_button = Button.new()
-	sell_button.text = "Sell (-)"
-	sell_button.disabled = true
-	sell_button.focus_mode = Control.FOCUS_NONE  # Prevent focus indicator on disabled button
-	sell_button.custom_minimum_size = Vector2(100, 25)
-	var disabled_style = create_button_style(Color(0.25, 0.25, 0.25, 0.4))
-	sell_button.add_theme_stylebox_override("normal", disabled_style)
-	sell_button.add_theme_stylebox_override("disabled", disabled_style)
-	sell_button.add_theme_color_override("font_color", Color(0.4, 0.4, 0.4))
-	sell_button.add_theme_font_size_override("font_size", 10)
-	card_vbox.add_child(sell_button)
-
-
-## Create a visual card for a tile in the hand
-func create_hand_card(hand_index: int, tile_def) -> void:
-	# Check action availability
-	var can_place = false
-	var has_actions = false
-	if board_manager and board_manager.current_player:
-		var in_actions_phase = board_manager.turn_manager.is_actions_phase()
-		# Can only place/sell tiles during actions phase
-		if in_actions_phase:
-			can_place = board_manager.current_player.actions_remaining > 0
-			has_actions = board_manager.current_player.actions_remaining > 0
-
-	# Container for card + sell button
-	var card_vbox = VBoxContainer.new()
-	card_vbox.add_theme_constant_override("separation", 5)
-	hand_container.add_child(card_vbox)
-
-	# Card container
-	var card = PanelContainer.new()
-	var card_style = StyleBoxFlat.new()
-	var tile_color = tile_type_colors[tile_def.tile_type]
-
-	# Visual feedback based on actions
-	if not can_place:
-		# No actions - darker
-		card_style.bg_color = tile_color.darkened(0.5)
-		card_style.border_color = tile_color.darkened(0.2)
-	else:
-		# Can place - normal colors
-		card_style.bg_color = tile_color.darkened(0.3)
-		card_style.border_color = tile_color.lightened(0.3)
-
-	card_style.border_width_left = 2
-	card_style.border_width_right = 2
-	card_style.border_width_top = 2
-	card_style.border_width_bottom = 2
-	card_style.corner_radius_top_left = 8
-	card_style.corner_radius_top_right = 8
-	card_style.corner_radius_bottom_left = 8
-	card_style.corner_radius_bottom_right = 8
-	card.add_theme_stylebox_override("panel", card_style)
-	card.custom_minimum_size = Vector2(100, 110)
-	card_vbox.add_child(card)
-
-	# Inner margin for padding
-	var margin = MarginContainer.new()
-	margin.add_theme_constant_override("margin_left", 8)
-	margin.add_theme_constant_override("margin_right", 8)
-	margin.add_theme_constant_override("margin_top", 8)
-	margin.add_theme_constant_override("margin_bottom", 8)
-	card.add_child(margin)
-
-	# Card content (vertical layout)
-	var vbox = VBoxContainer.new()
-	vbox.alignment = BoxContainer.ALIGNMENT_CENTER
-	vbox.add_theme_constant_override("separation", 3)
-	margin.add_child(vbox)
-
-	# Tile type label
-	var type_label = Label.new()
-	type_label.text = TileManager.TileType.keys()[tile_def.tile_type]
-	# Dim text when disabled
-	if can_place:
-		type_label.add_theme_color_override("font_color", Color.WHITE)
-	else:
-		type_label.add_theme_color_override("font_color", Color(0.5, 0.5, 0.5))
-	type_label.add_theme_font_size_override("font_size", 12)
-	type_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	vbox.add_child(type_label)
-
-	# Resource type icon (using actual icon files)
-	var icon_texture_rect = TextureRect.new()
-	icon_texture_rect.custom_minimum_size = Vector2(32, 32)
-	icon_texture_rect.expand_mode = TextureRect.EXPAND_FIT_WIDTH_PROPORTIONAL
-	icon_texture_rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-
-	# Load the appropriate icon
-	var icon_path = TileManager.RESOURCE_TYPE_ICONS[tile_def.resource_type]
-	var icon_texture = load(icon_path) as Texture2D
-	if icon_texture:
-		icon_texture_rect.texture = icon_texture
-
-	# Desaturate and dim icon when disabled
-	if not can_place:
-		icon_texture_rect.modulate = Color(0.4, 0.4, 0.4)
-
-	vbox.add_child(icon_texture_rect)
-
-	# Yield value
-	var yield_label = Label.new()
-	yield_label.text = "Yield: %d" % tile_def.yield_value
-	# Dim text when disabled
-	if can_place:
-		yield_label.add_theme_color_override("font_color", Color.WHITE)
-	else:
-		yield_label.add_theme_color_override("font_color", Color(0.5, 0.5, 0.5))
-	yield_label.add_theme_font_size_override("font_size", 11)
-	yield_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	vbox.add_child(yield_label)
-
-	# Make card clickable (invisible button overlay)
-	var button = Button.new()
-	button.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	button.flat = true
-	button.focus_mode = Control.FOCUS_NONE  # Prevent focus indicator
-	button.mouse_filter = Control.MOUSE_FILTER_PASS
-	button.disabled = not can_place  # Disable if no actions
-	button.pressed.connect(_on_hand_card_pressed.bind(hand_index))
-	card.add_child(button)
-
-	# Sell button BELOW the card (always present for consistency)
-	var sell_button = Button.new()
-	sell_button.custom_minimum_size = Vector2(100, 25)
-
-	if tile_def.sell_price > 0:
-		# Sellable tile - green button
-		sell_button.text = "Sell (%d)" % tile_def.sell_price
-		var sell_style = create_button_style(Color(0.3, 0.6, 0.3))
-		var sell_disabled_style = create_button_style(Color(0.2, 0.4, 0.2))
-		sell_button.add_theme_stylebox_override("normal", sell_style)
-		sell_button.add_theme_stylebox_override("hover", create_button_style(Color(0.4, 0.7, 0.4)))
-		sell_button.add_theme_stylebox_override("pressed", create_button_style(Color(0.2, 0.5, 0.2)))
-		sell_button.add_theme_stylebox_override("disabled", sell_disabled_style)
-		sell_button.add_theme_color_override("font_color", Color.WHITE)
-		sell_button.disabled = not has_actions  # Disable only if no actions (not if can't afford)
-		sell_button.pressed.connect(_on_sell_button_pressed.bind(hand_index))
-	else:
-		# Glory tile - grayed out disabled button
-		sell_button.text = "Sell (-)"
-		sell_button.disabled = true
-		sell_button.focus_mode = Control.FOCUS_NONE  # Prevent focus indicator on disabled button
-		var disabled_style = create_button_style(Color(0.3, 0.3, 0.3))
-		sell_button.add_theme_stylebox_override("normal", disabled_style)
-		sell_button.add_theme_stylebox_override("disabled", disabled_style)
-		sell_button.add_theme_color_override("font_color", Color(0.5, 0.5, 0.5))
-
-	sell_button.add_theme_font_size_override("font_size", 10)
-	card_vbox.add_child(sell_button)
+func show_harvest_options(available_types: Array[int]) -> void:
+	if harvest_ui:
+		harvest_ui.show_harvest_options(available_types)
+	if actions_label:
+		actions_label.visible = false
 
 
 func _on_hand_card_pressed(hand_index: int) -> void:
@@ -897,54 +377,9 @@ func _on_end_turn_pressed() -> void:
 		board_manager.turn_manager.end_turn()
 
 
-## Shows harvest option buttons based on available types
-func show_harvest_options(available_types: Array[int]) -> void:
-	if not harvest_buttons_container:
-		return
-
-	# Clear existing buttons
-	for child in harvest_buttons_container.get_children():
-		child.queue_free()
-
-	# Create button for each available type
-	for res_type in available_types:
-		var type_name = TileManager.ResourceType.keys()[res_type]
-		var icon_path = TileManager.RESOURCE_TYPE_ICONS[res_type]
-
-		var button = Button.new()
-		button.text = "Harvest %s" % type_name
-		button.custom_minimum_size = Vector2(130, 35)
-
-		var button_color = _get_resource_color(res_type)
-		button.add_theme_stylebox_override("normal", create_button_style(button_color))
-		button.add_theme_stylebox_override("hover", create_button_style(button_color.lightened(0.2)))
-		button.add_theme_stylebox_override("pressed", create_button_style(button_color.darkened(0.2)))
-		button.add_theme_color_override("font_color", Color.WHITE)
-		button.add_theme_font_size_override("font_size", 14)
-
-		button.pressed.connect(_on_harvest_button_pressed.bind(res_type))
-		harvest_buttons_container.add_child(button)
-
-	harvest_buttons_container.visible = true
-	if actions_label:
-		actions_label.visible = false
-
-
 func _on_harvest_button_pressed(resource_type: int) -> void:
 	if board_manager:
 		board_manager.turn_manager.harvest(resource_type)
-
-
-func _get_resource_color(res_type: int) -> Color:
-	match res_type:
-		TileManager.ResourceType.RESOURCES:
-			return Color(0.6, 0.4, 0.2)  # Brown
-		TileManager.ResourceType.FERVOR:
-			return Color(0.8, 0.4, 0.1)  # Orange
-		TileManager.ResourceType.GLORY:
-			return Color(0.8, 0.7, 0.2)  # Gold
-		_:
-			return Color(0.5, 0.5, 0.5)  # Gray
 
 
 ## Updates UI based on current turn phase
@@ -957,14 +392,10 @@ func update_turn_phase(phase: int) -> void:
 		TurnManager.Phase.HARVEST:
 			# Show harvest buttons, hide actions label
 			# Restore normal hand display (hide setup UI)
-			if hand_container:
-				hand_container.get_parent().visible = true
-			if setup_title_label:
-				setup_title_label.visible = false
-			if setup_tiles_container:
-				setup_tiles_container.get_parent().visible = false
-			if harvest_buttons_container:
-				harvest_buttons_container.visible = true
+			if hand_display:
+				hand_display.hide_setup_phase()
+			if harvest_ui:
+				harvest_ui.visible = true
 			if actions_label:
 				actions_label.visible = false
 			# Disable village buttons during harvest phase
@@ -976,8 +407,8 @@ func update_turn_phase(phase: int) -> void:
 			update_hand_display()
 		TurnManager.Phase.ACTIONS:
 			# Show actions label, hide harvest buttons
-			if harvest_buttons_container:
-				harvest_buttons_container.visible = false
+			if harvest_ui:
+				harvest_ui.visible = false
 			if actions_label:
 				actions_label.visible = true
 			# Re-enable village buttons during actions phase (will be disabled if no actions)
@@ -1018,15 +449,9 @@ func update_actions(remaining: int) -> void:
 
 
 ## Shows or hides the village sell tooltip with the refund amount
-func show_village_sell_tooltip(visible: bool, refund_amount: int = 0) -> void:
-	if not village_sell_tooltip or not village_sell_tooltip_panel:
-		return
-
-	if visible and refund_amount > 0:
-		village_sell_tooltip.text = "+%d Resources" % refund_amount
-		village_sell_tooltip_panel.visible = true
-	else:
-		village_sell_tooltip_panel.visible = false
+func show_village_sell_tooltip(visible_flag: bool, refund_amount: int = 0) -> void:
+	if tooltip_manager:
+		tooltip_manager.show_village_sell_tooltip(visible_flag, refund_amount)
 
 
 # ========== ENDGAME UI (Delegated to VictoryScreen) ==========
@@ -1053,362 +478,36 @@ func show_victory_screen(all_scores: Array) -> void:
 
 ## Update god display when player selects a god
 func update_god_display(god: God, god_manager: GodManager) -> void:
-	if not god:
-		return
+	if god_panel:
+		god_panel.update_god_display(god, god_manager, board_manager)
+		god_panel.power_activated.connect(_on_power_activated)
 
-	# Store god manager reference
-	god_manager_ref = god_manager
 
-	# Update portrait
-	if god_portrait and ResourceLoader.exists(god.image_path):
-		god_portrait.texture = load(god.image_path)
-
-	# Update name
-	if god_name_label:
-		god_name_label.text = god.god_name
-
-	# Find powers container (it's a sibling of the left_vbox, in the hbox)
-	var powers_container = null
-	var left_vbox = god_name_label.get_parent()  # left_vbox
-	var hbox = left_vbox.get_parent()  # hbox
-	if hbox:
-		for child in hbox.get_children():
-			if child.name == "PowersContainer":
-				powers_container = child
-				break
-
-	if not powers_container:
-		push_error("PowersContainer not found in god panel")
-		return
-
-	# Clear existing power buttons and mappings
-	for button in god_power_buttons:
-		button.queue_free()
-	god_power_buttons.clear()
-	god_power_mapping.clear()
-
-	# Add power buttons for all powers (active and passive)
-	for power in god.powers:
-		var button = _create_power_button(power, god_manager)
-		powers_container.add_child(button)
-		god_power_buttons.append(button)
-		god_power_mapping[button] = power
-
-	# Connect to player signals for dynamic updates
+func _on_power_activated(power: GodPower, god_manager: GodManager) -> void:
 	if board_manager and board_manager.current_player:
-		var player = board_manager.current_player
-		if not player.fervor_changed.is_connected(update_power_buttons):
-			player.fervor_changed.connect(update_power_buttons.bind())
-		if not player.power_used.is_connected(update_power_buttons):
-			player.power_used.connect(update_power_buttons.bind())
-		if not player.actions_changed.is_connected(update_power_buttons):
-			player.actions_changed.connect(update_power_buttons.bind())
-
-		# Also connect to phase changes
-		if board_manager.turn_manager:
-			if not board_manager.turn_manager.phase_changed.is_connected(update_power_buttons):
-				board_manager.turn_manager.phase_changed.connect(update_power_buttons.bind())
-
-	# Initial update
-	update_power_buttons()
-
-	print("God display updated: %s" % god.god_name)
-
-
-## Create a power button with icon and styling
-func _create_power_button(power: GodPower, god_manager: GodManager) -> Button:
-	var button = Button.new()
-	button.custom_minimum_size = Vector2(220, 40)  # Wider to fit horizontal layout
-	button.mouse_filter = Control.MOUSE_FILTER_STOP
-
-	# Style based on power type
-	var style = StyleBoxFlat.new()
-	if power.is_passive:
-		# Passive - gray, disabled
-		style.bg_color = Color(0.3, 0.3, 0.3, 0.8)
-		button.disabled = true
-	else:
-		# Active - purple
-		style.bg_color = Color(0.3, 0.2, 0.5, 0.9)
-		button.pressed.connect(_on_power_button_pressed.bind(power, god_manager))
-
-	style.corner_radius_top_left = 6
-	style.corner_radius_top_right = 6
-	style.corner_radius_bottom_left = 6
-	style.corner_radius_bottom_right = 6
-	button.add_theme_stylebox_override("normal", style)
-
-	# Create content container (vbox for name + cost row)
-	var vbox = VBoxContainer.new()
-	vbox.mouse_filter = Control.MOUSE_FILTER_IGNORE  # Let clicks pass through to button
-	vbox.set_anchors_preset(Control.PRESET_FULL_RECT)
-	vbox.add_theme_constant_override("separation", 2)
-	button.add_child(vbox)
-
-	# Add some margin
-	var margin = MarginContainer.new()
-	margin.add_theme_constant_override("margin_left", 8)
-	margin.add_theme_constant_override("margin_right", 8)
-	margin.add_theme_constant_override("margin_top", 4)
-	margin.add_theme_constant_override("margin_bottom", 4)
-	margin.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	vbox.add_child(margin)
-
-	var content_vbox = VBoxContainer.new()
-	content_vbox.add_theme_constant_override("separation", 4)
-	content_vbox.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	margin.add_child(content_vbox)
-
-	# Power name
-	var name_label = Label.new()
-	name_label.text = power.power_name
-	name_label.add_theme_font_size_override("font_size", 11)
-	name_label.add_theme_color_override("font_color", Color.WHITE)
-	name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	name_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	content_vbox.add_child(name_label)
-
-	# Cost row (icon + number) if not passive
-	if power.fervor_cost > 0:
-		var cost_hbox = HBoxContainer.new()
-		cost_hbox.alignment = BoxContainer.ALIGNMENT_CENTER
-		cost_hbox.add_theme_constant_override("separation", 4)
-		cost_hbox.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		content_vbox.add_child(cost_hbox)
-
-		# Fervor icon
-		var icon = TextureRect.new()
-		icon.custom_minimum_size = Vector2(14, 14)
-		icon.expand_mode = TextureRect.EXPAND_FIT_WIDTH_PROPORTIONAL
-		icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-		icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		var texture = load("res://icons/pray.svg") as Texture2D
-		if texture:
-			icon.texture = texture
-		cost_hbox.add_child(icon)
-
-		# Cost number
-		var cost_label = Label.new()
-		cost_label.text = str(power.fervor_cost)
-		cost_label.add_theme_font_size_override("font_size", 11)
-		cost_label.add_theme_color_override("font_color", Color.WHITE)
-		cost_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		cost_hbox.add_child(cost_label)
-
-	return button
-
-
-## Update power button states based on current player resources/usage
-func update_power_buttons(_unused = null) -> void:
-	if not board_manager or not board_manager.current_player or not god_manager_ref:
-		return
-
-	var player = board_manager.current_player
-	var turn_manager = board_manager.turn_manager
-
-	for button in god_power_buttons:
-		var power: GodPower = god_power_mapping.get(button)
-		if not power or power.is_passive:
-			continue
-
-		# Check if power can be activated
-		var can_activate = god_manager_ref.can_activate_power(power, player, turn_manager)
-
-		# Update button state
-		if can_activate:
-			# Enabled - bright purple
-			button.disabled = false
-			var style = StyleBoxFlat.new()
-			style.bg_color = Color(0.4, 0.25, 0.6, 0.95)  # Brighter purple
-			style.corner_radius_top_left = 6
-			style.corner_radius_top_right = 6
-			style.corner_radius_bottom_left = 6
-			style.corner_radius_bottom_right = 6
-			button.add_theme_stylebox_override("normal", style)
-		else:
-			# Disabled - dark gray
-			button.disabled = true
-			var style = StyleBoxFlat.new()
-			style.bg_color = Color(0.2, 0.2, 0.2, 0.7)  # Dark gray
-			style.corner_radius_top_left = 6
-			style.corner_radius_top_right = 6
-			style.corner_radius_bottom_left = 6
-			style.corner_radius_bottom_right = 6
-			button.add_theme_stylebox_override("normal", style)
-			button.add_theme_stylebox_override("disabled", style)
-
-
-## Handle power button press
-func _on_power_button_pressed(power: GodPower, god_manager: GodManager) -> void:
-	if not board_manager or not board_manager.current_player:
-		return
-
-	print("Attempting to activate power: %s" % power.power_name)
-
-	# Attempt to activate power
-	var success = god_manager.activate_power(power, board_manager.current_player, board_manager)
-
-	if success:
-		# Update button states immediately
-		update_power_buttons()
-	else:
-		print("Failed to activate power: %s" % power.power_name)
-		# TODO: Show error feedback to user
+		god_manager.activate_power(power, board_manager.current_player, board_manager)
 
 
 ## Shows the resource type picker UI for CHANGE_TILE_TYPE power
-## Displays buttons to choose between valid resource types (Glory only on Hills/Mountains)
+## Delegates to resource_type_picker component.
 func show_resource_type_picker(q: int, r: int, current_type: int, tile_type: int) -> void:
-	# Prevent multiple overlays from being created
-	if resource_type_picker_overlay:
-		print("Resource type picker already open!")
-		return
-
-	# Store tile position
-	resource_type_picker_q = q
-	resource_type_picker_r = r
-
-	# Create full-screen overlay
-	resource_type_picker_overlay = ColorRect.new()
-	resource_type_picker_overlay.color = Color(0, 0, 0, 0.6)  # Semi-transparent black
-	resource_type_picker_overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	resource_type_picker_overlay.mouse_filter = Control.MOUSE_FILTER_STOP  # Block clicks
-
-	# Consume all mouse input on the overlay to prevent click-through
-	resource_type_picker_overlay.gui_input.connect(_on_overlay_gui_input)
-
-	add_child(resource_type_picker_overlay)
-
-	# Center container
-	var center = CenterContainer.new()
-	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	center.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	resource_type_picker_overlay.add_child(center)
-
-	# Main panel
-	var panel = PanelContainer.new()
-	var style = StyleBoxFlat.new()
-	style.bg_color = Color(0.15, 0.15, 0.2, 0.95)
-	style.border_color = Color(0.4, 0.25, 0.6)  # Purple border (Augia's color)
-	style.border_width_left = 4
-	style.border_width_right = 4
-	style.border_width_top = 4
-	style.border_width_bottom = 4
-	style.corner_radius_top_left = 15
-	style.corner_radius_top_right = 15
-	style.corner_radius_bottom_left = 15
-	style.corner_radius_bottom_right = 15
-	panel.add_theme_stylebox_override("panel", style)
-	panel.custom_minimum_size = Vector2(400, 250)
-	panel.mouse_filter = Control.MOUSE_FILTER_STOP
-	center.add_child(panel)
-
-	# Inner margin
-	var margin = MarginContainer.new()
-	margin.add_theme_constant_override("margin_left", 30)
-	margin.add_theme_constant_override("margin_right", 30)
-	margin.add_theme_constant_override("margin_top", 30)
-	margin.add_theme_constant_override("margin_bottom", 30)
-	margin.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	panel.add_child(margin)
-
-	# Vertical layout
-	var vbox = VBoxContainer.new()
-	vbox.add_theme_constant_override("separation", 20)
-	vbox.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	margin.add_child(vbox)
-
-	# Title
-	var title = Label.new()
-	title.text = "Choose New Resource Type"
-	title.add_theme_font_size_override("font_size", 22)
-	title.add_theme_color_override("font_color", Color.WHITE)
-	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	vbox.add_child(title)
-
-	# Subtitle showing current type
-	var subtitle = Label.new()
-	subtitle.text = "Current: %s" % TileManager.ResourceType.keys()[current_type]
-	subtitle.add_theme_font_size_override("font_size", 14)
-	subtitle.add_theme_color_override("font_color", Color(0.8, 0.8, 0.8))
-	subtitle.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	subtitle.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	vbox.add_child(subtitle)
-
-	# Button container
-	var button_container = VBoxContainer.new()
-	button_container.add_theme_constant_override("separation", 12)
-	button_container.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	vbox.add_child(button_container)
-
-	# Create buttons for each valid resource type
-	# Plains can only be Resources or Fervor (no Glory on Plains!)
-	_create_resource_type_button(button_container, TileManager.ResourceType.RESOURCES, "Resources", Color(0.6, 0.4, 0.2))
-	_create_resource_type_button(button_container, TileManager.ResourceType.FERVOR, "Fervor", Color(0.4, 0.3, 0.6))
-
-	# Glory only available on Hills and Mountains
-	if tile_type != TileManager.TileType.PLAINS:
-		_create_resource_type_button(button_container, TileManager.ResourceType.GLORY, "Glory", Color(0.7, 0.6, 0.2))
-
-	# Cancel button
-	var cancel_button = Button.new()
-	cancel_button.text = "Cancel"
-	cancel_button.custom_minimum_size = Vector2(0, 40)
-	var cancel_style = StyleBoxFlat.new()
-	cancel_style.bg_color = Color(0.3, 0.3, 0.3)
-	cancel_style.corner_radius_top_left = 8
-	cancel_style.corner_radius_top_right = 8
-	cancel_style.corner_radius_bottom_left = 8
-	cancel_style.corner_radius_bottom_right = 8
-	cancel_button.add_theme_stylebox_override("normal", cancel_style)
-	cancel_button.pressed.connect(_on_resource_type_picker_cancel)
-	button_container.add_child(cancel_button)
+	if resource_type_picker:
+		resource_type_picker.show_picker(q, r, current_type, tile_type)
 
 
-## Helper to create a resource type button
-func _create_resource_type_button(container: VBoxContainer, resource_type: int, type_name: String, color: Color) -> void:
-	var button = Button.new()
-	button.text = type_name
-	button.custom_minimum_size = Vector2(0, 50)
-
-	var btn_style = StyleBoxFlat.new()
-	btn_style.bg_color = color
-	btn_style.corner_radius_top_left = 8
-	btn_style.corner_radius_top_right = 8
-	btn_style.corner_radius_bottom_left = 8
-	btn_style.corner_radius_bottom_right = 8
-	button.add_theme_stylebox_override("normal", btn_style)
-
-	button.pressed.connect(_on_resource_type_selected.bind(resource_type))
-	container.add_child(button)
-
-
-## Handle resource type selection
-func _on_resource_type_selected(resource_type: int) -> void:
-	# IMPORTANT: Trigger the change FIRST (this cancels placement mode internally)
+## Handle resource type selection from picker
+func _on_resource_type_selected(q: int, r: int, resource_type: int) -> void:
+	# Trigger the tile type change
 	if board_manager:
-		board_manager.on_change_tile_type(resource_type_picker_q, resource_type_picker_r, resource_type)
-
-	# Then close the picker (hide immediately, queue_free is deferred)
-	if resource_type_picker_overlay:
-		resource_type_picker_overlay.visible = false
-		resource_type_picker_overlay.queue_free()
-		resource_type_picker_overlay = null
+		board_manager.on_change_tile_type(q, r, resource_type)
 
 
-## Handle cancel button
-func _on_resource_type_picker_cancel() -> void:
-	# IMPORTANT: Cancel placement mode FIRST (before hiding overlay)
+## Handle picker cancellation
+func _on_resource_type_picker_cancelled() -> void:
+	# Cancel placement mode
 	if board_manager and board_manager.placement_controller:
 		board_manager.placement_controller.cancel_placement()
-
-	# Then close the picker (hide immediately, queue_free is deferred)
-	if resource_type_picker_overlay:
-		resource_type_picker_overlay.visible = false
-		resource_type_picker_overlay.queue_free()
-		resource_type_picker_overlay = null
-
+		
 
 ## Consume all input events on the overlay to prevent click-through
 func _on_overlay_gui_input(event: InputEvent) -> void:

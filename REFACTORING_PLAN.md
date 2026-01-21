@@ -59,7 +59,7 @@ ui/
 ├── resource_type_picker.gd      # CHANGE_TILE_TYPE modal (~150 lines)
 │   └── Overlay, resource buttons, cancel handling
 └── tooltip_manager.gd           # Mouse-following tooltips (~100 lines)
-    └── Village sell tooltip, centralized tooltip system
+	└── Village sell tooltip, centralized tooltip system
 ```
 
 **Benefits:**
@@ -96,14 +96,14 @@ ui/
 # hex_tile.gd:110 - What if texture fails to load?
 var texture = load(icon_path) as Texture2D
 if texture:
-    material.albedo_texture = texture
+	material.albedo_texture = texture
 # No else branch - tile shows no icon, no error message
 
 # board_manager.gd - Inconsistent error handling
 var tile = tile_manager.get_tile_at(q, r)
 if not tile:
-    print("ERROR: No tile at position!")  # Good
-    return false
+	print("ERROR: No tile at position!")  # Good
+	return false
 # But then we don't validate texture loading
 ```
 

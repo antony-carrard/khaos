@@ -63,7 +63,7 @@ func _process(_delta: float) -> void:
 	update_preview()
 
 
-func _input(event: InputEvent) -> void:
+func _unhandled_input(event: InputEvent) -> void:
 	handle_mouse_input(event)
 	handle_keyboard_input(event)
 

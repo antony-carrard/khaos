@@ -58,6 +58,12 @@ func _create_victory_screen(all_scores: Array) -> Control:
 	overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	overlay.mouse_filter = Control.MOUSE_FILTER_STOP  # Block clicks to game
 
+	# Block all mouse input including wheel zoom
+	overlay.gui_input.connect(func(event: InputEvent):
+		if event is InputEventMouseButton or event is InputEventMouseMotion:
+			overlay.accept_event()
+	)
+
 	# Center container
 	var center = CenterContainer.new()
 	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
