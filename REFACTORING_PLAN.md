@@ -159,51 +159,24 @@ func error(message: String, context: Dictionary = {}) -> void:
 
 ## 🟡 **Medium Priority** - Do Before "Final State"
 
-### 3. Refactor board_manager.gd (663 lines, trending upward)
+### 3. ✅ Refactor board_manager.gd (DONE - 2026-02-19)
 
-**Problem:**
-- Growing toward "God object" anti-pattern
-- Handles too many responsibilities:
-  - Scene initialization
-  - God selection flow
-  - UI setup and signal wiring
-  - Tile/village placement
-  - Power execution
-  - Coordinate conversion utilities
+**What was done:**
+- Extracted `hex_grid_utils.gd` — static class with all 5 hex math methods
+- Extracted `power_executor.gd` — Node with all 6 god power execution handlers
+- `board_manager.gd` reduced from 758 → 449 lines (-41%)
+- Thin delegation wrappers preserved on `board_manager` so `placement_controller`, `victory_manager`, and all strategies need zero changes
 
-**Solution - Extract Responsibilities:**
-
-**Option A: Extract utilities and executors**
+**Resulting structure:**
 ```
-board_manager.gd          # Main orchestrator (~400 lines)
-hex_grid_utils.gd         # Static coordinate functions (~100 lines)
-power_executor.gd         # Power execution handlers (~150 lines)
+board_manager.gd      449 lines   orchestrator (init, hand/village interactions, signal wiring)
+hex_grid_utils.gd      79 lines   static hex math (axial_to_world, world_to_axial, neighbors, raycast)
+power_executor.gd     257 lines   god power handlers (steal, destroy, upgrade, downgrade, change type)
 ```
 
-**Option B: Extract initialization**
-```
-board_manager.gd          # Main orchestrator (~400 lines)
-game_initializer.gd       # Setup flow, god selection (~150 lines)
-hex_grid_utils.gd         # Coordinate utilities (~100 lines)
-```
-
-**Recommendation:** Start with extracting hex_grid_utils.gd (easy win), then decide between A or B based on what feels cleaner.
-
-**Functions to Extract:**
-```gdscript
-# To hex_grid_utils.gd (static methods)
-static func axial_to_world(q, r, height, hex_size, tile_height) -> Vector3
-static func world_to_axial(world_pos, hex_size) -> Vector2i
-static func axial_round(q, r) -> Vector2i
-static func get_axial_neighbors(q, r) -> Array[Vector2i]
-static func get_axial_at_mouse(mouse_pos, camera, ...) -> Vector2i
-```
-
-**When to Do This:**
-- When board_manager.gd hits 800+ lines, OR
-- When you find yourself getting lost in the file
-
-**Estimated Time:** 1 day
+**Remaining rough edges (low priority):**
+- `get_axial_at_mouse` still uses `Vector2i(-999, -999)` sentinel — leave for dedicated raycast refactor
+- `game_initializer.gd` not extracted — `_ready`, `show_god_selection`, `setup_ui` add children directly to board_manager, making extraction awkward for little gain at ~449 lines
 
 ---
 
@@ -372,7 +345,7 @@ Use this checklist when ready to refactor:
 - [ ] Split tile_selector_ui.gd into components
 - [ ] Add error handling for resource loading
 - [ ] Add assertions for "impossible" states
-- [ ] Extract hex coordinate utilities from board_manager.gd
+- [x] Extract hex coordinate utilities from board_manager.gd ✅ (done 2026-02-19)
 - [ ] Add tests for tile placement validation
 - [ ] Add tests for victory scoring logic
 
@@ -385,8 +358,8 @@ Use this checklist when ready to refactor:
 
 ### Could Do (If Needed):
 - [x] Implement placement strategy pattern ✅ (done 2026-02-19)
+- [x] Extract power execution from board_manager ✅ (done 2026-02-19)
 - [ ] Add comprehensive test coverage (>70%)
-- [ ] Extract power execution from board_manager
 - [ ] Create game_initializer for setup flow
 
 ---

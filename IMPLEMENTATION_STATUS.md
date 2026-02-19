@@ -6,6 +6,17 @@ This document tracks detailed implementation progress and serves as context for 
 
 ## Recent Changes (2026-02-19)
 
+**board_manager.gd Split (Latest):**
+- **Extracted `hex_grid_utils.gd`** — static class with all hex math (no instance needed)
+  - `axial_to_world`, `world_to_axial`, `axial_round`, `get_axial_neighbors`, `get_axial_at_mouse`
+  - Thin wrappers kept on `board_manager` so all existing callers are unchanged
+- **Extracted `power_executor.gd`** — Node with all 6 god power execution handlers
+  - `on_steal_harvest`, `on_destroy_village_free`, `on_upgrade_tile`, `on_downgrade_tile`
+  - `show_resource_type_selection`, `on_change_tile_type`, `_is_valid_resource_type_for_tile`
+  - Initialized at end of `setup_ui()` once all references (incl. UI) are available
+- **`board_manager.gd` reduced from 758 → 449 lines (-41%)**
+- **No behaviour changes** — strategies, placement_controller, and victory_manager untouched
+
 **Strategy Pattern Refactor + Godot 4.6 Upgrade:**
 - **Upgraded to Godot 4.6** — project.godot, main.tscn node unique_ids, victory_manager.gd indentation
 - **Replaced PlacementMode enum with Strategy pattern** — each of 8 placement modes is now a self-contained class
@@ -417,14 +428,23 @@ func show_village_sell_tooltip(visible: bool, amount: int = 0) -> void:
 ### Manager Organization
 ```
 board_manager (orchestrator)
-├── Owns: tile_manager, village_manager, placement_controller, tile_pool, turn_manager, player
+├── Owns: tile_manager, village_manager, placement_controller, tile_pool, turn_manager, player, power_executor
 ├── Handles: tile/village placement coordination, UI setup, scene initialization
-└── Delegates: turn flow to turn_manager
+├── Delegates: turn flow to turn_manager
+├── Delegates: god power execution to power_executor
+└── Wraps: hex math via HexGridUtils (static, no instance)
 
 turn_manager (turn flow)
 ├── Owns: references to player, village_manager, tile_manager, tile_pool
 ├── Handles: phase management, harvest logic, action validation, game end detection
 └── Emits: phase_changed, turn_started, turn_ended, game_ended signals
+
+power_executor (god power effects)
+├── Owns: references to player, tile_manager, village_manager, god_manager, placement_controller, ui
+└── Handles: all on_* callbacks triggered by placement strategies (steal, destroy, upgrade, downgrade, change type)
+
+HexGridUtils (static hex math)
+└── Pure functions: axial_to_world, world_to_axial, axial_round, get_axial_neighbors, get_axial_at_mouse
 ```
 
 ### UI Initialization Order
@@ -492,6 +512,8 @@ turn_manager (turn flow)
 
 **Completed Extractions:**
 - ✅ **TurnManager extracted** (2026-01-07) - Turn system now in dedicated turn_manager.gd class
+- ✅ **HexGridUtils extracted** (2026-02-19) - Static hex math class, no instance needed
+- ✅ **PowerExecutor extracted** (2026-02-19) - All god power execution handlers in dedicated Node
 
 **Debug Logging:**
 - Consider creating Logger singleton (see README.md for pattern)
