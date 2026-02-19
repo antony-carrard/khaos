@@ -97,7 +97,7 @@ func create_god_card(god: God) -> Control:
 	if ResourceLoader.exists(god.image_path):
 		portrait.texture = load(god.image_path)
 	else:
-		push_warning("God portrait not found: %s" % god.image_path)
+		Log.warn("God portrait not found: %s" % god.image_path)
 
 	vbox.add_child(portrait)
 
@@ -136,6 +136,6 @@ func create_god_card(god: God) -> Control:
 
 ## Handle god card click
 func _on_god_card_clicked(god: God) -> void:
-	print("Selected god: %s" % god.god_name)
+	Log.info("Selected god: %s" % god.god_name)
 	god_selected.emit(god)
 	queue_free()  # Remove UI after selection

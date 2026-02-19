@@ -108,7 +108,9 @@ func set_resource_properties(res_type: int, yield_val: int, village_cost: int, s
 
 	# Load and set the icon texture
 	var texture = load(icon_path) as Texture2D
-	if texture:
+	if not texture:
+		Log.error("HexTile: Failed to load icon texture: %s" % icon_path)
+	else:
 		var material = icon_mesh.material_override as StandardMaterial3D
 		if material:
 			material.albedo_texture = texture

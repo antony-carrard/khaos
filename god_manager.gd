@@ -125,22 +125,22 @@ static func create_rakun() -> God:
 func activate_power(power: GodPower, player, board_manager) -> bool:
 	# Check if power has already been used this turn
 	if player.has_used_power(power.power_type):
-		print("Power already used this turn!")
+		Log.warn("Power already used this turn!")
 		return false
 
 	# Check if player can afford fervor cost
 	if power.fervor_cost > 0 and player.fervor < power.fervor_cost:
-		print("Not enough fervor! Need %d, have %d" % [power.fervor_cost, player.fervor])
+		Log.warn("Not enough fervor! Need %d, have %d" % [power.fervor_cost, player.fervor])
 		return false
 
 	# Check if we're in the actions phase (most powers require this)
 	if not board_manager.turn_manager.is_actions_phase():
-		print("Can only use powers during actions phase")
+		Log.warn("Can only use powers during actions phase")
 		return false
 
 	# Check if player has actions remaining (most powers consume 1 action)
 	if not _power_is_free_action(power) and player.actions_remaining <= 0:
-		print("No actions remaining")
+		Log.warn("No actions remaining")
 		return false
 
 	# Check if this power requires deferred payment (selection-based powers)
@@ -187,10 +187,10 @@ func activate_power(power: GodPower, player, board_manager) -> bool:
 			_activate_downgrade_tile_keep_village(player, board_manager)
 
 		_:
-			print("Power type not implemented: ", power.power_type)
+			Log.error("Power type not implemented: %s" % power.power_type)
 			return false
 
-	print("Activated power: ", power.power_name)
+	Log.info("Activated power: %s" % power.power_name)
 	return true
 
 ## Check if power doesn't consume an action
@@ -235,7 +235,7 @@ func complete_deferred_power(player) -> void:
 	# Clear pending power
 	player.pending_power = null
 
-	print("Completed deferred power payment: %s" % power.power_name)
+	Log.info("Completed deferred power payment: %s" % power.power_name)
 
 
 ## Check if a power can be activated (for UI updates)
@@ -271,44 +271,44 @@ func _activate_destroy_village_free(player, board_manager) -> void:
 	# Enter destroy village selection mode
 	if board_manager.placement_controller:
 		board_manager.placement_controller.select_destroy_village_free_mode()
-		print("Destroy village mode activated - click an enemy village")
+		Log.info("Destroy village mode activated - click an enemy village")
 
 func _activate_extra_action(player) -> void:
 	# Grant +1 action for next turn
 	player.next_turn_bonus_actions = 1
-	print("Next turn will have 4 actions!")
+	Log.info("Next turn will have 4 actions!")
 
 func _activate_second_harvest(player, board_manager) -> void:
 	# Trigger harvest UI again (doesn't consume action, costs fervor only)
 	if board_manager.turn_manager:
 		board_manager.turn_manager.trigger_second_harvest()
-		print("Second harvest triggered!")
+		Log.info("Second harvest triggered!")
 	else:
-		push_error("Cannot trigger second harvest: turn_manager not found")
+		Log.error("Cannot trigger second harvest: turn_manager not found")
 
 func _activate_change_tile_type(player, board_manager) -> void:
 	# Enter change tile type selection mode
 	if board_manager.placement_controller:
 		board_manager.placement_controller.select_change_tile_type_mode()
-		print("Change tile type mode activated - click your own village to change its tile type")
+		Log.info("Change tile type mode activated - click your own village to change its tile type")
 
 func _activate_upgrade_tile_keep_village(player, board_manager) -> void:
 	# Enter upgrade tile selection mode
 	if board_manager.placement_controller:
 		board_manager.placement_controller.select_upgrade_tile_mode()
-		print("Upgrade tile mode activated - click your own village to upgrade its tile")
+		Log.info("Upgrade tile mode activated - click your own village to upgrade its tile")
 
 func _activate_steal_harvest(player, board_manager) -> void:
 	# Enter steal harvest selection mode
 	if board_manager.placement_controller:
 		board_manager.placement_controller.select_steal_harvest_mode()
-		print("Steal harvest mode activated - click an enemy village")
+		Log.info("Steal harvest mode activated - click an enemy village")
 
 func _activate_downgrade_tile_keep_village(player, board_manager) -> void:
 	# Enter downgrade tile selection mode
 	if board_manager.placement_controller:
 		board_manager.placement_controller.select_downgrade_tile_mode()
-		print("Downgrade tile mode activated - click your own village to downgrade its tile")
+		Log.info("Downgrade tile mode activated - click your own village to downgrade its tile")
 
 # ============================================================================
 # PASSIVE POWER QUERIES

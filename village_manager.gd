@@ -32,12 +32,12 @@ func place_village(q: int, r: int, owner: Player) -> bool:
 
 	# Check if village already exists at this position
 	if placed_villages.has(pos_key):
-		print("Village already exists at q=%d, r=%d" % [q, r])
+		Log.warn("Village already exists at q=%d, r=%d" % [q, r])
 		return false
 
 	# Check if there's a tile at this position using tile_manager
 	if not tile_manager or not tile_manager.has_tile_at(q, r):
-		print("No tile exists at q=%d, r=%d" % [q, r])
+		Log.warn("No tile exists at q=%d, r=%d" % [q, r])
 		return false
 
 	# Find the topmost tile at this position
@@ -54,7 +54,7 @@ func place_village(q: int, r: int, owner: Player) -> bool:
 	village.global_position = world_pos + Vector3(0, tile_height / 2, 0)
 
 	placed_villages[pos_key] = village
-	print("Placed village at q=%d, r=%d (Owner: %s)" % [q, r, owner.player_name])
+	Log.info("Placed village at q=%d, r=%d (Owner: %s)" % [q, r, owner.player_name])
 	village_placed.emit(q, r)
 	return true
 
@@ -66,7 +66,7 @@ func remove_village(q: int, r: int) -> bool:
 	var pos_key = Vector2i(q, r)
 
 	if not placed_villages.has(pos_key):
-		print("No village at q=%d, r=%d" % [q, r])
+		Log.warn("No village at q=%d, r=%d" % [q, r])
 		return false
 
 	# Remove the village node
@@ -74,7 +74,7 @@ func remove_village(q: int, r: int) -> bool:
 	village.queue_free()
 	placed_villages.erase(pos_key)
 
-	print("Removed village at q=%d, r=%d" % [q, r])
+	Log.info("Removed village at q=%d, r=%d" % [q, r])
 	village_removed.emit(q, r)
 	return true
 

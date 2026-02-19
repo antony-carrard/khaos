@@ -92,19 +92,20 @@ func initialize() -> void:
 	# Shuffle the bag
 	tile_bag.shuffle()
 
-	print("TilePool initialized: %d tiles in bag" % tile_bag.size())
+	Log.info("TilePool initialized: %d tiles in bag" % tile_bag.size())
+	assert(tile_bag.size() == 63, "TilePool: Expected 63 tiles, got %d" % tile_bag.size())
 
 
 ## Draw a random tile from the bag
 ## Returns TileDefinition or null if bag is empty
 func draw_tile() -> TileDefinition:
 	if tile_bag.is_empty():
-		print("TilePool: Bag is empty!")
+		Log.warn("TilePool: Bag is empty!")
 		return null
 
 	var tile = tile_bag.pop_back()
 	removed_tiles.append(tile)
-	print("TilePool: Drew %s %s tile (yield=%d, village_cost=%d, sell=%d). Remaining: %d" % [
+	Log.debug("TilePool: Drew %s %s tile (yield=%d, village_cost=%d, sell=%d). Remaining: %d" % [
 		TileManager.ResourceType.keys()[tile.resource_type],
 		TileManager.TileType.keys()[tile.tile_type],
 		tile.yield_value,
@@ -149,4 +150,4 @@ func return_tile(tile: TileDefinition) -> void:
 	# Add back to bag and shuffle
 	tile_bag.append(tile)
 	tile_bag.shuffle()
-	print("TilePool: Returned tile to bag. Total: %d" % tile_bag.size())
+	Log.debug("TilePool: Returned tile to bag. Total: %d" % tile_bag.size())

@@ -62,7 +62,7 @@ func show_setup_phase(setup_tiles: Array) -> void:
 		setup_tiles_container.get_parent().visible = true
 		update_setup_tiles_display(setup_tiles)
 
-	print("Setup phase UI displayed")
+	Log.debug("Setup phase UI displayed")
 
 
 ## Hide setup phase, show normal hand

@@ -74,12 +74,12 @@ func _ready() -> void:
 	# Get camera reference (sibling in scene tree)
 	var parent = get_parent()
 	if not parent:
-		push_error("BoardManager: No parent node found! BoardManager must be a child of Main scene.")
+		Log.error("BoardManager: No parent node found! BoardManager must be a child of Main scene.")
 		return
 
 	camera = parent.get_node_or_null("Camera3D")
 	if not camera:
-		push_error("BoardManager: Camera3D not found! Make sure a Camera3D node exists as a sibling of BoardManager.")
+		Log.error("BoardManager: Camera3D not found! Make sure a Camera3D node exists as a sibling of BoardManager.")
 		return
 
 	placement_controller = PlacementController.new()
@@ -88,7 +88,7 @@ func _ready() -> void:
 
 	# Don't draw initial hand yet - happens after setup phase
 	# Don't place any tiles automatically - player places them in setup
-	print("Tile pool count at start: %d" % tile_pool.get_remaining_count())
+	Log.info("Tile pool count at start: %d" % tile_pool.get_remaining_count())
 
 	# Test mode: unlimited actions for placing many tiles
 	if test_mode:
@@ -123,7 +123,7 @@ func show_god_selection() -> void:
 	# Wait for god selection
 	var selected_god = await god_selection_ui.god_selected
 	current_player.god = selected_god
-	print("Player selected: %s" % selected_god.god_name)
+	Log.info("Player selected: %s" % selected_god.god_name)
 
 	# Remove canvas layer (god selection UI will queue_free itself)
 	canvas_layer.queue_free()
@@ -176,10 +176,10 @@ func _on_setup_tile_selected(setup_index: int) -> void:
 
 	var tile_def = current_player.setup_tiles[setup_index]
 	if tile_def == null:
-		print("No setup tile in this slot!")
+		Log.warn("No setup tile in this slot!")
 		return
 
-	print("Selected setup tile %d: %s %s (yield=%d, village_cost=%d)" % [
+	Log.debug("Selected setup tile %d: %s %s (yield=%d, village_cost=%d)" % [
 		setup_index + 1,
 		TileManager.TileType.keys()[tile_def.tile_type],
 		TileManager.ResourceType.keys()[tile_def.resource_type],
@@ -198,20 +198,20 @@ func _on_tile_selected_from_hand(hand_index: int) -> void:
 
 	var tile_def = current_player.hand[hand_index]
 	if tile_def == null:
-		print("No tile in this slot!")
+		Log.warn("No tile in this slot!")
 		return
 
 	# Can only place tiles during actions phase
 	if not turn_manager.is_actions_phase():
-		print("Can only place tiles during actions phase!")
+		Log.warn("Can only place tiles during actions phase!")
 		return
 
 	# Check if player has actions remaining
 	if current_player.actions_remaining <= 0:
-		print("No actions remaining to place tile!")
+		Log.warn("No actions remaining to place tile!")
 		return
 
-	print("Selected tile from hand: %s %s (yield=%d, village_cost=%d)" % [
+	Log.debug("Selected tile from hand: %s %s (yield=%d, village_cost=%d)" % [
 		TileManager.TileType.keys()[tile_def.tile_type],
 		TileManager.ResourceType.keys()[tile_def.resource_type],
 		tile_def.yield_value,
@@ -229,20 +229,20 @@ func on_tile_placed_from_hand(hand_index: int) -> void:
 
 	var placed_tile = current_player.hand[hand_index]
 	if placed_tile == null:
-		print("ERROR: No tile in this slot!")
+		Log.warn("BoardManager: No tile in hand slot %d" % hand_index)
 		return
 
 	# Validate phase - can only place tiles during actions phase (setup uses different flow)
 	if not turn_manager.is_actions_phase():
-		print("ERROR: Can only place tiles during actions phase!")
+		Log.warn("BoardManager: Cannot place tile outside actions phase")
 		return
 
 	# Consume action
 	if not turn_manager.consume_action("place tile"):
-		print("ERROR: Placed tile but had no actions!")
+		Log.error("BoardManager: consume_action failed despite passing phase/action checks")
 		return
 
-	print("Placed tile from hand: %s %s" % [
+	Log.info("Placed tile from hand: %s %s" % [
 		TileManager.TileType.keys()[placed_tile.tile_type],
 		TileManager.ResourceType.keys()[placed_tile.resource_type]
 	])
@@ -261,7 +261,7 @@ func on_tile_placed_from_hand(hand_index: int) -> void:
 			break
 
 	if tile_pool.get_remaining_count() == 0 and not hand_has_tiles:
-		print("Game Over! No tiles left in bag or hand.")
+		Log.info("Game Over! No tiles left in bag or hand.")
 
 	# Update UI to reflect hand changes
 	if ui:
@@ -273,17 +273,17 @@ func on_tile_placed_from_hand(hand_index: int) -> void:
 ## Consumes 1 action (in game mode during actions phase)
 func sell_tile(hand_index: int) -> void:
 	if hand_index < 0 or hand_index >= current_player.HAND_SIZE:
-		print("ERROR: Invalid hand index for selling: %d" % hand_index)
+		Log.error("BoardManager: Invalid hand index for selling: %d" % hand_index)
 		return
 
 	var tile = current_player.hand[hand_index]
 	if tile == null:
-		print("ERROR: No tile in this slot to sell!")
+		Log.warn("BoardManager: No tile in hand slot %d to sell" % hand_index)
 		return
 
 	# Check if tile can be sold (Glory tiles have sell_price = 0)
 	if tile.sell_price <= 0:
-		print("Cannot sell this tile! Glory tiles cannot be sold.")
+		Log.warn("BoardManager: Cannot sell Glory tile")
 		return
 
 	# Consume 1 action (validates phase and action count)
@@ -293,7 +293,7 @@ func sell_tile(hand_index: int) -> void:
 	# Give player resources
 	current_player.add_resources(tile.sell_price)
 
-	print("Sold %s %s tile for %d resources" % [
+	Log.info("Sold %s %s tile for %d resources" % [
 		TileManager.ResourceType.keys()[tile.resource_type],
 		TileManager.TileType.keys()[tile.tile_type],
 		tile.sell_price
@@ -318,7 +318,7 @@ func on_village_placed(q: int, r: int) -> bool:
 	# Get the tile at this position to determine cost
 	var tile = tile_manager.get_tile_at(q, r)
 	if not tile:
-		print("ERROR: No tile at position for village placement!")
+		Log.error("BoardManager: No tile at (%d,%d) for village placement" % [q, r])
 		return false
 
 	# Get building cost from tile (with god ability modification)
@@ -326,7 +326,7 @@ func on_village_placed(q: int, r: int) -> bool:
 
 	# Check if player can afford it
 	if current_player.resources < cost:
-		print("Cannot afford village! Need %d resources, have %d" % [cost, current_player.resources])
+		Log.warn("BoardManager: Cannot afford village — need %d, have %d" % [cost, current_player.resources])
 		return false
 
 	# Consume 1 action (validates phase and action count)
@@ -340,13 +340,13 @@ func on_village_placed(q: int, r: int) -> bool:
 
 	# Spend resources
 	if not current_player.spend_resources(cost):
-		print("ERROR: Placed village but couldn't afford it!")
+		Log.error("BoardManager: spend_resources failed after affordability check passed — rolling back")
 		# This shouldn't happen since we checked above, but handle it anyway
 		# Remove the village we just placed
 		village_manager.remove_village(q, r)
 		return false
 
-	print("Built village for %d resources" % cost)
+	Log.info("Built village for %d resources" % cost)
 
 	return true
 
@@ -358,18 +358,18 @@ func on_village_removed(q: int, r: int) -> bool:
 	# Check if village exists at this position
 	var village = village_manager.get_village_at(q, r)
 	if not village:
-		print("ERROR: No village at position to remove!")
+		Log.warn("BoardManager: No village at (%d,%d) to remove" % [q, r])
 		return false
 
 	# Check ownership - can only remove your own villages
 	if village.player_owner != current_player:
-		print("Cannot remove another player's village!")
+		Log.warn("BoardManager: Cannot remove another player's village")
 		return false
 
 	# Get the tile to determine refund
 	var tile = tile_manager.get_tile_at(q, r)
 	if not tile:
-		print("ERROR: No tile at village position!")
+		Log.error("BoardManager: Village exists at (%d,%d) but no tile found" % [q, r])
 		return false
 
 	# Calculate refund (half the building cost, with god ability modification)
@@ -388,7 +388,7 @@ func on_village_removed(q: int, r: int) -> bool:
 	# Give refund
 	current_player.add_resources(refund)
 
-	print("Removed village, received %d resources refund" % refund)
+	Log.info("Removed village, received %d resources refund" % refund)
 
 	return true
 

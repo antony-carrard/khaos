@@ -59,7 +59,7 @@ func spend_resources(amount: int) -> bool:
 		return false
 	resources -= amount
 	resources_changed.emit(resources)
-	print("%s: Spent %d resources. Remaining: %d" % [player_name, amount, resources])
+	Log.debug("%s: Spent %d resources. Remaining: %d" % [player_name, amount, resources])
 	return true
 
 
@@ -67,7 +67,7 @@ func spend_resources(amount: int) -> bool:
 func add_resources(amount: int) -> void:
 	resources += amount
 	resources_changed.emit(resources)
-	print("%s: Gained %d resources. Total: %d" % [player_name, amount, resources])
+	Log.debug("%s: Gained %d resources. Total: %d" % [player_name, amount, resources])
 
 
 ## Spend fervor (for divine powers)
@@ -76,7 +76,7 @@ func spend_fervor(amount: int) -> bool:
 		return false
 	fervor -= amount
 	fervor_changed.emit(fervor)
-	print("%s: Spent %d fervor. Remaining: %d" % [player_name, amount, fervor])
+	Log.debug("%s: Spent %d fervor. Remaining: %d" % [player_name, amount, fervor])
 	return true
 
 
@@ -84,14 +84,14 @@ func spend_fervor(amount: int) -> bool:
 func add_fervor(amount: int) -> void:
 	fervor += amount
 	fervor_changed.emit(fervor)
-	print("%s: Gained %d fervor. Total: %d" % [player_name, amount, fervor])
+	Log.debug("%s: Gained %d fervor. Total: %d" % [player_name, amount, fervor])
 
 
 ## Add glory (from harvest)
 func add_glory(amount: int) -> void:
 	glory += amount
 	glory_changed.emit(glory)
-	print("%s: Gained %d glory. Total: %d" % [player_name, amount, glory])
+	Log.debug("%s: Gained %d glory. Total: %d" % [player_name, amount, glory])
 
 
 ## Draw tiles into hand from tile pool
@@ -108,7 +108,7 @@ func draw_tiles(tile_pool, count: int) -> void:
 				drawn_count += 1
 				break
 
-	print("%s: Drew %d tiles into hand" % [player_name, drawn_count])
+	Log.debug("%s: Drew %d tiles into hand" % [player_name, drawn_count])
 
 
 ## Remove tile from hand (sets slot to null instead of removing)
@@ -135,7 +135,7 @@ func start_turn() -> void:
 	# Reset used powers for new turn
 	used_powers_this_turn.clear()
 
-	print("%s: Started turn. +1 resource, +1 fervor, %d actions" % [player_name, total_actions])
+	Log.info("%s: Started turn. +1 resource, +1 fervor, %d actions" % [player_name, total_actions])
 
 
 ## Set actions remaining and emit signal
@@ -168,7 +168,7 @@ func mark_power_used(power_type: int) -> void:
 	if not used_powers_this_turn.has(power_type):
 		used_powers_this_turn.append(power_type)
 		power_used.emit(power_type)
-		print("%s: Marked power %d as used this turn" % [player_name, power_type])
+		Log.debug("%s: Marked power %d as used this turn" % [player_name, power_type])
 
 
 ## Get current hand
@@ -192,13 +192,13 @@ func initialize_setup_tiles(tile_pool) -> void:
 		attempts += 1
 
 		if tile == null:
-			push_error("Tile pool is empty! Cannot draw setup tiles.")
+			Log.error("Tile pool is empty! Cannot draw setup tiles.")
 			break
 
 		if tile.tile_type == TileManager.TileType.PLAINS:
 			setup_tiles.append(tile)
 			plains_drawn += 1
-			print("%s: Drew PLAINS %s tile for setup" % [
+			Log.debug("%s: Drew PLAINS %s tile for setup" % [
 				player_name,
 				TileManager.ResourceType.keys()[tile.resource_type]
 			])
@@ -207,6 +207,6 @@ func initialize_setup_tiles(tile_pool) -> void:
 			tile_pool.return_tile(tile)
 
 	if plains_drawn < 2:
-		push_error("Could not draw 2 PLAINS tiles for setup! Only got %d" % plains_drawn)
+		Log.error("Could not draw 2 PLAINS tiles for setup! Only got %d" % plains_drawn)
 
-	print("%s: Setup tiles initialized (%d PLAINS tiles)" % [player_name, plains_drawn])
+	Log.info("%s: Setup tiles initialized (%d PLAINS tiles)" % [player_name, plains_drawn])

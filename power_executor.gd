@@ -37,18 +37,18 @@ func initialize(
 func on_steal_harvest(q: int, r: int) -> bool:
 	var village = village_manager.get_village_at(q, r)
 	if not village:
-		print("No village at position (%d, %d)" % [q, r])
+		Log.warn("No village at position (%d, %d)" % [q, r])
 		current_player.pending_power = null
 		return false
 
 	if village.player_owner == current_player:
-		print("Cannot steal from your own village!")
+		Log.warn("Cannot steal from your own village!")
 		current_player.pending_power = null
 		return false
 
 	var tile = tile_manager.get_tile_at(q, r)
 	if not tile:
-		print("ERROR: No tile at village position!")
+		Log.error("PowerExecutor: Village at (%d,%d) has no tile" % [q, r])
 		current_player.pending_power = null
 		return false
 
@@ -58,13 +58,13 @@ func on_steal_harvest(q: int, r: int) -> bool:
 	match tile.resource_type:
 		TileManager.ResourceType.RESOURCES:
 			current_player.add_resources(harvest_value)
-			print("Stole %d resources from enemy village" % harvest_value)
+			Log.info("Stole %d resources from enemy village" % harvest_value)
 		TileManager.ResourceType.FERVOR:
 			current_player.add_fervor(harvest_value)
-			print("Stole %d fervor from enemy village" % harvest_value)
+			Log.info("Stole %d fervor from enemy village" % harvest_value)
 		TileManager.ResourceType.GLORY:
 			current_player.add_glory(harvest_value)
-			print("Stole %d glory from enemy village" % harvest_value)
+			Log.info("Stole %d glory from enemy village" % harvest_value)
 
 	return true
 
@@ -74,12 +74,12 @@ func on_steal_harvest(q: int, r: int) -> bool:
 func on_destroy_village_free(q: int, r: int) -> bool:
 	var village = village_manager.get_village_at(q, r)
 	if not village:
-		print("No village at position (%d, %d)" % [q, r])
+		Log.warn("No village at position (%d, %d)" % [q, r])
 		current_player.pending_power = null
 		return false
 
 	if village.player_owner == current_player:
-		print("Cannot destroy your own village with this power!")
+		Log.warn("Cannot destroy your own village with this power!")
 		current_player.pending_power = null
 		return false
 
@@ -87,7 +87,7 @@ func on_destroy_village_free(q: int, r: int) -> bool:
 
 	var success = village_manager.remove_village(q, r)
 	if success:
-		print("Destroyed enemy village at (%d, %d) with DESTROY_VILLAGE_FREE power" % [q, r])
+		Log.info("Destroyed enemy village at (%d, %d) with DESTROY_VILLAGE_FREE power" % [q, r])
 
 	return success
 
@@ -97,23 +97,23 @@ func on_destroy_village_free(q: int, r: int) -> bool:
 func on_upgrade_tile(q: int, r: int) -> bool:
 	var village = village_manager.get_village_at(q, r)
 	if not village:
-		print("No village at position (%d, %d)" % [q, r])
+		Log.warn("No village at position (%d, %d)" % [q, r])
 		current_player.pending_power = null
 		return false
 
 	if village.player_owner != current_player:
-		print("Can only upgrade your own villages!")
+		Log.warn("Can only upgrade your own villages!")
 		current_player.pending_power = null
 		return false
 
 	var tile = tile_manager.get_tile_at(q, r)
 	if not tile:
-		print("ERROR: No tile at position!")
+		Log.error("PowerExecutor: Village at (%d,%d) has no tile" % [q, r])
 		current_player.pending_power = null
 		return false
 
 	if tile.tile_type == TileManager.TileType.MOUNTAIN:
-		print("Cannot upgrade MOUNTAIN - already at max level")
+		Log.warn("Cannot upgrade MOUNTAIN - already at max level")
 		current_player.pending_power = null
 		return false
 
@@ -124,7 +124,7 @@ func on_upgrade_tile(q: int, r: int) -> bool:
 		var new_height = tile_manager.get_top_height(q, r)
 		var world_pos = board_manager.axial_to_world(q, r, new_height)
 		village.global_position = world_pos + Vector3(0, tile_manager.tile_height / 2, 0)
-		print("Upgraded tile at (%d, %d) with UPGRADE_TILE_KEEP_VILLAGE power" % [q, r])
+		Log.info("Upgraded tile at (%d, %d) with UPGRADE_TILE_KEEP_VILLAGE power" % [q, r])
 
 	return success
 
@@ -134,23 +134,23 @@ func on_upgrade_tile(q: int, r: int) -> bool:
 func on_downgrade_tile(q: int, r: int) -> bool:
 	var village = village_manager.get_village_at(q, r)
 	if not village:
-		print("No village at position (%d, %d)" % [q, r])
+		Log.warn("No village at position (%d, %d)" % [q, r])
 		current_player.pending_power = null
 		return false
 
 	if village.player_owner != current_player:
-		print("Can only downgrade your own villages!")
+		Log.warn("Can only downgrade your own villages!")
 		current_player.pending_power = null
 		return false
 
 	var tile = tile_manager.get_tile_at(q, r)
 	if not tile:
-		print("ERROR: No tile at position!")
+		Log.error("PowerExecutor: Village at (%d,%d) has no tile" % [q, r])
 		current_player.pending_power = null
 		return false
 
 	if tile.tile_type == TileManager.TileType.PLAINS:
-		print("Cannot downgrade PLAINS - already at min level")
+		Log.warn("Cannot downgrade PLAINS - already at min level")
 		current_player.pending_power = null
 		return false
 
@@ -161,7 +161,7 @@ func on_downgrade_tile(q: int, r: int) -> bool:
 		var new_height = tile_manager.get_top_height(q, r)
 		var world_pos = board_manager.axial_to_world(q, r, new_height)
 		village.global_position = world_pos + Vector3(0, tile_manager.tile_height / 2, 0)
-		print("Downgraded tile at (%d, %d) with DOWNGRADE_TILE_KEEP_VILLAGE power" % [q, r])
+		Log.info("Downgraded tile at (%d, %d) with DOWNGRADE_TILE_KEEP_VILLAGE power" % [q, r])
 
 	return success
 
@@ -171,12 +171,12 @@ func on_downgrade_tile(q: int, r: int) -> bool:
 func show_resource_type_selection(q: int, r: int) -> void:
 	var village = village_manager.get_village_at(q, r)
 	if not village or village.player_owner != current_player:
-		print("Can only change tile type on your own villages!")
+		Log.warn("Can only change tile type on your own villages!")
 		return
 
 	var tile = tile_manager.get_tile_at(q, r)
 	if not tile:
-		print("ERROR: No tile at position!")
+		Log.error("PowerExecutor: Village at (%d,%d) has no tile" % [q, r])
 		return
 
 	if ui:
@@ -194,7 +194,7 @@ func show_resource_type_selection(q: int, r: int) -> void:
 func on_change_tile_type(q: int, r: int, new_resource_type: int) -> bool:
 	var village = village_manager.get_village_at(q, r)
 	if not village or village.player_owner != current_player:
-		print("Can only change tile type on your own villages!")
+		Log.warn("Can only change tile type on your own villages!")
 		current_player.pending_power = null
 		if placement_controller:
 			placement_controller.cancel_placement()
@@ -202,21 +202,21 @@ func on_change_tile_type(q: int, r: int, new_resource_type: int) -> bool:
 
 	var tile = tile_manager.get_tile_at(q, r)
 	if not tile:
-		print("ERROR: No tile at position!")
+		Log.error("PowerExecutor: Village at (%d,%d) has no tile" % [q, r])
 		current_player.pending_power = null
 		if placement_controller:
 			placement_controller.cancel_placement()
 		return false
 
 	if tile.resource_type == new_resource_type:
-		print("Tile is already %s type!" % TileManager.ResourceType.keys()[new_resource_type])
+		Log.warn("Tile is already %s type!" % TileManager.ResourceType.keys()[new_resource_type])
 		current_player.pending_power = null
 		if placement_controller:
 			placement_controller.cancel_placement()
 		return false
 
 	if not _is_valid_resource_type_for_tile(tile.tile_type, new_resource_type):
-		print("Cannot change to %s on a %s tile!" % [
+		Log.warn("Cannot change to %s on a %s tile!" % [
 			TileManager.ResourceType.keys()[new_resource_type],
 			TileManager.TileType.keys()[tile.tile_type]
 		])
@@ -237,7 +237,7 @@ func on_change_tile_type(q: int, r: int, new_resource_type: int) -> bool:
 		icon_path
 	)
 
-	print("Changed tile at (%d, %d) from %s to %s" % [
+	Log.info("Changed tile at (%d, %d) from %s to %s" % [
 		q, r,
 		TileManager.ResourceType.keys()[old_type],
 		TileManager.ResourceType.keys()[new_resource_type]

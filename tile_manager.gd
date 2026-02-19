@@ -84,7 +84,7 @@ func place_tile(q: int, r: int, tile_type: TileType, res_type: ResourceType = Re
 	var key = Vector3i(q, r, height)
 	placed_tiles[key] = tile
 
-	print("Placed %s tile at q=%d, r=%d, height=%d (Resource: %s, Yield: %d, Village Cost: %d)" %
+	Log.debug("Placed %s tile at q=%d, r=%d, height=%d (Resource: %s, Yield: %d, Village Cost: %d)" %
 		  [TileType.keys()[tile_type], q, r, height, ResourceType.keys()[res_type], yield_val, village_cost])
 	tile_placed.emit(q, r, height, tile_type)
 	return true
@@ -184,7 +184,7 @@ func upgrade_tile(q: int, r: int) -> bool:
 	# Get the current top tile
 	var current_tile = get_tile_at(q, r)
 	if not current_tile:
-		print("No tile found at (%d, %d) to upgrade" % [q, r])
+		Log.warn("No tile found at (%d, %d) to upgrade" % [q, r])
 		return false
 
 	# Determine the new tile type
@@ -195,7 +195,7 @@ func upgrade_tile(q: int, r: int) -> bool:
 		TileType.HILLS:
 			new_tile_type = TileType.MOUNTAIN
 		TileType.MOUNTAIN:
-			print("Cannot upgrade MOUNTAIN - already at max level")
+			Log.warn("Cannot upgrade MOUNTAIN - already at max level")
 			return false
 		_:
 			return false
@@ -214,7 +214,7 @@ func upgrade_tile(q: int, r: int) -> bool:
 
 	# Check if position is already occupied at new height
 	if placed_tiles.has(new_key):
-		print("Cannot upgrade - tile already exists at height %d" % new_height)
+		Log.warn("Cannot upgrade - tile already exists at height %d" % new_height)
 		return false
 
 	var tile = hex_tile_scene.instantiate() as HexTile
@@ -229,7 +229,7 @@ func upgrade_tile(q: int, r: int) -> bool:
 
 	placed_tiles[new_key] = tile
 
-	print("Upgraded tile at (%d, %d) from %s to %s" %
+	Log.info("Upgraded tile at (%d, %d) from %s to %s" %
 		  [q, r, TileType.keys()[old_tile_type], TileType.keys()[new_tile_type]])
 
 	return true
@@ -243,14 +243,14 @@ func downgrade_tile(q: int, r: int) -> bool:
 	# Get the current top tile
 	var current_tile = get_tile_at(q, r)
 	if not current_tile:
-		print("No tile found at (%d, %d) to downgrade" % [q, r])
+		Log.warn("No tile found at (%d, %d) to downgrade" % [q, r])
 		return false
 
 	# Check if can be downgraded
 	var old_tile_type = current_tile.tile_type
 	match current_tile.tile_type:
 		TileType.PLAINS:
-			print("Cannot downgrade PLAINS - already at min level")
+			Log.warn("Cannot downgrade PLAINS - already at min level")
 			return false
 		TileType.HILLS, TileType.MOUNTAIN:
 			# Can downgrade
@@ -267,10 +267,10 @@ func downgrade_tile(q: int, r: int) -> bool:
 	# Get the new top tile (which was below)
 	var new_top_tile = get_tile_at(q, r)
 	if not new_top_tile:
-		print("ERROR: No tile below after downgrade!")
+		Log.error("No tile below after downgrade at (%d, %d)!" % [q, r])
 		return false
 
-	print("Downgraded tile at (%d, %d) from %s to %s" %
+	Log.info("Downgraded tile at (%d, %d) from %s to %s" %
 		  [q, r, TileType.keys()[old_tile_type], TileType.keys()[new_top_tile.tile_type]])
 
 	return true

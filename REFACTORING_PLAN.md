@@ -52,77 +52,19 @@ ui/
 
 ---
 
-### 2. Improve Error Handling
+### 2. ✅ Logger Singleton + Error Handling (DONE - 2026-02-20)
 
-**Problem:**
-- Too optimistic about resources loading
-- Silent failures can cause hard-to-debug issues
-- No distinction between "expected" failures and "should never happen" bugs
+**What was done:**
+- Created `logger.gd` autoload registered as `Log` (not `Logger` — conflicts with Godot 4.5+ built-in)
+- Four levels: DEBUG / INFO / WARN / ERROR; debug builds show all, release builds show WARN+ only
+- Replaced every `print()`, `push_warning()`, `push_error()` in the codebase with the appropriate `Log.*` call
+- Added `assert(tile_bag.size() == 63)` in `tile_pool.gd` to catch tile distribution bugs immediately
+- Added `Log.error()` on texture load failure in `hex_tile.gd` (was silent)
+- Classified all board_manager / power_executor calls by true severity (logic bugs → error, user-blocked actions → warn, progress → info, chatty trace → debug)
 
-**Examples of Missing Validation:**
+**Files modified:** `logger.gd` (new), `project.godot`, `hex_tile.gd`, `god_selection_ui.gd`, `tile_pool.gd`, `board_manager.gd`, `victory_manager.gd`, `tile_manager.gd`, `god_manager.gd`, `player.gd`, `turn_manager.gd`, `power_executor.gd`, `village_manager.gd`, `ui/god_panel.gd`, `ui/hand_display.gd`, `placement/strategies/tile_placement_strategy.gd`
 
-```gdscript
-# hex_tile.gd:110 - What if texture fails to load?
-var texture = load(icon_path) as Texture2D
-if texture:
-	material.albedo_texture = texture
-# No else branch - tile shows no icon, no error message
-
-# board_manager.gd - Inconsistent error handling
-var tile = tile_manager.get_tile_at(q, r)
-if not tile:
-	print("ERROR: No tile at position!")  # Good
-	return false
-# But then we don't validate texture loading
-```
-
-**Solution - Add Proper Error Handling:**
-
-```gdscript
-# For "should never happen" cases
-assert(tile != null, "Tile must exist at this position")
-
-# For expected failures
-if not texture:
-    push_error("Failed to load texture: %s" % icon_path)
-    return false
-
-# For resource loading
-var texture = load(icon_path) as Texture2D
-if not texture:
-    push_error("Failed to load icon: %s" % icon_path)
-    # Fallback: use default icon or show error indicator
-    texture = load("res://icons/error.svg")
-```
-
-**Areas to Fix:**
-1. **hex_tile.gd** - Validate icon texture loading
-2. **god_selection_ui.gd** - Validate god image loading
-3. **board_manager.gd** - Add assertions for "impossible" states
-4. **tile_pool.gd** - Validate tile definitions on initialization
-5. **victory_manager.gd** - Validate scoring calculations
-
-**Optional: Logging System**
-
-Consider creating `logger.gd` singleton:
-
-```gdscript
-# logger.gd
-extends Node
-
-enum Level { DEBUG, INFO, WARN, ERROR }
-
-var current_level: Level = Level.INFO
-
-func debug(message: String) -> void:
-    if current_level <= Level.DEBUG:
-        print("[DEBUG] ", message)
-
-func error(message: String, context: Dictionary = {}) -> void:
-    push_error("[ERROR] %s | Context: %s" % [message, context])
-```
-
-**Estimated Time:** 1-2 days
+**Note:** Godot's built-in `Logger` class (4.5+) is an output interceptor for file/crash sinks, not a call-site severity filter. Our `Log` autoload complements it rather than duplicating it.
 
 ---
 
@@ -312,8 +254,8 @@ Use this checklist when ready to refactor:
 
 ### Must Do (Before "Final State"):
 - [x] Split tile_selector_ui.gd into components ✅ (done before 2026-02-19)
-- [ ] Add error handling for resource loading
-- [ ] Add assertions for "impossible" states
+- [x] Add error handling for resource loading ✅ (done 2026-02-20)
+- [x] Add assertions for "impossible" states ✅ (done 2026-02-20)
 - [x] Extract hex coordinate utilities from board_manager.gd ✅ (done 2026-02-19)
 - [ ] Add tests for tile placement validation
 - [ ] Add tests for victory scoring logic
@@ -323,7 +265,7 @@ Use this checklist when ready to refactor:
 - [ ] Extract magic numbers to constants (during UI refactor)
 - [ ] Add type hints to all class variables
 - [ ] Add type hints to function signatures
-- [ ] Consider logging system (if debugging is painful)
+- [x] Consider logging system ✅ (done 2026-02-20 — Log autoload with 4 levels)
 
 ### Could Do (If Needed):
 - [x] Implement placement strategy pattern ✅ (done 2026-02-19)

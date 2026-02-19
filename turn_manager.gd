@@ -52,11 +52,11 @@ func set_ui(ui_instance) -> void:
 ## Returns true if in actions phase and player has actions remaining
 func can_perform_action(action_name: String = "action") -> bool:
 	if current_phase != Phase.ACTIONS:
-		print("Can only %s during actions phase!" % action_name)
+		Log.warn("Can only %s during actions phase!" % action_name)
 		return false
 
 	if current_player.actions_remaining <= 0:
-		print("No actions remaining to %s!" % action_name)
+		Log.warn("No actions remaining to %s!" % action_name)
 		return false
 
 	return true
@@ -69,10 +69,10 @@ func consume_action(action_name: String = "action") -> bool:
 		return false
 
 	if not current_player.consume_action():
-		print("ERROR: Failed to consume action for %s" % action_name)
+		Log.error("Failed to consume action for %s" % action_name)
 		return false
 
-	print("Action consumed for %s. Remaining: %d" % [action_name, current_player.actions_remaining])
+	Log.debug("Action consumed for %s. Remaining: %d" % [action_name, current_player.actions_remaining])
 	return true
 
 
@@ -102,15 +102,15 @@ func start_setup_phase() -> void:
 	if ui:
 		ui.show_setup_phase(current_player.setup_tiles)
 
-	print("=== SETUP PHASE ===")
-	print("Place your 2 starting tiles and villages")
+	Log.info("=== SETUP PHASE ===")
+	Log.info("Place your 2 starting tiles and villages")
 
 
 ## Called when a setup tile is placed during setup phase.
 ## Tracks progress and completes setup after 2 tiles are placed.
 func on_setup_tile_placed(setup_index: int) -> void:
 	if not is_setup_phase():
-		push_error("on_setup_tile_placed called outside of setup phase!")
+		Log.error("on_setup_tile_placed called outside of setup phase!")
 		return
 
 	# Remove the placed tile from setup tiles array
@@ -120,7 +120,7 @@ func on_setup_tile_placed(setup_index: int) -> void:
 	# Increment counter
 	current_player.setup_tiles_placed += 1
 
-	print("Setup tile %d placed (%d/2)" % [setup_index + 1, current_player.setup_tiles_placed])
+	Log.info("Setup tile %d placed (%d/2)" % [setup_index + 1, current_player.setup_tiles_placed])
 
 	# Update UI to reflect the change
 	if ui:
@@ -134,7 +134,7 @@ func on_setup_tile_placed(setup_index: int) -> void:
 ## Completes the setup phase.
 ## Draws 3 tiles into hand and transitions to harvest phase.
 func complete_setup_phase() -> void:
-	print("=== SETUP COMPLETE ===")
+	Log.info("=== SETUP COMPLETE ===")
 
 	# Draw 3 tiles from bag into hand
 	current_player.draw_tiles(tile_pool, 3)
@@ -162,11 +162,11 @@ func start_harvest_phase() -> void:
 
 	var harvest_types = _get_available_harvest_types()
 
-	print("=== HARVEST PHASE ===")
-	print("Available harvest types: %s" % [harvest_types])
+	Log.info("=== HARVEST PHASE ===")
+	Log.debug("Available harvest types: %s" % [harvest_types])
 
 	if harvest_types.is_empty():
-		print("No villages to harvest from! Skipping to actions phase.")
+		Log.info("No villages to harvest from! Skipping to actions phase.")
 		current_phase = Phase.ACTIONS
 		phase_changed.emit(current_phase)
 		if ui:
@@ -175,7 +175,7 @@ func start_harvest_phase() -> void:
 
 	if harvest_types.size() == 1:
 		# Auto-harvest the only available type
-		print("Auto-harvesting %s (only option)" % TileManager.ResourceType.keys()[harvest_types[0]])
+		Log.info("Auto-harvesting %s (only option)" % TileManager.ResourceType.keys()[harvest_types[0]])
 		harvest(harvest_types[0])
 	else:
 		# Show harvest UI for player choice
@@ -232,7 +232,7 @@ func harvest(resource_type: int) -> void:
 		TileManager.ResourceType.GLORY:
 			current_player.add_glory(total)
 
-	print("Harvested %d %s from %d villages" % [
+	Log.info("Harvested %d %s from %d villages" % [
 		total,
 		TileManager.ResourceType.keys()[resource_type],
 		village_count
@@ -241,8 +241,8 @@ func harvest(resource_type: int) -> void:
 	# Transition to actions phase
 	current_phase = Phase.ACTIONS
 	phase_changed.emit(current_phase)
-	print("=== ACTIONS PHASE ===")
-	print("Actions remaining: %d" % current_player.actions_remaining)
+	Log.info("=== ACTIONS PHASE ===")
+	Log.debug("Actions remaining: %d" % current_player.actions_remaining)
 
 	if ui:
 		ui.update_turn_phase(current_phase)
@@ -254,24 +254,24 @@ func trigger_second_harvest() -> void:
 	var harvest_types = _get_available_harvest_types()
 
 	if harvest_types.is_empty():
-		print("No villages to harvest from!")
+		Log.info("No villages to harvest from!")
 		return
 
 	if harvest_types.size() == 1:
 		# Auto-harvest the only available type
-		print("Auto-harvesting %s (only option)" % TileManager.ResourceType.keys()[harvest_types[0]])
+		Log.info("Auto-harvesting %s (only option)" % TileManager.ResourceType.keys()[harvest_types[0]])
 		harvest(harvest_types[0])
 	else:
 		# Show harvest UI for player choice
 		if ui:
 			ui.show_harvest_options(harvest_types)
-			print("Second harvest: Choose resource type to harvest")
+			Log.info("Second harvest: Choose resource type to harvest")
 
 
 ## Ends the current turn and starts a new one.
 ## Discards hand, draws new tiles, resets actions, and starts harvest phase.
 func end_turn() -> void:
-	print("=== END TURN ===")
+	Log.info("=== END TURN ===")
 
 	turn_ended.emit()
 
@@ -279,8 +279,8 @@ func end_turn() -> void:
 	if tile_pool.is_empty() and not final_round_triggered:
 		final_round_triggered = true
 		triggering_player = current_player
-		print("=== FINAL ROUND TRIGGERED ===")
-		print("Tile bag is empty. This is the last turn.")
+		Log.info("=== FINAL ROUND TRIGGERED ===")
+		Log.info("Tile bag is empty. This is the last turn.")
 		if ui:
 			ui.show_final_round_notification()
 
@@ -306,7 +306,7 @@ func end_turn() -> void:
 		_trigger_game_end()
 		return  # Don't print "New turn started" if game is over
 
-	print("New turn started!")
+	Log.info("New turn started!")
 	turn_started.emit()
 
 
@@ -314,7 +314,7 @@ func end_turn() -> void:
 ## Called when final round is complete.
 func _trigger_game_end() -> void:
 	has_game_ended = true
-	print("=== GAME OVER ===")
+	Log.info("=== GAME OVER ===")
 
 	game_ended.emit()
 

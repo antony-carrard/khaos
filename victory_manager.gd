@@ -116,7 +116,7 @@ func _calculate_territory_points(player: Player, village_manager: VillageManager
 			var all_sizes = []
 			for group in groups:
 				all_sizes.append(group.size())
-			print("Territory groups: %s (largest scores: %d pts)" % [all_sizes, total_points])
+			Log.debug("VictoryManager: Territory groups: %s (largest scores: %d pts)" % [all_sizes, total_points])
 	else:
 		breakdown = "  No territory bonuses"
 

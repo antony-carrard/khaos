@@ -1,8 +1,24 @@
 # Implementation Status
 
-**Last Updated:** 2026-02-19
+**Last Updated:** 2026-02-20
 
 This document tracks detailed implementation progress and serves as context for continuing development.
+
+## Recent Changes (2026-02-20)
+
+**Logger Singleton + Error Handling (§2 of Refactoring Plan):**
+- **Created `logger.gd`** autoload registered as `Log` (name avoids Godot 4.5+ built-in `Logger` conflict)
+  - Four severity levels: DEBUG / INFO / WARN / ERROR
+  - Debug builds: all levels visible. Release builds: WARN+ only (suppresses chatty draw/placement trace)
+  - Routes: `Log.debug/info` → `print()`, `Log.warn` → `push_warning()`, `Log.error` → `push_error()`
+- **Replaced every raw `print()` / `push_error()` / `push_warning()` in the codebase** — zero remain outside `logger.gd`
+  - True bugs (logic errors that shouldn't happen) → `Log.error`
+  - User-blocked actions (wrong phase, can't afford, empty slot) → `Log.warn`
+  - Game events (tile placed, village built, turn started) → `Log.info`
+  - High-frequency trace (every draw, every resource change) → `Log.debug`
+- **Added `assert(tile_bag.size() == 63)`** in `tile_pool.gd` — fires immediately if tile distribution is edited wrongly
+- **Added `Log.error` on texture load failure** in `hex_tile.gd` — was previously silent
+- **Files modified:** `logger.gd` (new), `project.godot`, and 15 existing `.gd` files
 
 ## Recent Changes (2026-02-19)
 
@@ -516,9 +532,8 @@ HexGridUtils (static hex math)
 - ✅ **PowerExecutor extracted** (2026-02-19) - All god power execution handlers in dedicated Node
 
 **Debug Logging:**
-- Consider creating Logger singleton (see README.md for pattern)
-- Current prints are useful, keep for now
-- Can add log levels later
+- ✅ `Log` autoload singleton with DEBUG/INFO/WARN/ERROR levels (done 2026-02-20)
+- File-based logging not needed yet; add a `Logger` subclass + `OS.add_logger()` if crash reporting becomes necessary
 
 **UI Mode:**
 - `ui_mode` ("test" vs "game") works well

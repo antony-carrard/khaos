@@ -109,7 +109,7 @@ func update_god_display(god: God, god_manager: GodManager, board_manager) -> voi
 				break
 
 	if not powers_container:
-		push_error("PowersContainer not found in god panel")
+		Log.error("PowersContainer not found in god panel")
 		return
 
 	# Clear existing power buttons and mappings
@@ -143,7 +143,7 @@ func update_god_display(god: God, god_manager: GodManager, board_manager) -> voi
 	# Initial update
 	update_power_buttons()
 
-	print("God display updated: %s" % god.god_name)
+	Log.debug("God display updated: %s" % god.god_name)
 
 
 ## Create a power button with icon and styling
@@ -271,7 +271,7 @@ func update_power_buttons(_unused = null) -> void:
 
 ## Handle power button press
 func _on_power_button_pressed(power: GodPower, god_manager: GodManager) -> void:
-	print("Attempting to activate power: %s" % power.power_name)
+	Log.debug("Attempting to activate power: %s" % power.power_name)
 
 	# Emit signal for parent to handle
 	power_activated.emit(power, god_manager)

@@ -31,7 +31,7 @@ func on_click(controller: PlacementController, _q: int, _r: int) -> bool:
 				pos.x, pos.y,
 				controller.board_manager.current_player
 			)
-			print("Auto-placed village during setup at (%d, %d)" % [pos.x, pos.y])
+			Log.info("Auto-placed village during setup at (%d, %d)" % [pos.x, pos.y])
 			controller.board_manager.turn_manager.on_setup_tile_placed(controller.selected_hand_index)
 		else:
 			if controller.selected_hand_index >= 0 and controller.board_manager:
