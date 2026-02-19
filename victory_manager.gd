@@ -19,7 +19,7 @@ const TERRITORY_FORMULA = TerritoryFormula.SIMPLE
 ## Calculate complete score breakdown for a player.
 ## Returns dictionary with all scoring categories and total.
 func calculate_player_score(player: Player, village_manager: VillageManager,
-                           tile_manager: TileManager, board_manager) -> Dictionary:
+						   tile_manager: TileManager, board_manager) -> Dictionary:
 	# Village points by terrain type
 	var village_data = _calculate_village_points(player, village_manager, tile_manager)
 
@@ -35,7 +35,7 @@ func calculate_player_score(player: Player, village_manager: VillageManager,
 
 	# Calculate total
 	var total = (village_data.total + resource_pts + fervor_pts +
-	            glory_pts + territory_data.points)
+				glory_pts + territory_data.points)
 
 	return {
 		"village_points": village_data.total,
@@ -52,7 +52,7 @@ func calculate_player_score(player: Player, village_manager: VillageManager,
 ## Calculate points from villages based on terrain type.
 ## PLAINS = 1pt, HILLS = 2pts, MOUNTAIN = 3pts (rules.md line 175-176)
 func _calculate_village_points(player: Player, village_manager: VillageManager,
-                               tile_manager: TileManager) -> Dictionary:
+							   tile_manager: TileManager) -> Dictionary:
 	var villages = village_manager.get_villages_for_player(player)
 	var counts = {
 		TileManager.TileType.PLAINS: 0,
@@ -95,7 +95,7 @@ func _calculate_village_points(player: Player, village_manager: VillageManager,
 ## Uses flood-fill algorithm to find connected components.
 ## Only the LARGEST group scores points (encourages consolidation strategy).
 func _calculate_territory_points(player: Player, village_manager: VillageManager,
-                                 board_manager) -> Dictionary:
+								 board_manager) -> Dictionary:
 	var groups = _find_contiguous_groups(player, village_manager, board_manager)
 	var total_points = 0
 	var breakdown = ""
@@ -129,7 +129,7 @@ func _calculate_territory_points(player: Player, village_manager: VillageManager
 ## Find all contiguous groups of villages using flood-fill algorithm.
 ## Returns array of groups, where each group is an array of Vector2i positions.
 func _find_contiguous_groups(player: Player, village_manager: VillageManager,
-                             board_manager) -> Array[Array]:
+							 board_manager) -> Array[Array]:
 	var player_villages = village_manager.get_villages_for_player(player)
 	var visited = {}  # Dictionary of Vector2i -> bool
 	var groups: Array[Array] = []
@@ -151,8 +151,8 @@ func _find_contiguous_groups(player: Player, village_manager: VillageManager,
 ## Flood-fill from starting position to find all connected villages.
 ## Uses BFS (breadth-first search) to explore adjacent hexes.
 func _flood_fill_group(start_pos: Vector2i, player: Player,
-                      village_manager: VillageManager,
-                      board_manager, visited: Dictionary) -> Array[Vector2i]:
+					  village_manager: VillageManager,
+					  board_manager, visited: Dictionary) -> Array[Vector2i]:
 	var group: Array[Vector2i] = []
 	var queue: Array[Vector2i] = [start_pos]
 
