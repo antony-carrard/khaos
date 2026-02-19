@@ -32,54 +32,23 @@ Follow the priorities below to clean up technical debt while the codebase is sti
 
 ## 🔴 **Critical Priority** - Do These First
 
-### 1. Split tile_selector_ui.gd (1647 lines → ~200 lines + components)
+### 1. ✅ Split tile_selector_ui.gd (DONE - before 2026-02-19)
 
-**Problem:**
-- Single 1647-line file handles everything UI-related
-- Hard to navigate, modify, and maintain
-- High risk of merge conflicts
-- Violates Single Responsibility Principle
+**What was done:**
+- Extracted all UI components into `ui/` folder
+- `tile_selector_ui.gd` reduced from 1647 → 516 lines (orchestrator only)
 
-**Solution - Extract into components:**
-
+**Resulting structure:**
 ```
 ui/
-├── tile_selector_ui.gd          # Orchestrator (~200 lines)
-│   └── Manages layout, coordinates between components
-├── hand_display.gd              # Hand card display (~150 lines)
-│   └── Tile cards, sell buttons, placement selection
-├── resource_panel.gd            # Resources/fervor/glory display (~100 lines)
-│   └── Icon + count labels, reactive updates
-├── god_panel.gd                 # God portrait & powers (~200 lines)
-│   └── Portrait, name, power buttons, dynamic states
-├── harvest_ui.gd                # Harvest phase buttons (~150 lines)
-│   └── Resource type selection, phase-specific UI
-├── victory_screen.gd            # Endgame overlay (~300 lines)
-│   └── Score breakdown, winner announcement, new game
-├── resource_type_picker.gd      # CHANGE_TILE_TYPE modal (~150 lines)
-│   └── Overlay, resource buttons, cancel handling
-└── tooltip_manager.gd           # Mouse-following tooltips (~100 lines)
-	└── Village sell tooltip, centralized tooltip system
+├── god_panel.gd
+├── hand_display.gd
+├── harvest_ui.gd
+├── resource_panel.gd
+├── resource_type_picker.gd
+├── tooltip_manager.gd
+└── victory_screen.gd
 ```
-
-**Benefits:**
-- Each file has single responsibility
-- Easy to find and modify specific UI elements
-- Parallel work possible (e.g., one person does victory screen, another does god panel)
-- Faster iteration on UI changes
-
-**Migration Strategy:**
-1. Create `ui/` folder
-2. Extract victory_screen.gd first (most self-contained, ~300 lines)
-3. Extract resource_type_picker.gd (newest, fresh in mind)
-4. Extract god_panel.gd (clean interface with signals)
-5. Extract hand_display.gd
-6. Extract harvest_ui.gd
-7. Extract resource_panel.gd
-8. Extract tooltip_manager.gd
-9. Slim down tile_selector_ui.gd to orchestrator only
-
-**Estimated Time:** 2-3 days
 
 ---
 
@@ -342,7 +311,7 @@ func test_power_cannot_be_used_twice():
 Use this checklist when ready to refactor:
 
 ### Must Do (Before "Final State"):
-- [ ] Split tile_selector_ui.gd into components
+- [x] Split tile_selector_ui.gd into components ✅ (done before 2026-02-19)
 - [ ] Add error handling for resource loading
 - [ ] Add assertions for "impossible" states
 - [x] Extract hex coordinate utilities from board_manager.gd ✅ (done 2026-02-19)
