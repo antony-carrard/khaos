@@ -207,91 +207,35 @@ static func get_axial_at_mouse(mouse_pos, camera, ...) -> Vector2i
 
 ---
 
-### 4. Consider Placement Strategy Pattern (if you add 5+ more modes)
+### 4. ✅ Placement Strategy Pattern (DONE - 2026-02-19)
 
-**Problem:**
-- `PlacementController` has 6 modes already
-- Each new power might add a mode
-- `update_village_preview()` has massive match statement (90 lines)
-- Duplication across modes
+**What was done:**
+- Replaced `PlacementMode` enum and two large `match` blocks with Strategy pattern
+- Each of the 8 modes is now a self-contained class under `placement/strategies/`
+- `placement_active: bool` eliminated — `current_strategy == null` is the single source of truth
+- `PlacementController` reduced to ~270 lines (orchestrator only)
+- File moved to `placement/placement_controller.gd` — first step toward folder-based organisation
 
-**Current Approach (works fine for now):**
-```gdscript
-enum PlacementMode {
-    TILE, VILLAGE_PLACE, VILLAGE_REMOVE,
-    STEAL_HARVEST, DESTROY_VILLAGE_FREE, CHANGE_TILE_TYPE
-}
-
-match current_mode:
-    PlacementMode.VILLAGE_PLACE:
-        # 20 lines of preview logic
-    PlacementMode.STEAL_HARVEST:
-        # 15 lines of preview logic
-    # ... etc
+**Structure:**
+```
+placement/
+    placement_controller.gd
+    strategies/
+        placement_strategy.gd       # Base class
+        tile_placement_strategy.gd
+        village_place_strategy.gd
+        village_remove_strategy.gd
+        steal_harvest_strategy.gd
+        destroy_village_free_strategy.gd
+        change_tile_type_strategy.gd
+        upgrade_tile_strategy.gd
+        downgrade_tile_strategy.gd
 ```
 
-**Alternative - Strategy Pattern:**
-
-```gdscript
-# placement_strategy.gd (base class)
-class_name PlacementStrategy
-extends RefCounted
-
-func update_preview(controller: PlacementController) -> void:
-    pass
-
-func handle_click(controller: PlacementController, q: int, r: int) -> bool:
-    return false
-
-func get_validity_color() -> Color:
-    return Color.GREEN
-
-# tile_placement_strategy.gd
-class_name TilePlacementStrategy
-extends PlacementStrategy
-
-func update_preview(controller):
-    # Tile-specific preview logic
-    pass
-
-# steal_harvest_strategy.gd
-class_name StealHarvestStrategy
-extends PlacementStrategy
-
-func update_preview(controller):
-    # Show green on enemy villages
-    # Show harvest value in tooltip
-    pass
-
-func handle_click(controller, q, r):
-    return controller.board_manager.on_steal_harvest(q, r)
-```
-
-**Usage:**
-```gdscript
-# In PlacementController
-var current_strategy: PlacementStrategy = null
-
-func select_steal_harvest_mode():
-    current_strategy = StealHarvestStrategy.new()
-    placement_active = true
-
-func update_preview():
-    if current_strategy:
-        current_strategy.update_preview(self)
-```
-
-**Benefits:**
-- Each mode is self-contained
-- Easy to add new modes without modifying PlacementController
-- Reduced complexity in main file
-- Better testability
-
-**When to Do This:**
-- If you add 5+ more placement modes, OR
-- If modes start having complex shared behavior
-
-**Estimated Time:** 1-2 days (if needed)
+**Remaining rough edges (low priority):**
+- `Vector2i(-999, -999)` sentinel for "no hit" — no Option type in GDScript, acceptable for now
+- `TilePlacementStrategy.on_click` still reads `controller.preview_tile`, `controller.selected_hand_index` etc. — mild reach into internals
+- `cancel_placement()` clearing `pending_power` is a hidden coupling to player state
 
 ---
 
@@ -440,7 +384,7 @@ Use this checklist when ready to refactor:
 - [ ] Consider logging system (if debugging is painful)
 
 ### Could Do (If Needed):
-- [ ] Implement placement strategy pattern (if 10+ modes)
+- [x] Implement placement strategy pattern ✅ (done 2026-02-19)
 - [ ] Add comprehensive test coverage (>70%)
 - [ ] Extract power execution from board_manager
 - [ ] Create game_initializer for setup flow

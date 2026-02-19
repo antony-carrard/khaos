@@ -1,8 +1,21 @@
 # Implementation Status
 
-**Last Updated:** 2026-01-18 (All Divine Powers Complete!)
+**Last Updated:** 2026-02-19
 
 This document tracks detailed implementation progress and serves as context for continuing development.
+
+## Recent Changes (2026-02-19)
+
+**Strategy Pattern Refactor + Godot 4.6 Upgrade:**
+- **Upgraded to Godot 4.6** — project.godot, main.tscn node unique_ids, victory_manager.gd indentation
+- **Replaced PlacementMode enum with Strategy pattern** — each of 8 placement modes is now a self-contained class
+  - Eliminated `placement_active: bool` — `current_strategy == null` is the single source of truth
+  - Removed two large `match current_mode` blocks (~200 lines)
+  - `PlacementController` reduced to ~270 lines (orchestrator only)
+- **Reorganised into `placement/` folder** — first step toward folder-based project structure
+  - `placement/placement_controller.gd`
+  - `placement/strategies/` (9 files: base class + 8 strategy implementations)
+- **No behaviour changes** — all 8 modes work identically, just cleaner internals
 
 ## Recent Changes (2026-01-18)
 
@@ -248,9 +261,9 @@ This document tracks detailed implementation progress and serves as context for 
   - End turn button
 - ✅ Signal-connected reactive updates (no manual UI calls needed!)
 
-**Placement Controller** (placement_controller.gd)
+**Placement Controller** (placement/placement_controller.gd)
 - ✅ Mouse-based placement with preview
-- ✅ Three modes: TILE, VILLAGE_PLACE, VILLAGE_REMOVE
+- ✅ 8 modes via Strategy pattern (TILE, VILLAGE_PLACE, VILLAGE_REMOVE, STEAL_HARVEST, DESTROY_VILLAGE_FREE, CHANGE_TILE_TYPE, UPGRADE_TILE_KEEP_VILLAGE, DOWNGRADE_TILE_KEEP_VILLAGE)
 - ✅ Valid/invalid preview coloring
 - ✅ Hand tile placement integration
 - ✅ **Setup phase support** - auto-places villages for free during setup
