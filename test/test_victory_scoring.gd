@@ -29,11 +29,14 @@ func after_test() -> void:
 		tile_manager.placed_tiles.clear()
 	if is_instance_valid(village_manager):
 		village_manager.placed_villages.clear()
-	# Free orphan Nodes manually (not tracked by auto_free).
+	# HexTile is StaticBody3D: free() on a non-main thread (GdUnit4's worker)
+	# triggers PhysicsServer3D::free(body_rid) which is not thread-safe → SIGABRT.
+	# call_deferred("free") posts to the main thread's message queue instead.
 	for tile in _orphan_tiles:
 		if is_instance_valid(tile):
-			tile.free()
+			tile.call_deferred("free")
 	_orphan_tiles.clear()
+	# Village is plain Node3D — direct free() is fine.
 	for village in _orphan_villages:
 		if is_instance_valid(village):
 			village.free()
