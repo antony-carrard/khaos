@@ -6,11 +6,17 @@ var tile_manager: TileManager
 var village_manager: VillageManager
 var player: Player
 
+# HexTile extends StaticBody3D. GdUnit4's add_child() does NOT register nodes
+# for auto-cleanup between tests, so without after_test() they accumulate.
+# When GdUnit4 finally frees them via immediate free() (not queue_free), the
+# physics server SIGABRTs. Solution: keep HexTile as orphan nodes (never enter
+# the scene tree → physics server never registers them → free() is safe).
+var _orphan_tiles: Array = []
+
 
 func before_test() -> void:
-	# Nodes must be added to the scene tree so physics bodies (StaticBody3D)
-	# can be properly queue_free'd. GdUnit4's add_child override registers
-	# them for auto-cleanup at the end of each test.
+	# GdUnit4's add_child() override does NOT auto-register nodes for cleanup.
+	# These are explicitly queue_free'd in after_test().
 	victory_manager = VictoryManager.new()
 	add_child(victory_manager)
 
@@ -27,6 +33,30 @@ func before_test() -> void:
 	player.initialize("Test Player", 0, 0)
 
 
+func after_test() -> void:
+	# Drop dict references before freeing to avoid stale pointer reads.
+	if is_instance_valid(tile_manager):
+		tile_manager.placed_tiles.clear()
+	if is_instance_valid(village_manager):
+		village_manager.placed_villages.clear()
+
+	# HexTile orphans never entered the scene tree, so free() is safe here.
+	for tile in _orphan_tiles:
+		if is_instance_valid(tile):
+			tile.free()
+	_orphan_tiles.clear()
+
+	# queue_free so the scene tree handles Node deregistration properly.
+	if is_instance_valid(player):
+		player.queue_free()
+	if is_instance_valid(village_manager):
+		village_manager.queue_free()
+	if is_instance_valid(tile_manager):
+		tile_manager.queue_free()
+	if is_instance_valid(victory_manager):
+		victory_manager.queue_free()
+
+
 # --- Helpers ---
 
 func _place_tile(q: int, r: int, tile_type: int, resource_type: int = TileManager.ResourceType.RESOURCES, yield_val: int = 1) -> HexTile:
@@ -35,8 +65,10 @@ func _place_tile(q: int, r: int, tile_type: int, resource_type: int = TileManage
 	tile.tile_type = tile_type
 	tile.resource_type = resource_type
 	tile.yield_value = yield_val
-	tile_manager.add_child(tile)  # Parent under tile_manager so it's freed with it
+	# No add_child: keeps tile as orphan so physics server is never involved.
+	# VictoryManager only reads tile.tile_type, so orphan nodes work fine.
 	tile_manager.placed_tiles[Vector3i(q, r, height)] = tile
+	_orphan_tiles.append(tile)
 	return tile
 
 
@@ -45,7 +77,7 @@ func _place_village(q: int, r: int) -> Village:
 	village.q = q
 	village.r = r
 	village.player_owner = player
-	village_manager.add_child(village)  # Parent under village_manager
+	village_manager.add_child(village)  # Village is plain Node3D — safe in scene tree
 	village_manager.placed_villages[Vector2i(q, r)] = village
 	return village
 
