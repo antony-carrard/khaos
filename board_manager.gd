@@ -5,8 +5,6 @@ extends Node3D
 
 # Configuration
 @export var hex_tile_scene: PackedScene = preload("res://hex_tile.tscn")
-@export var hex_size: float = 1.0  # Distance from center to corner
-@export var tile_height: float = 0.3  # Height of each tile level
 @export var max_stack_height: int = 3  # Maximum tiles that can be stacked
 @export var test_mode: bool = false  # Test mode: unlimited resources/actions for testing
 
@@ -34,12 +32,11 @@ func _ready() -> void:
 	# Create and initialize managers
 	tile_manager = TileManager.new()
 	add_child(tile_manager)
-	tile_manager.initialize(hex_tile_scene, hex_size, tile_height)
+	tile_manager.initialize(hex_tile_scene)
 	tile_manager.max_stack_height = max_stack_height
 
 	village_manager = VillageManager.new()
 	add_child(village_manager)
-	village_manager.initialize(tile_height)
 
 	# Initialize tile pool
 	tile_pool = TilePool.new()
@@ -393,57 +390,14 @@ func on_village_removed(q: int, r: int) -> bool:
 	return true
 
 
-func on_steal_harvest(q: int, r: int) -> bool:
-	return power_executor.on_steal_harvest(q, r)
-
-func on_destroy_village_free(q: int, r: int) -> bool:
-	return power_executor.on_destroy_village_free(q, r)
-
-func on_upgrade_tile(q: int, r: int) -> bool:
-	return power_executor.on_upgrade_tile(q, r)
-
-func on_downgrade_tile(q: int, r: int) -> bool:
-	return power_executor.on_downgrade_tile(q, r)
-
-func show_resource_type_selection(q: int, r: int) -> void:
-	power_executor.show_resource_type_selection(q, r)
-
-func on_change_tile_type(q: int, r: int, new_resource_type: int) -> bool:
-	return power_executor.on_change_tile_type(q, r, new_resource_type)
-
-
-# Hexagonal coordinate conversion utilities
-# (Math implemented in HexGridUtils — thin wrappers to preserve existing call sites)
-
-func axial_to_world(q: int, r: int, height: int = 0) -> Vector3:
-	return HexGridUtils.axial_to_world(q, r, height, hex_size, tile_height)
-
-func world_to_axial(world_pos: Vector3) -> Vector2i:
-	return HexGridUtils.world_to_axial(world_pos, hex_size)
-
-func get_axial_neighbors(q: int, r: int) -> Array[Vector2i]:
-	return HexGridUtils.get_axial_neighbors(q, r)
-
-func get_axial_at_mouse(mouse_pos: Vector2) -> Vector2i:
-	return HexGridUtils.get_axial_at_mouse(mouse_pos, camera, get_world_3d(), hex_size)
-
-
-## Get the player's current hand
-func get_hand() -> Array:
-	return current_player.hand if current_player else []
-
 
 # Signal handlers for turn manager events
 
 ## Called when turn phase changes (e.g., HARVEST -> ACTIONS)
 func _on_phase_changed(new_phase: int) -> void:
-	# Cancel any active placement when phase changes
-	if placement_controller:
-		placement_controller.cancel_placement()
+	placement_controller.cancel_placement()
 
 
 ## Called when turn ends (before discarding/drawing)
 func _on_turn_ended() -> void:
-	# Cancel any active placement when turn ends
-	if placement_controller:
-		placement_controller.cancel_placement()
+	placement_controller.cancel_placement()

@@ -2,7 +2,7 @@ class_name UpgradeTileStrategy extends PlacementStrategy
 
 
 func on_click(controller: PlacementController, q: int, r: int) -> bool:
-	return controller.board_manager.on_upgrade_tile(q, r)
+	return controller.board_manager.power_executor.on_upgrade_tile(q, r)
 
 
 func get_validity(controller: PlacementController, q: int, r: int) -> bool:

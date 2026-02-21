@@ -321,7 +321,7 @@ func _trigger_game_end() -> void:
 	# Calculate final scores
 	var victory_mgr = VictoryManager.new()
 	var score_data = victory_mgr.calculate_player_score(
-		current_player, village_manager, tile_manager, board_manager
+		current_player, village_manager, tile_manager
 	)
 
 	# Show victory screen (array format for future multiplayer support)

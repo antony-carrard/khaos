@@ -42,8 +42,6 @@ signal tile_placed(q: int, r: int, height: int, tile_type: TileType)
 
 # Configuration (set by board_manager)
 var hex_tile_scene: PackedScene
-var hex_size: float = 1.0
-var tile_height: float = 0.3
 var max_stack_height: int = 3
 
 # Grid storage: Dictionary with Vector3i(q, r, height) as key
@@ -55,10 +53,8 @@ var village_manager = null
 
 ## Initializes the TileManager with required configuration.
 ## Call this once after instantiation before using other methods.
-func initialize(tile_scene: PackedScene, _hex_size: float, _tile_height: float) -> void:
+func initialize(tile_scene: PackedScene) -> void:
 	hex_tile_scene = tile_scene
-	hex_size = _hex_size
-	tile_height = _tile_height
 
 
 ## Places a tile at the specified hex coordinates with resource properties.
@@ -75,7 +71,7 @@ func place_tile(q: int, r: int, tile_type: TileType, res_type: ResourceType = Re
 	add_child(tile)
 	tile.set_grid_position(q, r, height)
 	tile.set_tile_type(tile_type, TILE_TYPE_COLORS[tile_type])
-	tile.global_position = get_parent().axial_to_world(q, r, height)
+	tile.global_position = HexGridUtils.axial_to_world(q, r, height)
 
 	# Set resource properties with icon
 	var icon_path = RESOURCE_TYPE_ICONS[res_type]
@@ -115,7 +111,7 @@ func is_valid_placement(q: int, r: int, tile_type: TileType) -> bool:
 		if placed_tiles.is_empty():
 			return true
 		# Otherwise must be adjacent to at least one existing PLAINS tile
-		var neighbors = get_parent().get_axial_neighbors(q, r)
+		var neighbors = HexGridUtils.get_axial_neighbors(q, r)
 		for neighbor in neighbors:
 			var neighbor_key = Vector3i(neighbor.x, neighbor.y, 0)
 			if placed_tiles.has(neighbor_key):
@@ -221,7 +217,7 @@ func upgrade_tile(q: int, r: int) -> bool:
 	add_child(tile)
 	tile.set_grid_position(q, r, new_height)
 	tile.set_tile_type(new_tile_type, TILE_TYPE_COLORS[new_tile_type])
-	tile.global_position = get_parent().axial_to_world(q, r, new_height)
+	tile.global_position = HexGridUtils.axial_to_world(q, r, new_height)
 
 	# Set resource properties with icon
 	var icon_path = RESOURCE_TYPE_ICONS[res_type]

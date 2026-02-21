@@ -8,19 +8,12 @@ signal village_removed(q: int, r: int)
 
 # Configuration
 @export var village_scene: PackedScene = preload("res://village.tscn")
-var tile_height: float = 0.3
 
 # Village storage: Dictionary with Vector2i(q, r) as key
 var placed_villages: Dictionary = {}
 
 # Reference to tile manager (for validation)
 var tile_manager = null
-
-
-## Initializes the VillageManager with required configuration.
-## Call this once after instantiation before using other methods.
-func initialize(_tile_height: float) -> void:
-	tile_height = _tile_height
 
 
 ## Places a village at the specified hex coordinates.
@@ -50,8 +43,8 @@ func place_village(q: int, r: int, owner: Player) -> bool:
 	add_child(village)
 
 	# Position it on top of the highest tile
-	var world_pos = get_parent().axial_to_world(q, r, top_height)
-	village.global_position = world_pos + Vector3(0, tile_height / 2, 0)
+	var world_pos = HexGridUtils.axial_to_world(q, r, top_height)
+	village.global_position = world_pos + Vector3(0, HexGridUtils.TILE_HEIGHT / 2, 0)
 
 	placed_villages[pos_key] = village
 	Log.info("Placed village at q=%d, r=%d (Owner: %s)" % [q, r, owner.player_name])

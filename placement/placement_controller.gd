@@ -91,7 +91,7 @@ func update_preview() -> void:
 		preview_tile.visible = false
 		if preview_village:
 			preview_village.visible = false
-		if board_manager and board_manager.ui:
+		if board_manager.ui:
 			board_manager.ui.show_village_sell_tooltip(false)
 		return
 
@@ -111,15 +111,15 @@ func update_village_preview() -> void:
 	var viewport = get_viewport()
 	if not viewport:
 		preview_village.visible = false
-		if board_manager and board_manager.ui:
+		if board_manager.ui:
 			board_manager.ui.show_village_sell_tooltip(false)
 		return
 
 	var mouse_pos = viewport.get_mouse_position()
-	var axial = board_manager.get_axial_at_mouse(mouse_pos)
+	var axial = HexGridUtils.get_axial_at_mouse(mouse_pos, camera, board_manager.get_world_3d())
 	if axial == Vector2i(-999, -999):
 		preview_village.visible = false
-		if board_manager and board_manager.ui:
+		if board_manager.ui:
 			board_manager.ui.show_village_sell_tooltip(false)
 		return
 
@@ -128,14 +128,14 @@ func update_village_preview() -> void:
 
 	if not tile_manager.has_tile_at(q, r):
 		preview_village.visible = false
-		if board_manager and board_manager.ui:
+		if board_manager.ui:
 			board_manager.ui.show_village_sell_tooltip(false)
 		return
 
 	preview_village.visible = true
 	var top_height = tile_manager.get_top_height(q, r)
-	var world_pos = board_manager.axial_to_world(q, r, top_height)
-	preview_village.global_position = world_pos + Vector3(0, tile_manager.tile_height / 2, 0)
+	var world_pos = HexGridUtils.axial_to_world(q, r, top_height)
+	preview_village.global_position = world_pos + Vector3(0, HexGridUtils.TILE_HEIGHT / 2, 0)
 
 	var is_valid = current_strategy.get_validity(self, q, r)
 	current_strategy.update_tooltip(self, q, r, is_valid)
@@ -178,7 +178,7 @@ func update_tile_preview() -> void:
 		return
 
 	var hit_position = result.position
-	var axial = board_manager.world_to_axial(hit_position)
+	var axial = HexGridUtils.world_to_axial(hit_position)
 	var q = axial.x
 	var r = axial.y
 	var height = TileManager.TILE_TYPE_TO_HEIGHT[current_tile_type]
@@ -191,7 +191,7 @@ func update_tile_preview() -> void:
 	preview_tile.visible = true
 	preview_tile.set_grid_position(q, r, height)
 	preview_tile.set_tile_type(current_tile_type, TileManager.TILE_TYPE_COLORS[current_tile_type])
-	preview_tile.global_position = board_manager.axial_to_world(q, r, height)
+	preview_tile.global_position = HexGridUtils.axial_to_world(q, r, height)
 
 	var valid = tile_manager.is_valid_placement(q, r, current_tile_type)
 
@@ -254,14 +254,13 @@ func get_axial_at_mouse() -> Vector2i:
 	if not viewport:
 		return Vector2i(-999, -999)
 	var mouse_pos = viewport.get_mouse_position()
-	return board_manager.get_axial_at_mouse(mouse_pos)
+	return HexGridUtils.get_axial_at_mouse(mouse_pos, camera, board_manager.get_world_3d())
 
 
 ## Cancels any active placement mode and clears the player's pending power.
 func cancel_placement() -> void:
 	_deactivate()
-	if board_manager and board_manager.current_player:
-		board_manager.current_player.pending_power = null
+	board_manager.current_player.pending_power = null
 
 
 func _deactivate() -> void:

@@ -102,7 +102,7 @@ func update_hand_display() -> void:
 		child.queue_free()
 
 	# Get current hand from board manager
-	var hand = board_manager_ref.get_hand()
+	var hand = board_manager_ref.current_player.hand
 
 	# Always show HAND_SIZE slots (with placeholders for empty slots)
 	for i in range(HAND_SIZE):

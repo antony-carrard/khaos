@@ -3,7 +3,7 @@ class_name ChangeTileTypeStrategy extends PlacementStrategy
 
 # Returns false — placement stays active until resource type is selected
 func on_click(controller: PlacementController, q: int, r: int) -> bool:
-	controller.board_manager.show_resource_type_selection(q, r)
+	controller.board_manager.power_executor.show_resource_type_selection(q, r)
 	return false
 
 

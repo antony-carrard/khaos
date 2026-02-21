@@ -122,8 +122,8 @@ func on_upgrade_tile(q: int, r: int) -> bool:
 	var success = tile_manager.upgrade_tile(q, r)
 	if success:
 		var new_height = tile_manager.get_top_height(q, r)
-		var world_pos = board_manager.axial_to_world(q, r, new_height)
-		village.global_position = world_pos + Vector3(0, tile_manager.tile_height / 2, 0)
+		var world_pos = HexGridUtils.axial_to_world(q, r, new_height)
+		village.global_position = world_pos + Vector3(0, HexGridUtils.TILE_HEIGHT / 2, 0)
 		Log.info("Upgraded tile at (%d, %d) with UPGRADE_TILE_KEEP_VILLAGE power" % [q, r])
 
 	return success
@@ -159,8 +159,8 @@ func on_downgrade_tile(q: int, r: int) -> bool:
 	var success = tile_manager.downgrade_tile(q, r)
 	if success:
 		var new_height = tile_manager.get_top_height(q, r)
-		var world_pos = board_manager.axial_to_world(q, r, new_height)
-		village.global_position = world_pos + Vector3(0, tile_manager.tile_height / 2, 0)
+		var world_pos = HexGridUtils.axial_to_world(q, r, new_height)
+		village.global_position = world_pos + Vector3(0, HexGridUtils.TILE_HEIGHT / 2, 0)
 		Log.info("Downgraded tile at (%d, %d) with DOWNGRADE_TILE_KEEP_VILLAGE power" % [q, r])
 
 	return success
@@ -196,23 +196,20 @@ func on_change_tile_type(q: int, r: int, new_resource_type: int) -> bool:
 	if not village or village.player_owner != current_player:
 		Log.warn("Can only change tile type on your own villages!")
 		current_player.pending_power = null
-		if placement_controller:
-			placement_controller.cancel_placement()
+		placement_controller.cancel_placement()
 		return false
 
 	var tile = tile_manager.get_tile_at(q, r)
 	if not tile:
 		Log.error("PowerExecutor: Village at (%d,%d) has no tile" % [q, r])
 		current_player.pending_power = null
-		if placement_controller:
-			placement_controller.cancel_placement()
+		placement_controller.cancel_placement()
 		return false
 
 	if tile.resource_type == new_resource_type:
 		Log.warn("Tile is already %s type!" % TileManager.ResourceType.keys()[new_resource_type])
 		current_player.pending_power = null
-		if placement_controller:
-			placement_controller.cancel_placement()
+		placement_controller.cancel_placement()
 		return false
 
 	if not _is_valid_resource_type_for_tile(tile.tile_type, new_resource_type):
@@ -221,8 +218,7 @@ func on_change_tile_type(q: int, r: int, new_resource_type: int) -> bool:
 			TileManager.TileType.keys()[tile.tile_type]
 		])
 		current_player.pending_power = null
-		if placement_controller:
-			placement_controller.cancel_placement()
+		placement_controller.cancel_placement()
 		return false
 
 	god_manager.complete_deferred_power(current_player)
@@ -243,8 +239,7 @@ func on_change_tile_type(q: int, r: int, new_resource_type: int) -> bool:
 		TileManager.ResourceType.keys()[new_resource_type]
 	])
 
-	if placement_controller:
-		placement_controller.cancel_placement()
+	placement_controller.cancel_placement()
 
 	return true
 

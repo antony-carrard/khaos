@@ -499,7 +499,7 @@ func show_resource_type_picker(q: int, r: int, current_type: int, tile_type: int
 func _on_resource_type_selected(q: int, r: int, resource_type: int) -> void:
 	# Trigger the tile type change
 	if board_manager:
-		board_manager.on_change_tile_type(q, r, resource_type)
+		board_manager.power_executor.on_change_tile_type(q, r, resource_type)
 
 
 ## Handle picker cancellation

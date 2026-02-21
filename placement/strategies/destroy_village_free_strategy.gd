@@ -2,7 +2,7 @@ class_name DestroyVillageFreeStrategy extends PlacementStrategy
 
 
 func on_click(controller: PlacementController, q: int, r: int) -> bool:
-	return controller.board_manager.on_destroy_village_free(q, r)
+	return controller.board_manager.power_executor.on_destroy_village_free(q, r)
 
 
 func get_validity(controller: PlacementController, q: int, r: int) -> bool:
