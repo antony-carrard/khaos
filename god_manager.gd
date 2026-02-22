@@ -269,7 +269,7 @@ func can_activate_power(power: GodPower, player: Player, turn_manager: TurnManag
 # POWER IMPLEMENTATIONS
 # ============================================================================
 
-func _activate_destroy_village_free(player: Player, board_manager: Node3D) -> void:
+func _activate_destroy_village_free(_player: Player, board_manager: Node3D) -> void:
 	# Enter destroy village selection mode
 	if board_manager.placement_controller:
 		board_manager.placement_controller.select_destroy_village_free_mode()
@@ -280,7 +280,7 @@ func _activate_extra_action(player: Player) -> void:
 	player.next_turn_bonus_actions = 1
 	Log.info("Next turn will have 4 actions!")
 
-func _activate_second_harvest(player: Player, board_manager: Node3D) -> void:
+func _activate_second_harvest(_player: Player, board_manager: Node3D) -> void:
 	# Trigger harvest UI again (doesn't consume action, costs fervor only)
 	if board_manager.turn_manager:
 		board_manager.turn_manager.trigger_second_harvest()
@@ -288,25 +288,25 @@ func _activate_second_harvest(player: Player, board_manager: Node3D) -> void:
 	else:
 		Log.error("Cannot trigger second harvest: turn_manager not found")
 
-func _activate_change_tile_type(player: Player, board_manager: Node3D) -> void:
+func _activate_change_tile_type(_player: Player, board_manager: Node3D) -> void:
 	# Enter change tile type selection mode
 	if board_manager.placement_controller:
 		board_manager.placement_controller.select_change_tile_type_mode()
 		Log.info("Change tile type mode activated - click your own village to change its tile type")
 
-func _activate_upgrade_tile_keep_village(player: Player, board_manager: Node3D) -> void:
+func _activate_upgrade_tile_keep_village(_player: Player, board_manager: Node3D) -> void:
 	# Enter upgrade tile selection mode
 	if board_manager.placement_controller:
 		board_manager.placement_controller.select_upgrade_tile_mode()
 		Log.info("Upgrade tile mode activated - click your own village to upgrade its tile")
 
-func _activate_steal_harvest(player: Player, board_manager: Node3D) -> void:
+func _activate_steal_harvest(_player: Player, board_manager: Node3D) -> void:
 	# Enter steal harvest selection mode
 	if board_manager.placement_controller:
 		board_manager.placement_controller.select_steal_harvest_mode()
 		Log.info("Steal harvest mode activated - click an enemy village")
 
-func _activate_downgrade_tile_keep_village(player: Player, board_manager: Node3D) -> void:
+func _activate_downgrade_tile_keep_village(_player: Player, board_manager: Node3D) -> void:
 	# Enter downgrade tile selection mode
 	if board_manager.placement_controller:
 		board_manager.placement_controller.select_downgrade_tile_mode()

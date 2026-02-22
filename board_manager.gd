@@ -7,6 +7,15 @@ extends Node3D
 @export var hex_tile_scene: PackedScene = preload("res://hex_tile.tscn")
 @export var max_stack_height: int = 3  # Maximum tiles that can be stacked
 @export var test_mode: bool = false  # Test mode: unlimited resources/actions for testing
+@export var player_count: int = 2    # Number of players (1–4)
+
+# Player colors assigned in order
+const PLAYER_COLORS: Array[Color] = [
+	Color(0.2, 0.4, 1.0),  # Blue   — P1
+	Color(1.0, 0.3, 0.2),  # Red    — P2
+	Color(0.2, 0.8, 0.3),  # Green  — P3
+	Color(1.0, 0.8, 0.2),  # Yellow — P4
+]
 
 # Manager components
 var tile_manager: TileManager
@@ -22,13 +31,28 @@ var ui: Control = null
 # Camera reference
 var camera: Camera3D = null
 
-# Player (for now, single player)
-var current_player: Player = null
+# Players
+var players: Array[Player] = []
+var current_player_index: int = 0
+var current_player: Player = null   # always == players[current_player_index]
 
 var power_executor: PowerExecutor = null
+var active_player_view: ActivePlayerView = null
+
+# Final round tracking
+var final_round_triggered: bool = false
+var triggering_player: Player = null
+
+# Setup tracking
+var setup_round: int = 1       # 1, 2 = tile placement rounds; 3 = village placement
+var setup_players_done: int = 0
 
 
 func _ready() -> void:
+	# Create active player view (signal bridge)
+	active_player_view = ActivePlayerView.new()
+	add_child(active_player_view)
+
 	# Create and initialize managers
 	tile_manager = TileManager.new()
 	add_child(tile_manager)
@@ -43,18 +67,23 @@ func _ready() -> void:
 	add_child(tile_pool)
 	tile_pool.initialize()
 
-	# Create player
-	current_player = Player.new()
-	add_child(current_player)
-	# Test mode: unlimited resources for design/testing. Normal: start with 0
-	var starting_resources = 999 if test_mode else 0
-	var starting_fervor = 999 if test_mode else 0
-	current_player.initialize("Player 1", starting_resources, starting_fervor)
+	# Create N players
+	var count = clampi(player_count, 1, 4)
+	for i in range(count):
+		var player = Player.new()
+		add_child(player)
+		var starting_resources = 999 if test_mode else 0
+		var starting_fervor = 999 if test_mode else 0
+		player.initialize("Player %d" % (i + 1), starting_resources, starting_fervor)
+		player.player_color = PLAYER_COLORS[i]
+		if test_mode:
+			player.set_actions(999)
+		players.append(player)
 
 	# Create and initialize turn manager
 	turn_manager = TurnManager.new()
 	add_child(turn_manager)
-	turn_manager.initialize(current_player, village_manager, tile_manager, tile_pool, self)
+	turn_manager.initialize(village_manager, tile_manager, tile_pool, self)
 
 	# Create god manager
 	god_manager = GodManager.new()
@@ -63,6 +92,7 @@ func _ready() -> void:
 	# Connect turn manager signals
 	turn_manager.phase_changed.connect(_on_phase_changed)
 	turn_manager.turn_ended.connect(_on_turn_ended)
+	turn_manager.setup_action_done.connect(_on_setup_action_done)
 
 	# Cross-reference managers (for validation)
 	tile_manager.village_manager = village_manager
@@ -83,47 +113,63 @@ func _ready() -> void:
 	add_child(placement_controller)
 	await placement_controller.initialize(tile_manager, village_manager, camera, self)
 
-	# Don't draw initial hand yet - happens after setup phase
-	# Don't place any tiles automatically - player places them in setup
-	Log.info("Tile pool count at start: %d" % tile_pool.get_remaining_count())
+	# God selection for each player (in order; later players can't pick taken gods)
+	var selected_so_far: Array[God] = []
+	for player in players:
+		await show_god_selection(player, selected_so_far)
+		selected_so_far.append(player.god)
 
-	# Test mode: unlimited actions for placing many tiles
-	if test_mode:
-		current_player.set_actions(999)
-
-	# Show god selection UI before starting game
-	await show_god_selection()
-
-	# Start in SETUP phase (not harvest!)
-	turn_manager.start_setup_phase()
-
-	# Create UI
+	# Bind first player and set up UI BEFORE starting setup phase
+	_switch_to_player(0)
 	setup_ui()
 
-	# Update god display in UI
-	if current_player.god:
-		ui.update_god_display(current_player.god, god_manager)
+	Log.info("Tile pool count at start: %d" % tile_pool.get_remaining_count())
+
+	# Start setup phase
+	turn_manager.start_setup_phase()
 
 
-## Show god selection screen and wait for player to choose
-func show_god_selection() -> void:
-	# Create canvas layer for god selection UI
+## Show god selection screen for a specific player, greying out already-taken gods.
+## Returns after the player selects a god.
+func show_god_selection(player: Player, taken_gods: Array[God]) -> void:
 	var canvas_layer = CanvasLayer.new()
 	add_child(canvas_layer)
 
-	# Create god selection UI
 	var god_selection_script = load("res://god_selection_ui.gd")
 	var god_selection_ui = god_selection_script.new()
 	god_selection_ui.set_anchors_preset(Control.PRESET_FULL_RECT)
+	# Set data before add_child so _ready() picks them up
+	god_selection_ui.selecting_player_name = player.player_name
+	god_selection_ui.selecting_player_color = player.player_color
+	god_selection_ui.taken_gods = taken_gods
 	canvas_layer.add_child(god_selection_ui)
 
-	# Wait for god selection
 	var selected_god = await god_selection_ui.god_selected
-	current_player.god = selected_god
-	Log.info("Player selected: %s" % selected_god.god_name)
+	player.god = selected_god
+	Log.info("%s selected: %s" % [player.player_name, selected_god.god_name])
 
-	# Remove canvas layer (god selection UI will queue_free itself)
 	canvas_layer.queue_free()
+
+
+## Switch the active player to the given index.
+## Updates current_player, turn_manager, power_executor, and the active_player_view signal bridge.
+func _switch_to_player(index: int) -> void:
+	current_player_index = index
+	current_player = players[index]
+	turn_manager.current_player = current_player
+	if power_executor:
+		power_executor.current_player = current_player
+	active_player_view.bind(current_player)
+
+
+## Called by active_player_view.player_changed → rebuilds player-specific UI sections.
+func _on_active_player_changed(player: Player) -> void:
+	if not ui:
+		return
+	ui.update_current_player(player)
+	if player.god:
+		ui.update_god_display(player.god, god_manager)
+	ui.update_hand_display()
 
 
 func setup_ui() -> void:
@@ -143,23 +189,22 @@ func setup_ui() -> void:
 	ui.village_place_selected.connect(placement_controller.select_village_place_mode)
 	ui.village_remove_selected.connect(placement_controller.select_village_remove_mode)
 
-	# Connect player signals to UI
-	current_player.resources_changed.connect(ui.update_resources)
-	current_player.fervor_changed.connect(ui.update_fervor)
-	current_player.glory_changed.connect(ui.update_glory)
-	current_player.actions_changed.connect(ui.update_actions)
+	# Connect active_player_view signals to UI (once — never rewired on player switch)
+	active_player_view.resources_changed.connect(ui.update_resources)
+	active_player_view.fervor_changed.connect(ui.update_fervor)
+	active_player_view.glory_changed.connect(ui.update_glory)
+	active_player_view.actions_changed.connect(ui.update_actions)
+	active_player_view.player_changed.connect(_on_active_player_changed)
 
 	# Set UI reference in turn_manager
 	turn_manager.set_ui(ui)
 
-	# Update displays
+	# Re-bind active_player_view so freshly-connected UI signals fire immediately
+	active_player_view.bind(current_player)
+
+	# Update initial display
 	ui.update_hand_display()
-	ui.update_turn_phase(turn_manager.current_phase)  # Show/hide phase-specific UI
-	# Trigger initial signal emissions to update UI
-	current_player.resources_changed.emit(current_player.resources)
-	current_player.fervor_changed.emit(current_player.fervor)
-	current_player.glory_changed.emit(current_player.glory)
-	current_player.actions_changed.emit(current_player.actions_remaining)
+	ui.update_turn_phase(turn_manager.current_phase)
 
 	power_executor = PowerExecutor.new()
 	add_child(power_executor)
@@ -184,7 +229,6 @@ func _on_setup_tile_selected(setup_index: int) -> void:
 		tile_def.village_building_cost
 	])
 
-	# Enter placement mode with this setup tile
 	placement_controller.select_tile_from_hand(setup_index, tile_def)
 
 
@@ -215,7 +259,6 @@ func _on_tile_selected_from_hand(hand_index: int) -> void:
 		tile_def.village_building_cost
 	])
 
-	# Enter placement mode with this specific tile
 	placement_controller.select_tile_from_hand(hand_index, tile_def)
 
 
@@ -244,30 +287,13 @@ func on_tile_placed_from_hand(hand_index: int) -> void:
 		TileManager.ResourceType.keys()[placed_tile.resource_type]
 	])
 
-	# Remove tile from hand (sets slot to null)
 	current_player.remove_from_hand(hand_index)
 
-	# Note: In the current game design, tiles are only refilled at end of turn
-	# Not drawing a replacement tile here
-
-	# Check if hand is completely empty and no tiles left
-	var hand_has_tiles = false
-	for tile in current_player.hand:
-		if tile != null:
-			hand_has_tiles = true
-			break
-
-	if tile_pool.get_remaining_count() == 0 and not hand_has_tiles:
-		Log.info("Game Over! No tiles left in bag or hand.")
-
-	# Update UI to reflect hand changes
 	if ui:
 		ui.update_hand_display()
 
 
 ## Sell a tile from hand for resources
-## Returns resources equal to tile's sell_price
-## Consumes 1 action (in game mode during actions phase)
 func sell_tile(hand_index: int) -> void:
 	if hand_index < 0 or hand_index >= current_player.HAND_SIZE:
 		Log.error("BoardManager: Invalid hand index for selling: %d" % hand_index)
@@ -287,7 +313,6 @@ func sell_tile(hand_index: int) -> void:
 	if not turn_manager.consume_action("sell tile"):
 		return
 
-	# Give player resources
 	current_player.add_resources(tile.sell_price)
 
 	Log.info("Sold %s %s tile for %d resources" % [
@@ -296,108 +321,172 @@ func sell_tile(hand_index: int) -> void:
 		tile.sell_price
 	])
 
-	# Remove tile from hand (no replacement drawn when selling)
 	current_player.remove_from_hand(hand_index)
 
 	# Cancel placement mode if this tile was selected for placement
 	if placement_controller and placement_controller.selected_hand_index == hand_index:
 		placement_controller.cancel_placement()
 
-	# Update UI to reflect hand changes
 	if ui:
 		ui.update_hand_display()
 
 
 ## Called when player attempts to place a village
-## Validates affordability, consumes resources and action, then places village
-## Returns true if placement succeeded, false otherwise
 func on_village_placed(q: int, r: int) -> bool:
-	# Get the tile at this position to determine cost
 	var tile = tile_manager.get_tile_at(q, r)
 	if not tile:
 		Log.error("BoardManager: No tile at (%d,%d) for village placement" % [q, r])
 		return false
 
-	# Get building cost from tile (with god ability modification)
 	var cost = current_player.get_village_cost(tile.village_building_cost)
 
-	# Check if player can afford it
 	if current_player.resources < cost:
 		Log.warn("BoardManager: Cannot afford village — need %d, have %d" % [cost, current_player.resources])
 		return false
 
-	# Consume 1 action (validates phase and action count)
 	if not turn_manager.consume_action("build village"):
 		return false
 
-	# Attempt to place the village
 	var success = village_manager.place_village(q, r, current_player)
 	if not success:
 		return false
 
-	# Spend resources
 	if not current_player.spend_resources(cost):
 		Log.error("BoardManager: spend_resources failed after affordability check passed — rolling back")
-		# This shouldn't happen since we checked above, but handle it anyway
-		# Remove the village we just placed
 		village_manager.remove_village(q, r)
 		return false
 
 	Log.info("Built village for %d resources" % cost)
-
 	return true
 
 
 ## Called when player attempts to remove/sell a village
-## Validates ownership, consumes action, removes village, and refunds half the building cost
-## Returns true if removal succeeded, false otherwise
 func on_village_removed(q: int, r: int) -> bool:
-	# Check if village exists at this position
 	var village = village_manager.get_village_at(q, r)
 	if not village:
 		Log.warn("BoardManager: No village at (%d,%d) to remove" % [q, r])
 		return false
 
-	# Check ownership - can only remove your own villages
 	if village.player_owner != current_player:
 		Log.warn("BoardManager: Cannot remove another player's village")
 		return false
 
-	# Get the tile to determine refund
 	var tile = tile_manager.get_tile_at(q, r)
 	if not tile:
 		Log.error("BoardManager: Village exists at (%d,%d) but no tile found" % [q, r])
 		return false
 
-	# Calculate refund (half the building cost, with god ability modification)
-	var building_cost = current_player.get_village_cost(tile.village_building_cost)
-	var refund = building_cost / 2
+	var building_cost: int = current_player.get_village_cost(tile.village_building_cost)
+	var refund: int = building_cost / 2
 
-	# Consume 1 action (validates phase and action count)
 	if not turn_manager.consume_action("remove village"):
 		return false
 
-	# Remove the village
 	var success = village_manager.remove_village(q, r)
 	if not success:
 		return false
 
-	# Give refund
 	current_player.add_resources(refund)
-
 	Log.info("Removed village, received %d resources refund" % refund)
-
 	return true
 
 
+# ==================== SETUP FLOW ====================
 
-# Signal handlers for turn manager events
+## Called each time a setup action completes (tile placed in rounds 1/2, or village in round 3).
+## Advances to the next player or the next setup round.
+func _on_setup_action_done() -> void:
+	setup_players_done += 1
+
+	if setup_players_done >= players.size():
+		# All players done with this round — advance
+		setup_players_done = 0
+		setup_round += 1
+
+		if setup_round <= 2:
+			# Start next tile-placement round from player 0
+			_switch_to_player(0)
+			turn_manager.draw_setup_tile_for_current_player()
+		elif setup_round == 3:
+			# Village placement round — start from player 0
+			_switch_to_player(0)
+			_start_setup_village_for_player()
+		else:
+			# All 3 rounds done
+			_complete_setup()
+	else:
+		# More players in this round
+		var next_index = (current_player_index + 1) % players.size()
+		_switch_to_player(next_index)
+		if setup_round <= 2:
+			turn_manager.draw_setup_tile_for_current_player()
+		else:
+			_start_setup_village_for_player()
+
+
+## Enter setup village placement mode for the current player.
+func _start_setup_village_for_player() -> void:
+	placement_controller.select_setup_village_mode()
+	if ui:
+		ui.show_setup_village_prompt()
+	Log.info("%s: Place your village on one of your tiles" % current_player.player_name)
+
+
+## Called when all 3 setup rounds are done. Draws starting hands and begins play.
+func _complete_setup() -> void:
+	Log.info("=== SETUP COMPLETE ===")
+	for player in players:
+		player.draw_tiles(tile_pool, 3)
+	_switch_to_player(0)
+	turn_manager.begin_player_turn()
+	if ui:
+		ui.update_hand_display()
+
+
+# ==================== TURN FLOW ====================
 
 ## Called when turn phase changes (e.g., HARVEST -> ACTIONS)
-func _on_phase_changed(new_phase: int) -> void:
+func _on_phase_changed(_new_phase: int) -> void:
 	placement_controller.cancel_placement()
 
 
-## Called when turn ends (before discarding/drawing)
+## Called when current player ends their turn.
+## Handles final round detection, player switching, and starting the next turn.
 func _on_turn_ended() -> void:
 	placement_controller.cancel_placement()
+
+	# Check if tile pool just became empty — trigger final round
+	if tile_pool.is_empty() and not final_round_triggered:
+		final_round_triggered = true
+		triggering_player = current_player
+		Log.info("=== FINAL ROUND TRIGGERED by %s ===" % current_player.player_name)
+		if ui:
+			ui.show_final_round_notification()
+
+	var next_index = (current_player_index + 1) % players.size()
+
+	# If the next player is the one who triggered the final round, game ends
+	if final_round_triggered and players[next_index] == triggering_player:
+		_trigger_game_end()
+		return
+
+	_switch_to_player(next_index)
+	turn_manager.begin_player_turn()
+	if ui:
+		ui.update_hand_display()
+
+
+## Calculates scores for all players and shows the victory screen.
+func _trigger_game_end() -> void:
+	Log.info("=== GAME OVER ===")
+
+	var victory_mgr = VictoryManager.new()
+	var results = []
+	for player in players:
+		results.append({
+			"player": player,
+			"scores": victory_mgr.calculate_player_score(player, village_manager, tile_manager)
+		})
+
+	if ui:
+		ui.show_victory_screen(results)

@@ -36,6 +36,7 @@ signal village_remove_selected()
 var tile_type_colors: Dictionary = {}
 var buttons: Array[Button] = []
 var board_manager: Node3D = null  # Reference to get hand data
+var player_turn_label: Label = null
 
 # Turn system UI (still managed here)
 var actions_label: Label = null
@@ -131,6 +132,16 @@ func initialize(colors: Dictionary, _board_manager: Node3D = null) -> void:
 	var hand_vbox = VBoxContainer.new()
 	hand_vbox.add_theme_constant_override("separation", 5)
 	main_hbox.add_child(hand_vbox)
+
+	# Current player label (above tile count)
+	player_turn_label = Label.new()
+	player_turn_label.text = ""
+	player_turn_label.add_theme_color_override("font_color", Color.WHITE)
+	player_turn_label.add_theme_color_override("font_outline_color", Color.BLACK)
+	player_turn_label.add_theme_constant_override("outline_size", 4)
+	player_turn_label.add_theme_font_size_override("font_size", SETUP_TITLE_FONT_SIZE)
+	player_turn_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	hand_vbox.add_child(player_turn_label)
 
 	# Tile count label (above hand)
 	tile_count_label = Label.new()
@@ -466,6 +477,20 @@ func update_actions(remaining: int) -> void:
 	update_hand_display()
 
 
+## Updates the current player label ("Player X's Turn")
+func update_current_player(player: Player) -> void:
+	if player_turn_label:
+		player_turn_label.text = "%s's Turn" % player.player_name
+		player_turn_label.add_theme_color_override("font_color", player.player_color)
+
+
+## Shows a prompt for setup Round 3 village placement
+func show_setup_village_prompt() -> void:
+	if setup_title_label:
+		setup_title_label.text = "Place your village on one of your tiles"
+		setup_title_label.visible = true
+
+
 ## Shows or hides the village sell tooltip with the refund amount
 func show_village_sell_tooltip(visible_flag: bool, refund_amount: int = 0) -> void:
 	if tooltip_manager:
@@ -498,7 +523,8 @@ func show_victory_screen(all_scores: Array) -> void:
 func update_god_display(god: God, god_manager: GodManager) -> void:
 	if god_panel:
 		god_panel.update_god_display(god, god_manager, board_manager)
-		god_panel.power_activated.connect(_on_power_activated)
+		if not god_panel.power_activated.is_connected(_on_power_activated):
+			god_panel.power_activated.connect(_on_power_activated)
 
 
 func _on_power_activated(power: GodPower, god_manager: GodManager) -> void:

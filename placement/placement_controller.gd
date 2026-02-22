@@ -228,6 +228,10 @@ func select_village_remove_mode() -> void:
 	current_strategy = VillageRemoveStrategy.new()
 
 
+func select_setup_village_mode() -> void:
+	current_strategy = SetupVillagePlaceStrategy.new()
+
+
 func select_steal_harvest_mode() -> void:
 	current_strategy = StealHarvestStrategy.new()
 

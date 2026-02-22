@@ -20,7 +20,7 @@ var tile_manager: TileManager = null
 ## Village will be positioned on top of the highest tile at that location.
 ## Returns true if placement succeeded, false if invalid (no tile, village exists).
 ## Emits village_placed signal on success.
-func place_village(q: int, r: int, owner: Player) -> bool:
+func place_village(q: int, r: int, village_owner: Player) -> bool:
 	var pos_key = Vector2i(q, r)
 
 	# Check if village already exists at this position
@@ -39,15 +39,19 @@ func place_village(q: int, r: int, owner: Player) -> bool:
 	# Create and place the village
 	var village = village_scene.instantiate() as Village
 	village.set_grid_position(q, r)
-	village.set_player_owner(owner)  # Set the owning player
+	village.set_player_owner(village_owner)
 	add_child(village)
+
+	# Apply player color so villages are visually distinct per player
+	if village_owner and village_owner.player_color != Color.WHITE:
+		_apply_player_color(village, village_owner.player_color)
 
 	# Position it on top of the highest tile
 	var world_pos = HexGridUtils.axial_to_world(q, r, top_height)
 	village.global_position = world_pos + Vector3(0, HexGridUtils.TILE_HEIGHT / 2, 0)
 
 	placed_villages[pos_key] = village
-	Log.info("Placed village at q=%d, r=%d (Owner: %s)" % [q, r, owner.player_name])
+	Log.info("Placed village at q=%d, r=%d (Owner: %s)" % [q, r, village_owner.player_name])
 	village_placed.emit(q, r)
 	return true
 
@@ -149,3 +153,20 @@ func _set_color_recursive(node: Node, color: Color) -> void:
 	# Recurse to children
 	for child in node.get_children():
 		_set_color_recursive(child, color)
+
+
+## Applies a player color to a village node, handling both override and base mesh materials.
+## Creates per-instance material duplicates so villages don't share materials.
+func _apply_player_color(node: Node, color: Color) -> void:
+	if node is MeshInstance3D:
+		var mi := node as MeshInstance3D
+		for i in range(mi.get_surface_override_material_count()):
+			var mat = mi.get_surface_override_material(i)
+			if mat == null and mi.mesh:
+				mat = mi.mesh.surface_get_material(i)
+			if mat and mat is StandardMaterial3D:
+				var colored := mat.duplicate() as StandardMaterial3D
+				colored.albedo_color = color
+				mi.set_surface_override_material(i, colored)
+	for child in node.get_children():
+		_apply_player_color(child, color)

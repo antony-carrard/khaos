@@ -11,7 +11,7 @@ enum Phase {
 
 var current_phase: Phase = Phase.HARVEST
 
-# Player reference
+# Player reference — updated by board_manager._switch_to_player() on every switch
 var current_player: Player = null
 
 # References needed for harvest logic
@@ -21,22 +21,17 @@ var tile_pool: TilePool = null
 var board_manager: Node3D = null
 var ui: Control = null
 
-# Game end state
-var has_game_ended: bool = false
-var final_round_triggered: bool = false
-var triggering_player: Player = null
-
 # Signals
 signal phase_changed(new_phase: Phase)
 signal turn_started()
 signal turn_ended()
-signal game_ended()
+signal setup_action_done()   # emitted after each setup tile or village placement
 
 
-## Initialize the turn manager with required references
-func initialize(player: Player, v_manager: VillageManager, t_manager: TileManager,
+## Initialize the turn manager with required references.
+## current_player is set later via board_manager._switch_to_player().
+func initialize(v_manager: VillageManager, t_manager: TileManager,
 				t_pool: TilePool, b_manager: Node3D) -> void:
-	current_player = player
 	village_manager = v_manager
 	tile_manager = t_manager
 	tile_pool = t_pool
@@ -90,24 +85,25 @@ func is_actions_phase() -> bool:
 
 
 ## Starts the setup phase of the game.
-## Player receives 2 PLAINS tiles and must place them one at a time with villages.
+## Draws one PLAINS tile for the first player and shows setup UI.
 func start_setup_phase() -> void:
 	current_phase = Phase.SETUP
 	phase_changed.emit(current_phase)
+	draw_setup_tile_for_current_player()
+	Log.info("=== SETUP PHASE ===")
 
-	# Initialize player setup tiles (draws 2 PLAINS from tile pool)
+
+## Draws one PLAINS setup tile for the current player and shows setup UI.
+## Called at the start of each setup tile round (rounds 1 and 2) per player.
+func draw_setup_tile_for_current_player() -> void:
 	current_player.initialize_setup_tiles(tile_pool)
-
-	# Show setup UI
 	if ui:
 		ui.show_setup_phase(current_player.setup_tiles)
-
-	Log.info("=== SETUP PHASE ===")
-	Log.info("Place your 2 starting tiles and villages")
+	Log.info("%s: Drawing setup tile" % current_player.player_name)
 
 
 ## Called when a setup tile is placed during setup phase.
-## Tracks progress and completes setup after 2 tiles are placed.
+## Records are kept in tile_placement_strategy; this just signals completion.
 func on_setup_tile_placed(setup_index: int) -> void:
 	if not is_setup_phase():
 		Log.error("on_setup_tile_placed called outside of setup phase!")
@@ -117,40 +113,23 @@ func on_setup_tile_placed(setup_index: int) -> void:
 	if setup_index >= 0 and setup_index < current_player.setup_tiles.size():
 		current_player.setup_tiles[setup_index] = null
 
-	# Increment counter
 	current_player.setup_tiles_placed += 1
+	Log.info("%s: Setup tile placed" % current_player.player_name)
 
-	Log.info("Setup tile %d placed (%d/2)" % [setup_index + 1, current_player.setup_tiles_placed])
-
-	# Update UI to reflect the change
-	if ui:
-		ui.update_setup_tiles_display(current_player.setup_tiles)
-
-	# Check if setup complete (2 tiles placed)
-	if current_player.setup_tiles_placed >= 2:
-		complete_setup_phase()
+	setup_action_done.emit()
 
 
-## Completes the setup phase.
-## Draws 3 tiles into hand and transitions to harvest phase.
-func complete_setup_phase() -> void:
-	Log.info("=== SETUP COMPLETE ===")
+## Called when a setup village is placed during setup Round 3.
+func on_setup_village_placed() -> void:
+	if not is_setup_phase():
+		Log.error("on_setup_village_placed called outside of setup phase!")
+		return
 
-	# Draw 3 tiles from bag into hand
-	current_player.draw_tiles(tile_pool, 3)
-
-	# Give starting resources (for normal game start)
-	current_player.start_turn()  # +1 resource, +1 fervor, 3 actions
-
-	# Update UI to show the new hand
-	if ui:
-		ui.update_hand_display()
-
-	# Transition to harvest phase
-	start_harvest_phase()
+	Log.info("%s: Setup village placed" % current_player.player_name)
+	setup_action_done.emit()
 
 
-## Starts the harvest phase of the turn.
+## Starts harvest phase for the current player.
 ## Determines available harvest types and shows UI or auto-harvests if only one option.
 func start_harvest_phase() -> void:
 	current_phase = Phase.HARVEST
@@ -183,7 +162,7 @@ func start_harvest_phase() -> void:
 			ui.show_harvest_options(harvest_types)
 
 
-## Gets the available harvest types based on player's villages.
+## Gets the available harvest types based on the current player's villages.
 ## Returns array of ResourceType enums that have at least one village.
 func _get_available_harvest_types() -> Array[int]:
 	var types: Array[int] = []
@@ -209,8 +188,7 @@ func _get_available_harvest_types() -> Array[int]:
 	return types
 
 
-## Harvests resources of the specified type from all player villages.
-## Adds the total yield to the player's resources/fervor/glory.
+## Harvests resources of the specified type from all current player villages.
 ## Transitions to actions phase after harvesting.
 func harvest(resource_type: int) -> void:
 	var villages = village_manager.get_villages_for_player(current_player)
@@ -268,65 +246,22 @@ func trigger_second_harvest() -> void:
 			Log.info("Second harvest: Choose resource type to harvest")
 
 
-## Ends the current turn and starts a new one.
-## Discards hand, draws new tiles, resets actions, and starts harvest phase.
+## Ends the current turn: discards hand, draws new tiles, emits turn_ended.
+## board_manager handles player switching and final round detection.
 func end_turn() -> void:
 	Log.info("=== END TURN ===")
 
-	turn_ended.emit()
-
-	# Check for game end BEFORE discarding/drawing tiles
-	if tile_pool.is_empty() and not final_round_triggered:
-		final_round_triggered = true
-		triggering_player = current_player
-		Log.info("=== FINAL ROUND TRIGGERED ===")
-		Log.info("Tile bag is empty. This is the last turn.")
-		if ui:
-			ui.show_final_round_notification()
-
-	# Discard current hand (reset to empty slots)
+	# Discard and draw for the finishing player
 	for i in range(current_player.HAND_SIZE):
 		current_player.hand[i] = null
-
-	# Draw 3 new tiles (fills empty slots, if any remain)
 	current_player.draw_tiles(tile_pool, 3)
 
-	# Start new turn (gives +1 resource, +1 fervor, resets actions to 3)
+	turn_ended.emit()   # board_manager._on_turn_ended() handles switch + final round check
+
+
+## Called by board_manager after switching to a new player.
+## Gives the new player +1 resource/fervor, resets actions, starts harvest.
+func begin_player_turn() -> void:
 	current_player.start_turn()
-
-	# Reset to harvest phase
 	start_harvest_phase()
-
-	# Update UI (hand display only - signals handle the rest)
-	if ui:
-		ui.update_hand_display()
-
-	# Check if final round is complete (single player: end immediately after final turn)
-	if final_round_triggered:
-		_trigger_game_end()
-		return  # Don't print "New turn started" if game is over
-
-	Log.info("New turn started!")
 	turn_started.emit()
-
-
-## Triggers game end and displays victory screen.
-## Called when final round is complete.
-func _trigger_game_end() -> void:
-	has_game_ended = true
-	Log.info("=== GAME OVER ===")
-
-	game_ended.emit()
-
-	# Calculate final scores
-	var victory_mgr = VictoryManager.new()
-	var score_data = victory_mgr.calculate_player_score(
-		current_player, village_manager, tile_manager
-	)
-
-	# Show victory screen (array format for future multiplayer support)
-	if ui:
-		ui.show_victory_screen([{
-			"player": current_player,
-			"scores": score_data
-		}])

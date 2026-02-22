@@ -15,13 +15,14 @@ var glory: int = 0        # Victory points
 # Player's hand of tiles (fixed size array with null for empty slots)
 const HAND_SIZE: int = 3
 const BASE_ACTIONS: int = 3          # Default actions per turn (before bonuses)
-const SETUP_TILE_COUNT: int = 2       # Plains tiles dealt at game start
+const SETUP_TILE_COUNT: int = 1       # Plains tile dealt per setup round (called once per round)
 const MAX_SETUP_DRAW_ATTEMPTS: int = 100  # Safety cap when fishing for PLAINS tiles
 var hand: Array = [null, null, null]  # Array of TilePool.TileDefinition or null
 
-# Setup phase tiles (2 specific PLAINS tiles given at game start)
+# Setup phase tiles (1 PLAINS tile drawn per setup round)
 var setup_tiles: Array = []  # Array of TilePool.TileDefinition
-var setup_tiles_placed: int = 0  # Track how many setup tiles have been placed (0, 1, or 2)
+var setup_tiles_placed: int = 0  # Track how many setup tiles have been placed this round
+var setup_tile_positions: Array[Vector2i] = []  # Board positions placed during setup rounds 1 & 2
 
 # Placed villages (for later scoring/tracking)
 var placed_villages: Array = []
@@ -42,8 +43,8 @@ signal power_used(power_type: int)  # Emitted when a power is used
 
 
 ## Initialize player with starting resources
-func initialize(name: String = "Player 1", starting_resources: int = 0, starting_fervor: int = 0) -> void:
-	player_name = name
+func initialize(p_name: String = "Player 1", starting_resources: int = 0, starting_fervor: int = 0) -> void:
+	player_name = p_name
 	resources = starting_resources
 	fervor = starting_fervor
 	glory = 0
@@ -184,6 +185,7 @@ func get_hand() -> Array:
 func initialize_setup_tiles(tile_pool: TilePool) -> void:
 	setup_tiles.clear()
 	setup_tiles_placed = 0
+	# Note: setup_tile_positions is NOT cleared here — it accumulates across rounds 1 & 2
 
 	# Draw PLAINS tiles from the tile pool
 	var plains_drawn = 0

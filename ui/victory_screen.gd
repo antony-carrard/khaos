@@ -228,8 +228,8 @@ Territory Bonus: %d pts
 
 TOTAL: %d points""" % [
 		scores.village_breakdown,
-		player.resources, scores.resource_points, player.resources / 2,
-		player.fervor, scores.fervor_points, player.fervor / 2,
+		player.resources, scores.resource_points, player.resources / 2 as int,
+		player.fervor, scores.fervor_points, player.fervor / 2 as int,
 		scores.glory_points,
 		scores.territory_points,
 		scores.territory_breakdown,

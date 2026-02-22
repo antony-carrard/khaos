@@ -19,7 +19,7 @@ func update_tooltip(controller: PlacementController, q: int, r: int, is_valid: b
 			var player = controller.board_manager.current_player
 			if player:
 				var building_cost = player.get_village_cost(tile.village_building_cost)
-				var sell_refund = building_cost / 2
+				var sell_refund: int = building_cost / 2
 				controller.board_manager.ui.show_village_sell_tooltip(true, sell_refund)
 				return
 	controller.board_manager.ui.show_village_sell_tooltip(false)

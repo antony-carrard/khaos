@@ -27,12 +27,10 @@ func on_click(controller: PlacementController, _q: int, _r: int) -> bool:
 
 	if success:
 		if controller.board_manager.turn_manager.is_setup_phase():
-			controller.village_manager.place_village(
-				pos.x, pos.y,
-				controller.board_manager.current_player
-			)
-			Log.info("Auto-placed village during setup at (%d, %d)" % [pos.x, pos.y])
+			# Record where this player placed their tile (for setup Round 3 village placement)
+			controller.board_manager.current_player.setup_tile_positions.append(Vector2i(pos.x, pos.y))
 			controller.board_manager.turn_manager.on_setup_tile_placed(controller.selected_hand_index)
+			# No auto-village — village placement is a separate setup Round 3
 		else:
 			if controller.selected_hand_index >= 0 and controller.board_manager:
 				controller.board_manager.on_tile_placed_from_hand(controller.selected_hand_index)

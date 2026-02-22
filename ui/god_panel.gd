@@ -135,17 +135,17 @@ func update_god_display(god: God, god_manager: GodManager, board_manager) -> voi
 		god_power_buttons.append(button)
 		god_power_mapping[button] = power
 
-	# Connect to player signals for dynamic updates
-	if board_manager and board_manager.current_player:
-		var player = board_manager.current_player
-		if not player.fervor_changed.is_connected(update_power_buttons):
-			player.fervor_changed.connect(update_power_buttons.bind())
-		if not player.power_used.is_connected(update_power_buttons):
-			player.power_used.connect(update_power_buttons.bind())
-		if not player.actions_changed.is_connected(update_power_buttons):
-			player.actions_changed.connect(update_power_buttons.bind())
+	# Connect to active_player_view signals for dynamic updates (connect once — never rewire)
+	if board_manager and board_manager.active_player_view:
+		var apv = board_manager.active_player_view
+		if not apv.fervor_changed.is_connected(update_power_buttons):
+			apv.fervor_changed.connect(update_power_buttons.bind())
+		if not apv.power_used.is_connected(update_power_buttons):
+			apv.power_used.connect(update_power_buttons.bind())
+		if not apv.actions_changed.is_connected(update_power_buttons):
+			apv.actions_changed.connect(update_power_buttons.bind())
 
-		# Also connect to phase changes
+		# Also connect to phase changes (phase is global, not per-player)
 		if board_manager.turn_manager:
 			if not board_manager.turn_manager.phase_changed.is_connected(update_power_buttons):
 				board_manager.turn_manager.phase_changed.connect(update_power_buttons.bind())

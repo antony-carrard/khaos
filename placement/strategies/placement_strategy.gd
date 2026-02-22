@@ -4,12 +4,12 @@ var uses_tile_preview: bool = false  # TilePlacementStrategy overrides to true
 
 
 ## Click handler. Returns true if action succeeded and placement should end.
-func on_click(controller: PlacementController, q: int, r: int) -> bool:
+func on_click(_controller: PlacementController, _q: int, _r: int) -> bool:
 	return false
 
 
 ## Validity check for preview coloring.
-func get_validity(controller: PlacementController, q: int, r: int) -> bool:
+func get_validity(_controller: PlacementController, _q: int, _r: int) -> bool:
 	return false
 
 
