@@ -34,10 +34,10 @@ func _ready() -> void:
 	overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE  # Allow clicks to pass through
 	add_child(overlay)
 
-	# Player header: "[Player Name], choose your god"
+	# Player header: show player name in their color above the title
 	if selecting_player_name != "":
 		var player_header = Label.new()
-		player_header.text = "%s, choose your god" % selecting_player_name
+		player_header.text = selecting_player_name
 		player_header.add_theme_font_size_override("font_size", PLAYER_HEADER_FONT_SIZE)
 		player_header.add_theme_color_override("font_color", selecting_player_color)
 		player_header.add_theme_color_override("font_outline_color", Color.BLACK)

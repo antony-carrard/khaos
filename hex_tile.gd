@@ -111,7 +111,7 @@ func set_resource_properties(res_type: int, yield_val: int, village_cost: int, s
 		material.alpha_scissor_threshold = ICON_ALPHA_SCISSOR_THRESHOLD
 		material.cull_mode = BaseMaterial3D.CULL_DISABLED  # Show both sides
 		material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED  # No lighting, pure texture
-		material.depth_draw_opaque_only = false  # Ensure depth is written
+		material.depth_draw_mode = BaseMaterial3D.DEPTH_DRAW_ALWAYS  # Ensure depth is written
 		icon_mesh.material_override = material
 
 	# Load and set the icon texture

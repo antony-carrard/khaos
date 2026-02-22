@@ -23,6 +23,13 @@ const TILE_TYPE_TO_HEIGHT = {
 	TileType.MOUNTAIN: 2
 }
 
+# Standard yield value per tile type (used when upgrading a tile)
+const TILE_TYPE_YIELDS = {
+	TileType.PLAINS: 1,
+	TileType.HILLS: 2,
+	TileType.MOUNTAIN: 4
+}
+
 # Visual colors for each tile type
 const TILE_TYPE_COLORS = {
 	TileType.PLAINS: Color(0.4, 0.7, 0.3),    # Green
@@ -196,9 +203,9 @@ func upgrade_tile(q: int, r: int) -> bool:
 		_:
 			return false
 
-	# Copy resource properties from current tile to carry forward
+	# Carry resource type and costs from current tile; yield matches the new tier
 	var res_type = current_tile.resource_type
-	var yield_val = current_tile.yield_value
+	var yield_val = TILE_TYPE_YIELDS[new_tile_type]
 	var village_cost = current_tile.village_building_cost
 	var sell_val = current_tile.sell_price
 	var old_tile_type = current_tile.tile_type

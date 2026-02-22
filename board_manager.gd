@@ -335,12 +335,17 @@ func sell_tile(hand_index: int) -> void:
 	if not turn_manager.consume_action("sell tile"):
 		return
 
-	current_player.add_resources(tile.sell_price)
+	match tile.resource_type:
+		TileManager.ResourceType.FERVOR:
+			current_player.add_fervor(tile.sell_price)
+		_:
+			current_player.add_resources(tile.sell_price)
 
-	Log.info("Sold %s %s tile for %d resources" % [
+	Log.info("Sold %s %s tile for %d %s" % [
 		TileManager.ResourceType.keys()[tile.resource_type],
 		TileManager.TileType.keys()[tile.tile_type],
-		tile.sell_price
+		tile.sell_price,
+		TileManager.ResourceType.keys()[tile.resource_type].to_lower()
 	])
 
 	current_player.remove_from_hand(hand_index)

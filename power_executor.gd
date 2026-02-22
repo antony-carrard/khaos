@@ -138,8 +138,8 @@ func on_downgrade_tile(q: int, r: int) -> bool:
 		current_player.pending_power = null
 		return false
 
-	if village.player_owner != current_player:
-		Log.warn("Can only downgrade your own villages!")
+	if village.player_owner == current_player:
+		Log.warn("Cannot downgrade your own villages!")
 		current_player.pending_power = null
 		return false
 
