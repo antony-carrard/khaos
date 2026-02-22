@@ -5,6 +5,14 @@ class_name ResourceTypePicker
 ## Shows overlay with buttons to select resource type
 ## Extracted from tile_selector_ui.gd for better code organization
 
+const PICKER_PANEL_SIZE: Vector2 = Vector2(400, 250)
+const PICKER_PANEL_CORNER_RADIUS: int = 15
+const PICKER_PANEL_BORDER_WIDTH: int = 4
+const PICKER_PANEL_MARGIN: int = 30
+const RESOURCE_BUTTON_HEIGHT: int = 50
+const CANCEL_BUTTON_HEIGHT: int = 40
+const PICKER_TITLE_FONT_SIZE: int = 22
+
 signal resource_type_selected(q: int, r: int, resource_type: int)
 signal picker_cancelled()
 
@@ -53,25 +61,25 @@ func show_picker(q: int, r: int, current_type: int, tile_type: int) -> void:
 	var style = StyleBoxFlat.new()
 	style.bg_color = Color(0.15, 0.15, 0.2, 0.95)
 	style.border_color = Color(0.4, 0.25, 0.6)  # Purple border (Augia's color)
-	style.border_width_left = 4
-	style.border_width_right = 4
-	style.border_width_top = 4
-	style.border_width_bottom = 4
-	style.corner_radius_top_left = 15
-	style.corner_radius_top_right = 15
-	style.corner_radius_bottom_left = 15
-	style.corner_radius_bottom_right = 15
+	style.border_width_left = PICKER_PANEL_BORDER_WIDTH
+	style.border_width_right = PICKER_PANEL_BORDER_WIDTH
+	style.border_width_top = PICKER_PANEL_BORDER_WIDTH
+	style.border_width_bottom = PICKER_PANEL_BORDER_WIDTH
+	style.corner_radius_top_left = PICKER_PANEL_CORNER_RADIUS
+	style.corner_radius_top_right = PICKER_PANEL_CORNER_RADIUS
+	style.corner_radius_bottom_left = PICKER_PANEL_CORNER_RADIUS
+	style.corner_radius_bottom_right = PICKER_PANEL_CORNER_RADIUS
 	panel.add_theme_stylebox_override("panel", style)
-	panel.custom_minimum_size = Vector2(400, 250)
+	panel.custom_minimum_size = PICKER_PANEL_SIZE
 	panel.mouse_filter = Control.MOUSE_FILTER_STOP
 	center.add_child(panel)
 
 	# Inner margin
 	var margin = MarginContainer.new()
-	margin.add_theme_constant_override("margin_left", 30)
-	margin.add_theme_constant_override("margin_right", 30)
-	margin.add_theme_constant_override("margin_top", 30)
-	margin.add_theme_constant_override("margin_bottom", 30)
+	margin.add_theme_constant_override("margin_left", PICKER_PANEL_MARGIN)
+	margin.add_theme_constant_override("margin_right", PICKER_PANEL_MARGIN)
+	margin.add_theme_constant_override("margin_top", PICKER_PANEL_MARGIN)
+	margin.add_theme_constant_override("margin_bottom", PICKER_PANEL_MARGIN)
 	margin.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	panel.add_child(margin)
 
@@ -84,7 +92,7 @@ func show_picker(q: int, r: int, current_type: int, tile_type: int) -> void:
 	# Title
 	var title = Label.new()
 	title.text = "Choose New Resource Type"
-	title.add_theme_font_size_override("font_size", 22)
+	title.add_theme_font_size_override("font_size", PICKER_TITLE_FONT_SIZE)
 	title.add_theme_color_override("font_color", Color.WHITE)
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	title.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -117,7 +125,7 @@ func show_picker(q: int, r: int, current_type: int, tile_type: int) -> void:
 	# Cancel button
 	var cancel_button = Button.new()
 	cancel_button.text = "Cancel"
-	cancel_button.custom_minimum_size = Vector2(0, 40)
+	cancel_button.custom_minimum_size = Vector2(0, CANCEL_BUTTON_HEIGHT)
 	var cancel_style = StyleBoxFlat.new()
 	cancel_style.bg_color = Color(0.3, 0.3, 0.3)
 	cancel_style.corner_radius_top_left = 8
@@ -133,7 +141,7 @@ func show_picker(q: int, r: int, current_type: int, tile_type: int) -> void:
 func _create_resource_type_button(container: VBoxContainer, resource_type: int, type_name: String, color: Color) -> void:
 	var button = Button.new()
 	button.text = type_name
-	button.custom_minimum_size = Vector2(0, 50)
+	button.custom_minimum_size = Vector2(0, RESOURCE_BUTTON_HEIGHT)
 
 	var btn_style = StyleBoxFlat.new()
 	btn_style.bg_color = color

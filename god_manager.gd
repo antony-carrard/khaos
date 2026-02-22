@@ -4,6 +4,8 @@ extends Node
 ## Centralized god definitions and power implementation
 ## All god data and power logic lives here for easy modification
 
+const LE_BATISSEUR_FLAT_VILLAGE_COST: int = 4  # Rules.md passive: all villages cost 4
+
 # ============================================================================
 # GOD DEFINITIONS
 # ============================================================================
@@ -122,7 +124,7 @@ static func create_rakun() -> God:
 
 ## Attempt to activate a power
 ## Returns true if successful, false if player can't afford or action fails
-func activate_power(power: GodPower, player, board_manager) -> bool:
+func activate_power(power: GodPower, player: Player, board_manager: Node3D) -> bool:
 	# Check if power has already been used this turn
 	if player.has_used_power(power.power_type):
 		Log.warn("Power already used this turn!")
@@ -215,7 +217,7 @@ func _power_requires_deferred_payment(power: GodPower) -> bool:
 
 ## Complete a deferred power payment (called when action is executed)
 ## Spends fervor, consumes action, and marks power as used
-func complete_deferred_power(player) -> void:
+func complete_deferred_power(player: Player) -> void:
 	if not player.pending_power:
 		return
 
@@ -240,7 +242,7 @@ func complete_deferred_power(player) -> void:
 
 ## Check if a power can be activated (for UI updates)
 ## Returns true if all requirements are met
-func can_activate_power(power: GodPower, player, turn_manager) -> bool:
+func can_activate_power(power: GodPower, player: Player, turn_manager: TurnManager) -> bool:
 	# Passive powers can't be activated
 	if power.is_passive:
 		return false
@@ -267,18 +269,18 @@ func can_activate_power(power: GodPower, player, turn_manager) -> bool:
 # POWER IMPLEMENTATIONS
 # ============================================================================
 
-func _activate_destroy_village_free(player, board_manager) -> void:
+func _activate_destroy_village_free(player: Player, board_manager: Node3D) -> void:
 	# Enter destroy village selection mode
 	if board_manager.placement_controller:
 		board_manager.placement_controller.select_destroy_village_free_mode()
 		Log.info("Destroy village mode activated - click an enemy village")
 
-func _activate_extra_action(player) -> void:
+func _activate_extra_action(player: Player) -> void:
 	# Grant +1 action for next turn
 	player.next_turn_bonus_actions = 1
 	Log.info("Next turn will have 4 actions!")
 
-func _activate_second_harvest(player, board_manager) -> void:
+func _activate_second_harvest(player: Player, board_manager: Node3D) -> void:
 	# Trigger harvest UI again (doesn't consume action, costs fervor only)
 	if board_manager.turn_manager:
 		board_manager.turn_manager.trigger_second_harvest()
@@ -286,25 +288,25 @@ func _activate_second_harvest(player, board_manager) -> void:
 	else:
 		Log.error("Cannot trigger second harvest: turn_manager not found")
 
-func _activate_change_tile_type(player, board_manager) -> void:
+func _activate_change_tile_type(player: Player, board_manager: Node3D) -> void:
 	# Enter change tile type selection mode
 	if board_manager.placement_controller:
 		board_manager.placement_controller.select_change_tile_type_mode()
 		Log.info("Change tile type mode activated - click your own village to change its tile type")
 
-func _activate_upgrade_tile_keep_village(player, board_manager) -> void:
+func _activate_upgrade_tile_keep_village(player: Player, board_manager: Node3D) -> void:
 	# Enter upgrade tile selection mode
 	if board_manager.placement_controller:
 		board_manager.placement_controller.select_upgrade_tile_mode()
 		Log.info("Upgrade tile mode activated - click your own village to upgrade its tile")
 
-func _activate_steal_harvest(player, board_manager) -> void:
+func _activate_steal_harvest(player: Player, board_manager: Node3D) -> void:
 	# Enter steal harvest selection mode
 	if board_manager.placement_controller:
 		board_manager.placement_controller.select_steal_harvest_mode()
 		Log.info("Steal harvest mode activated - click an enemy village")
 
-func _activate_downgrade_tile_keep_village(player, board_manager) -> void:
+func _activate_downgrade_tile_keep_village(player: Player, board_manager: Node3D) -> void:
 	# Enter downgrade tile selection mode
 	if board_manager.placement_controller:
 		board_manager.placement_controller.select_downgrade_tile_mode()
@@ -317,5 +319,5 @@ func _activate_downgrade_tile_keep_village(player, board_manager) -> void:
 ## Get the actual village building cost for a tile, accounting for god abilities
 static func get_village_cost(god: God, base_cost: int) -> int:
 	if god and god.has_power_type(GodPower.PowerType.FLAT_VILLAGE_COST):
-		return 4  # Le Bâtisseur's passive
+		return LE_BATISSEUR_FLAT_VILLAGE_COST
 	return base_cost

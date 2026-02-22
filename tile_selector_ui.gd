@@ -1,5 +1,18 @@
 extends Control
 
+# Layout constants
+const HAND_UI_OFFSET_TOP: int = -200      # Distance from bottom edge in pixels
+const UI_MARGIN_BOTTOM: int = 25           # Gap from screen bottom (keeps clear of edge-pan zone)
+const TILE_COUNT_FONT_SIZE: int = 14
+const SETUP_TITLE_FONT_SIZE: int = 16
+const ACTIONS_FONT_SIZE: int = 16
+const ACTIONS_OUTLINE_SIZE: int = 5
+const END_TURN_BUTTON_SIZE: Vector2 = Vector2(270, 40)
+const END_TURN_FONT_SIZE: int = 18
+const VILLAGE_BUTTON_WIDTH: int = 130
+const SEPARATOR_WIDTH: int = 15           # Width of narrow gaps between UI sections
+const HAND_SEPARATOR_WIDTH: int = 30      # Width of gap before right-side panel
+
 # Preload UI components
 const VictoryScreenScene = preload("res://ui/victory_screen.gd")
 const ResourceTypePickerScene = preload("res://ui/resource_type_picker.gd")
@@ -22,7 +35,7 @@ signal village_remove_selected()
 
 var tile_type_colors: Dictionary = {}
 var buttons: Array[Button] = []
-var board_manager = null  # Reference to get hand data
+var board_manager: Node3D = null  # Reference to get hand data
 
 # Turn system UI (still managed here)
 var actions_label: Label = null
@@ -73,7 +86,7 @@ func _ready() -> void:
 	resource_type_picker.resource_type_selected.connect(_on_resource_type_selected)
 	resource_type_picker.picker_cancelled.connect(_on_resource_type_picker_cancelled)
 
-func initialize(colors: Dictionary, _board_manager = null) -> void:
+func initialize(colors: Dictionary, _board_manager: Node3D = null) -> void:
 	tile_type_colors = colors
 	board_manager = _board_manager
 
@@ -83,11 +96,11 @@ func initialize(colors: Dictionary, _board_manager = null) -> void:
 	margin.anchor_right = 1.0
 	margin.anchor_top = 1.0
 	margin.anchor_bottom = 1.0
-	margin.offset_top = -200  # Positions UI vertically (negative = up from bottom anchor)
+	margin.offset_top = HAND_UI_OFFSET_TOP
 	margin.add_theme_constant_override("margin_left", 20)
 	margin.add_theme_constant_override("margin_right", 20)
 	margin.add_theme_constant_override("margin_top", 10)
-	margin.add_theme_constant_override("margin_bottom", 25)  # Gap from screen bottom (>20px to avoid camera pan zone)
+	margin.add_theme_constant_override("margin_bottom", UI_MARGIN_BOTTOM)
 	add_child(margin)
 
 	# Main horizontal container
@@ -102,7 +115,7 @@ func initialize(colors: Dictionary, _board_manager = null) -> void:
 
 	# Separator
 	var sep_god = Control.new()
-	sep_god.custom_minimum_size = Vector2(15, 0)
+	sep_god.custom_minimum_size = Vector2(SEPARATOR_WIDTH, 0)
 	main_hbox.add_child(sep_god)
 
 	# Resource display on left
@@ -111,7 +124,7 @@ func initialize(colors: Dictionary, _board_manager = null) -> void:
 
 	# Separator
 	var sep1 = Control.new()
-	sep1.custom_minimum_size = Vector2(15, 0)
+	sep1.custom_minimum_size = Vector2(SEPARATOR_WIDTH, 0)
 	main_hbox.add_child(sep1)
 
 	# Hand display in center
@@ -125,7 +138,7 @@ func initialize(colors: Dictionary, _board_manager = null) -> void:
 	tile_count_label.add_theme_color_override("font_color", Color.WHITE)
 	tile_count_label.add_theme_color_override("font_outline_color", Color.BLACK)
 	tile_count_label.add_theme_constant_override("outline_size", 4)
-	tile_count_label.add_theme_font_size_override("font_size", 14)
+	tile_count_label.add_theme_font_size_override("font_size", TILE_COUNT_FONT_SIZE)
 	tile_count_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	hand_vbox.add_child(tile_count_label)
 
@@ -135,7 +148,7 @@ func initialize(colors: Dictionary, _board_manager = null) -> void:
 	setup_title_label.add_theme_color_override("font_color", Color(0.9, 0.8, 0.3))  # Gold
 	setup_title_label.add_theme_color_override("font_outline_color", Color.BLACK)
 	setup_title_label.add_theme_constant_override("outline_size", 4)
-	setup_title_label.add_theme_font_size_override("font_size", 16)
+	setup_title_label.add_theme_font_size_override("font_size", SETUP_TITLE_FONT_SIZE)
 	setup_title_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	setup_title_label.visible = false
 	hand_vbox.add_child(setup_title_label)
@@ -179,7 +192,7 @@ func initialize(colors: Dictionary, _board_manager = null) -> void:
 
 	# Separator
 	var separator = Control.new()
-	separator.custom_minimum_size = Vector2(30, 0)
+	separator.custom_minimum_size = Vector2(HAND_SEPARATOR_WIDTH, 0)
 	main_hbox.add_child(separator)
 
 	# Turn phase and actions panel (right side)
@@ -197,8 +210,8 @@ func initialize(colors: Dictionary, _board_manager = null) -> void:
 	actions_label.text = "Actions: 3/3"
 	actions_label.add_theme_color_override("font_color", Color.WHITE)
 	actions_label.add_theme_color_override("font_outline_color", Color.BLACK)
-	actions_label.add_theme_constant_override("outline_size", 5)
-	actions_label.add_theme_font_size_override("font_size", 16)
+	actions_label.add_theme_constant_override("outline_size", ACTIONS_OUTLINE_SIZE)
+	actions_label.add_theme_font_size_override("font_size", ACTIONS_FONT_SIZE)
 	actions_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	actions_label.visible = false
 	turn_phase_container.add_child(actions_label)
@@ -213,19 +226,19 @@ func initialize(colors: Dictionary, _board_manager = null) -> void:
 	village_hbox.add_theme_constant_override("separation", 10)
 	right_vbox.add_child(village_hbox)
 
-	village_place_button = create_button_ref(village_hbox, "Place Village", Color(0.8, 0.5, 0.2), 130, _on_village_place_pressed)
-	village_remove_button = create_button_ref(village_hbox, "Remove Village", Color(0.7, 0.3, 0.2), 130, _on_village_remove_pressed)
+	village_place_button = create_button_ref(village_hbox, "Place Village", Color(0.8, 0.5, 0.2), VILLAGE_BUTTON_WIDTH, _on_village_place_pressed)
+	village_remove_button = create_button_ref(village_hbox, "Remove Village", Color(0.7, 0.3, 0.2), VILLAGE_BUTTON_WIDTH, _on_village_remove_pressed)
 
 	# End turn button
 	end_turn_button = Button.new()
 	end_turn_button.text = "End Turn"
-	end_turn_button.custom_minimum_size = Vector2(270, 40)
+	end_turn_button.custom_minimum_size = END_TURN_BUTTON_SIZE
 	var end_turn_style = create_button_style(Color(0.2, 0.6, 0.8))
 	end_turn_button.add_theme_stylebox_override("normal", end_turn_style)
 	end_turn_button.add_theme_stylebox_override("hover", create_button_style(Color(0.3, 0.7, 0.9)))
 	end_turn_button.add_theme_stylebox_override("pressed", create_button_style(Color(0.15, 0.5, 0.7)))
 	end_turn_button.add_theme_color_override("font_color", Color.WHITE)
-	end_turn_button.add_theme_font_size_override("font_size", 18)
+	end_turn_button.add_theme_font_size_override("font_size", END_TURN_FONT_SIZE)
 	end_turn_button.pressed.connect(_on_end_turn_pressed)
 	right_vbox.add_child(end_turn_button)
 	
@@ -252,7 +265,7 @@ func create_button(parent: Control, label: String, base_color: Color, width: int
 
 	# Text styling
 	button.add_theme_color_override("font_color", Color.WHITE)
-	button.add_theme_font_size_override("font_size", 18 if width == 120 else 16)
+	button.add_theme_font_size_override("font_size", ACTIONS_FONT_SIZE)
 
 	button.pressed.connect(callback)
 
@@ -279,7 +292,7 @@ func create_button_ref(parent: Control, label: String, base_color: Color, width:
 
 	# Text styling
 	button.add_theme_color_override("font_color", Color.WHITE)
-	button.add_theme_font_size_override("font_size", 18 if width == 120 else 16)
+	button.add_theme_font_size_override("font_size", ACTIONS_FONT_SIZE)
 
 	button.pressed.connect(callback)
 
@@ -436,7 +449,7 @@ func update_actions(remaining: int) -> void:
 			actions_label.add_theme_color_override("font_color", Color.WHITE)
 		# Maintain outline
 		actions_label.add_theme_color_override("font_outline_color", Color.BLACK)
-		actions_label.add_theme_constant_override("outline_size", 5)
+		actions_label.add_theme_constant_override("outline_size", ACTIONS_OUTLINE_SIZE)
 
 	# Disable village buttons when no actions remaining
 	if village_place_button:

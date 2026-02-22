@@ -3,6 +3,8 @@ extends Camera3D
 ## Camera Controller for isometric tile-based game
 ## Handles panning and zooming while maintaining fixed isometric angle
 
+const NEAR_PARALLEL_THRESHOLD: float = 0.0001  # Ray is effectively parallel to ground plane
+
 # Zoom settings
 @export var min_zoom: float = 8.0
 @export var max_zoom: float = 25.0
@@ -16,10 +18,10 @@ extends Camera3D
 @export var max_pan_distance: float = 20.0
 
 # Internal state
-var target_zoom: float
-var target_position: Vector3
+var target_zoom: float = 0.0
+var target_position: Vector3 = Vector3.ZERO
 var is_panning: bool = false
-var panning_anchor: Vector3  # World position when panning started
+var panning_anchor: Vector3 = Vector3.ZERO  # World position when panning started
 
 func _ready() -> void:
 	# Initialize targets to current values
@@ -168,7 +170,7 @@ func get_world_position_at_mouse(mouse_pos: Vector2) -> Vector3:
 	# Solving: origin.y + t * direction.y = 0
 	# Therefore: t = -origin.y / direction.y
 
-	if abs(ray_dir.y) < 0.0001:
+	if abs(ray_dir.y) < NEAR_PARALLEL_THRESHOLD:
 		# Ray is nearly parallel to plane (shouldn't happen with this camera angle)
 		return Vector3.ZERO
 

@@ -4,6 +4,16 @@ class_name VictoryScreen
 ## Victory screen component - displays endgame results and score breakdown
 ## Extracted from tile_selector_ui.gd for better code organization
 
+# Layout constants
+const VICTORY_PANEL_SIZE: Vector2 = Vector2(600, 500)
+const VICTORY_PANEL_MARGIN: int = 30
+const VICTORY_PANEL_BORDER_WIDTH: int = 4
+const VICTORY_PANEL_CORNER_RADIUS: int = 15
+const VICTORY_SCROLL_MIN_HEIGHT: int = 300
+const VICTORY_TITLE_FONT_SIZE: int = 36
+const VICTORY_BUTTON_SIZE: Vector2 = Vector2(180, 50)
+const BREAKDOWN_PANEL_MARGIN: int = 15
+
 # References to game data (needed for scoring display)
 var player_class = preload("res://player.gd")
 var tile_manager_class = preload("res://tile_manager.gd")
@@ -74,24 +84,24 @@ func _create_victory_screen(all_scores: Array) -> Control:
 	var style = StyleBoxFlat.new()
 	style.bg_color = Color(0.15, 0.15, 0.2, 0.95)
 	style.border_color = Color(0.8, 0.7, 0.3)  # Gold border
-	style.border_width_left = 4
-	style.border_width_right = 4
-	style.border_width_top = 4
-	style.border_width_bottom = 4
-	style.corner_radius_top_left = 15
-	style.corner_radius_top_right = 15
-	style.corner_radius_bottom_left = 15
-	style.corner_radius_bottom_right = 15
+	style.border_width_left = VICTORY_PANEL_BORDER_WIDTH
+	style.border_width_right = VICTORY_PANEL_BORDER_WIDTH
+	style.border_width_top = VICTORY_PANEL_BORDER_WIDTH
+	style.border_width_bottom = VICTORY_PANEL_BORDER_WIDTH
+	style.corner_radius_top_left = VICTORY_PANEL_CORNER_RADIUS
+	style.corner_radius_top_right = VICTORY_PANEL_CORNER_RADIUS
+	style.corner_radius_bottom_left = VICTORY_PANEL_CORNER_RADIUS
+	style.corner_radius_bottom_right = VICTORY_PANEL_CORNER_RADIUS
 	panel.add_theme_stylebox_override("panel", style)
-	panel.custom_minimum_size = Vector2(600, 500)
+	panel.custom_minimum_size = VICTORY_PANEL_SIZE
 	center.add_child(panel)
 
 	# Inner margin
 	var margin = MarginContainer.new()
-	margin.add_theme_constant_override("margin_left", 30)
-	margin.add_theme_constant_override("margin_right", 30)
-	margin.add_theme_constant_override("margin_top", 30)
-	margin.add_theme_constant_override("margin_bottom", 30)
+	margin.add_theme_constant_override("margin_left", VICTORY_PANEL_MARGIN)
+	margin.add_theme_constant_override("margin_right", VICTORY_PANEL_MARGIN)
+	margin.add_theme_constant_override("margin_top", VICTORY_PANEL_MARGIN)
+	margin.add_theme_constant_override("margin_bottom", VICTORY_PANEL_MARGIN)
 	panel.add_child(margin)
 
 	# Vertical layout
@@ -102,7 +112,7 @@ func _create_victory_screen(all_scores: Array) -> Control:
 	# Title
 	var title = Label.new()
 	title.text = "GAME OVER"
-	title.add_theme_font_size_override("font_size", 36)
+	title.add_theme_font_size_override("font_size", VICTORY_TITLE_FONT_SIZE)
 	title.add_theme_color_override("font_color", Color(0.9, 0.8, 0.3))
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	vbox.add_child(title)
@@ -136,7 +146,7 @@ func _create_victory_screen(all_scores: Array) -> Control:
 
 	# Scrollable breakdown
 	var scroll = ScrollContainer.new()
-	scroll.custom_minimum_size = Vector2(0, 300)
+	scroll.custom_minimum_size = Vector2(0, VICTORY_SCROLL_MIN_HEIGHT)
 	vbox.add_child(scroll)
 
 	var breakdown_vbox = VBoxContainer.new()
@@ -158,13 +168,13 @@ func _create_victory_screen(all_scores: Array) -> Control:
 	var menu_button = Button.new()
 	menu_button.text = "Return to Menu"
 	menu_button.disabled = true
-	menu_button.custom_minimum_size = Vector2(180, 50)
+	menu_button.custom_minimum_size = VICTORY_BUTTON_SIZE
 	button_hbox.add_child(menu_button)
 
 	# New game button
 	var new_game_button = Button.new()
 	new_game_button.text = "New Game"
-	new_game_button.custom_minimum_size = Vector2(180, 50)
+	new_game_button.custom_minimum_size = VICTORY_BUTTON_SIZE
 	var new_game_style = _create_button_style(Color(0.3, 0.7, 0.3))
 	new_game_button.add_theme_stylebox_override("normal", new_game_style)
 	new_game_button.add_theme_stylebox_override("hover", _create_button_style(Color(0.4, 0.8, 0.4)))
@@ -177,7 +187,7 @@ func _create_victory_screen(all_scores: Array) -> Control:
 
 
 ## Creates score breakdown panel for a single player.
-func _create_player_breakdown(player, scores: Dictionary) -> Control:
+func _create_player_breakdown(player: Player, scores: Dictionary) -> Control:
 	var panel = PanelContainer.new()
 	var style = StyleBoxFlat.new()
 	style.bg_color = Color(0.2, 0.2, 0.25, 0.6)
@@ -188,10 +198,10 @@ func _create_player_breakdown(player, scores: Dictionary) -> Control:
 	panel.add_theme_stylebox_override("panel", style)
 
 	var margin = MarginContainer.new()
-	margin.add_theme_constant_override("margin_left", 15)
-	margin.add_theme_constant_override("margin_right", 15)
-	margin.add_theme_constant_override("margin_top", 15)
-	margin.add_theme_constant_override("margin_bottom", 15)
+	margin.add_theme_constant_override("margin_left", BREAKDOWN_PANEL_MARGIN)
+	margin.add_theme_constant_override("margin_right", BREAKDOWN_PANEL_MARGIN)
+	margin.add_theme_constant_override("margin_top", BREAKDOWN_PANEL_MARGIN)
+	margin.add_theme_constant_override("margin_bottom", BREAKDOWN_PANEL_MARGIN)
 	panel.add_child(margin)
 
 	var vbox = VBoxContainer.new()

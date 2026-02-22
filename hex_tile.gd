@@ -2,6 +2,14 @@ extends StaticBody3D
 
 class_name HexTile
 
+# Icon geometry constants
+const ICON_QUAD_SIZE: Vector2 = Vector2(1.5, 1.5)
+const ICON_HEIGHT_OFFSET: float = 0.16   # Above tile surface
+const ICON_ALPHA_SCISSOR_THRESHOLD: float = 0.5
+const LABEL_HEIGHT_OFFSET: float = 0.20  # Above icon, avoids z-fighting
+const LABEL_FONT_SIZE: int = 200
+const LABEL_OUTLINE_SIZE: int = 40
+
 # Axial coordinates for hexagonal grid
 var q: int = 0  # column
 var r: int = 0  # row
@@ -88,11 +96,11 @@ func set_resource_properties(res_type: int, yield_val: int, village_cost: int, s
 
 		# Create a flat quad mesh
 		var quad = QuadMesh.new()
-		quad.size = Vector2(1.5, 1.5)  # Size of the icon quad
+		quad.size = ICON_QUAD_SIZE
 		icon_mesh.mesh = quad
 
 		# Position it on top of the hex tile
-		icon_mesh.position = Vector3(0, 0.16, 0)  # Just above tile surface
+		icon_mesh.position = Vector3(0, ICON_HEIGHT_OFFSET, 0)
 
 		# Rotate to lay flat (face upward)
 		icon_mesh.rotation_degrees = Vector3(-90, 0, 0)
@@ -100,7 +108,7 @@ func set_resource_properties(res_type: int, yield_val: int, village_cost: int, s
 		# Create material for the icon
 		var material = StandardMaterial3D.new()
 		material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA_SCISSOR  # Hard cutoff, no blend issues
-		material.alpha_scissor_threshold = 0.5  # Pixels > 50% alpha are visible
+		material.alpha_scissor_threshold = ICON_ALPHA_SCISSOR_THRESHOLD
 		material.cull_mode = BaseMaterial3D.CULL_DISABLED  # Show both sides
 		material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED  # No lighting, pure texture
 		material.depth_draw_opaque_only = false  # Ensure depth is written
@@ -120,11 +128,11 @@ func set_resource_properties(res_type: int, yield_val: int, village_cost: int, s
 		value_label = Label3D.new()
 		add_child(value_label)
 		value_label.billboard = BaseMaterial3D.BILLBOARD_DISABLED  # No billboard, lay flat
-		value_label.font_size = 200
-		value_label.outline_size = 40
+		value_label.font_size = LABEL_FONT_SIZE
+		value_label.outline_size = LABEL_OUTLINE_SIZE
 		value_label.outline_modulate = Color.BLACK
 		value_label.modulate = Color.WHITE
-		value_label.position = Vector3(0, 0.20, 0)  # Higher above icon to avoid z-fighting
+		value_label.position = Vector3(0, LABEL_HEIGHT_OFFSET, 0)
 		value_label.rotation_degrees = Vector3(-90, 0, 0)  # Rotate to lay flat
 		value_label.render_priority = 1  # Draw on top of icon
 

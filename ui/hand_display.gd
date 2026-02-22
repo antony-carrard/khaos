@@ -9,6 +9,10 @@ signal tile_sold_from_hand(hand_index: int)
 signal setup_tile_selected(setup_index: int)
 
 const HAND_SIZE: int = 3  # Number of tiles in hand
+const CARD_SIZE: Vector2 = Vector2(100, 110)
+const CARD_MARGIN: int = 8
+const CARD_CORNER_RADIUS: int = 8
+const SELL_BUTTON_SIZE: Vector2 = Vector2(100, 25)
 
 var tile_type_colors: Dictionary = {}
 var hand_container: HBoxContainer = null
@@ -143,19 +147,19 @@ func _create_setup_tile_card(setup_index: int, tile_def) -> void:
 	card_style.border_width_right = 3
 	card_style.border_width_top = 3
 	card_style.border_width_bottom = 3
-	card_style.corner_radius_top_left = 8
-	card_style.corner_radius_top_right = 8
-	card_style.corner_radius_bottom_left = 8
-	card_style.corner_radius_bottom_right = 8
+	card_style.corner_radius_top_left = CARD_CORNER_RADIUS
+	card_style.corner_radius_top_right = CARD_CORNER_RADIUS
+	card_style.corner_radius_bottom_left = CARD_CORNER_RADIUS
+	card_style.corner_radius_bottom_right = CARD_CORNER_RADIUS
 	card.add_theme_stylebox_override("panel", card_style)
-	card.custom_minimum_size = Vector2(100, 110)
+	card.custom_minimum_size = CARD_SIZE
 	card_vbox.add_child(card)
 
 	var margin = MarginContainer.new()
-	margin.add_theme_constant_override("margin_left", 8)
-	margin.add_theme_constant_override("margin_right", 8)
-	margin.add_theme_constant_override("margin_top", 8)
-	margin.add_theme_constant_override("margin_bottom", 8)
+	margin.add_theme_constant_override("margin_left", CARD_MARGIN)
+	margin.add_theme_constant_override("margin_right", CARD_MARGIN)
+	margin.add_theme_constant_override("margin_top", CARD_MARGIN)
+	margin.add_theme_constant_override("margin_bottom", CARD_MARGIN)
 	card.add_child(margin)
 
 	var vbox = VBoxContainer.new()
@@ -211,12 +215,12 @@ func _create_placed_setup_tile_placeholder() -> void:
 	card_style.border_width_right = 2
 	card_style.border_width_top = 2
 	card_style.border_width_bottom = 2
-	card_style.corner_radius_top_left = 8
-	card_style.corner_radius_top_right = 8
-	card_style.corner_radius_bottom_left = 8
-	card_style.corner_radius_bottom_right = 8
+	card_style.corner_radius_top_left = CARD_CORNER_RADIUS
+	card_style.corner_radius_top_right = CARD_CORNER_RADIUS
+	card_style.corner_radius_bottom_left = CARD_CORNER_RADIUS
+	card_style.corner_radius_bottom_right = CARD_CORNER_RADIUS
 	card.add_theme_stylebox_override("panel", card_style)
-	card.custom_minimum_size = Vector2(100, 110)
+	card.custom_minimum_size = CARD_SIZE
 	setup_tiles_container.add_child(card)
 
 	var margin = MarginContainer.new()
@@ -251,12 +255,12 @@ func _create_empty_card_placeholder() -> void:
 	card_style.border_width_right = 2
 	card_style.border_width_top = 2
 	card_style.border_width_bottom = 2
-	card_style.corner_radius_top_left = 8
-	card_style.corner_radius_top_right = 8
-	card_style.corner_radius_bottom_left = 8
-	card_style.corner_radius_bottom_right = 8
+	card_style.corner_radius_top_left = CARD_CORNER_RADIUS
+	card_style.corner_radius_top_right = CARD_CORNER_RADIUS
+	card_style.corner_radius_bottom_left = CARD_CORNER_RADIUS
+	card_style.corner_radius_bottom_right = CARD_CORNER_RADIUS
 	card.add_theme_stylebox_override("panel", card_style)
-	card.custom_minimum_size = Vector2(100, 110)
+	card.custom_minimum_size = CARD_SIZE
 	card_vbox.add_child(card)
 
 	var label = Label.new()
@@ -274,7 +278,7 @@ func _create_empty_card_placeholder() -> void:
 	sell_button.text = "Sell (-)"
 	sell_button.disabled = true
 	sell_button.focus_mode = Control.FOCUS_NONE
-	sell_button.custom_minimum_size = Vector2(100, 25)
+	sell_button.custom_minimum_size = SELL_BUTTON_SIZE
 	var disabled_style = _create_button_style(Color(0.25, 0.25, 0.25, 0.4))
 	sell_button.add_theme_stylebox_override("normal", disabled_style)
 	sell_button.add_theme_stylebox_override("disabled", disabled_style)
@@ -314,19 +318,19 @@ func _create_hand_card(hand_index: int, tile_def) -> void:
 	card_style.border_width_right = 2
 	card_style.border_width_top = 2
 	card_style.border_width_bottom = 2
-	card_style.corner_radius_top_left = 8
-	card_style.corner_radius_top_right = 8
-	card_style.corner_radius_bottom_left = 8
-	card_style.corner_radius_bottom_right = 8
+	card_style.corner_radius_top_left = CARD_CORNER_RADIUS
+	card_style.corner_radius_top_right = CARD_CORNER_RADIUS
+	card_style.corner_radius_bottom_left = CARD_CORNER_RADIUS
+	card_style.corner_radius_bottom_right = CARD_CORNER_RADIUS
 	card.add_theme_stylebox_override("panel", card_style)
-	card.custom_minimum_size = Vector2(100, 110)
+	card.custom_minimum_size = CARD_SIZE
 	card_vbox.add_child(card)
 
 	var margin = MarginContainer.new()
-	margin.add_theme_constant_override("margin_left", 8)
-	margin.add_theme_constant_override("margin_right", 8)
-	margin.add_theme_constant_override("margin_top", 8)
-	margin.add_theme_constant_override("margin_bottom", 8)
+	margin.add_theme_constant_override("margin_left", CARD_MARGIN)
+	margin.add_theme_constant_override("margin_right", CARD_MARGIN)
+	margin.add_theme_constant_override("margin_top", CARD_MARGIN)
+	margin.add_theme_constant_override("margin_bottom", CARD_MARGIN)
 	card.add_child(margin)
 
 	var vbox = VBoxContainer.new()
@@ -383,7 +387,7 @@ func _create_hand_card(hand_index: int, tile_def) -> void:
 
 	# Sell button
 	var sell_button = Button.new()
-	sell_button.custom_minimum_size = Vector2(100, 25)
+	sell_button.custom_minimum_size = SELL_BUTTON_SIZE
 
 	if tile_def.sell_price > 0:
 		sell_button.text = "Sell (%d)" % tile_def.sell_price

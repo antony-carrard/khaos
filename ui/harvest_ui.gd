@@ -4,6 +4,9 @@ class_name HarvestUI
 ## Harvest UI component - displays harvest phase buttons
 ## Extracted from tile_selector_ui.gd for better code organization
 
+const HARVEST_BUTTON_SIZE: Vector2 = Vector2(130, 35)
+const HARVEST_BUTTON_CORNER_RADIUS: int = 8
+
 signal harvest_selected(resource_type: int)
 
 
@@ -24,7 +27,7 @@ func show_harvest_options(available_types: Array[int]) -> void:
 		var type_name = TileManager.ResourceType.keys()[res_type]
 		var button = Button.new()
 		button.text = "Harvest %s" % type_name
-		button.custom_minimum_size = Vector2(130, 35)
+		button.custom_minimum_size = HARVEST_BUTTON_SIZE
 
 		var button_color = _get_resource_color(res_type)
 		button.add_theme_stylebox_override("normal", _create_button_style(button_color))
@@ -66,8 +69,8 @@ func _get_resource_color(res_type: int) -> Color:
 func _create_button_style(bg_color: Color) -> StyleBoxFlat:
 	var style = StyleBoxFlat.new()
 	style.bg_color = bg_color
-	style.corner_radius_top_left = 8
-	style.corner_radius_top_right = 8
-	style.corner_radius_bottom_left = 8
-	style.corner_radius_bottom_right = 8
+	style.corner_radius_top_left = HARVEST_BUTTON_CORNER_RADIUS
+	style.corner_radius_top_right = HARVEST_BUTTON_CORNER_RADIUS
+	style.corner_radius_bottom_left = HARVEST_BUTTON_CORNER_RADIUS
+	style.corner_radius_bottom_right = HARVEST_BUTTON_CORNER_RADIUS
 	return style

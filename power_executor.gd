@@ -10,8 +10,8 @@ var tile_manager: TileManager = null
 var village_manager: VillageManager = null
 var god_manager: GodManager = null
 var placement_controller: PlacementController = null
-var ui = null
-var board_manager = null
+var ui: Control = null
+var board_manager: Node3D = null
 
 
 func initialize(
@@ -20,8 +20,8 @@ func initialize(
 	_village_manager: VillageManager,
 	_god_manager: GodManager,
 	_placement_controller: PlacementController,
-	_ui,
-	_board_manager
+	_ui: Control,
+	_board_manager: Node3D
 ) -> void:
 	current_player = _player
 	tile_manager = _tile_manager

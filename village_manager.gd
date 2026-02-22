@@ -13,7 +13,7 @@ signal village_removed(q: int, r: int)
 var placed_villages: Dictionary = {}
 
 # Reference to tile manager (for validation)
-var tile_manager = null
+var tile_manager: TileManager = null
 
 
 ## Places a village at the specified hex coordinates.

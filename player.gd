@@ -14,6 +14,9 @@ var glory: int = 0        # Victory points
 
 # Player's hand of tiles (fixed size array with null for empty slots)
 const HAND_SIZE: int = 3
+const BASE_ACTIONS: int = 3          # Default actions per turn (before bonuses)
+const SETUP_TILE_COUNT: int = 2       # Plains tiles dealt at game start
+const MAX_SETUP_DRAW_ATTEMPTS: int = 100  # Safety cap when fishing for PLAINS tiles
 var hand: Array = [null, null, null]  # Array of TilePool.TileDefinition or null
 
 # Setup phase tiles (2 specific PLAINS tiles given at game start)
@@ -28,7 +31,7 @@ var actions_remaining: int = 3  # For later: 3 actions per turn
 var max_actions_this_turn: int = 3  # Track max actions for display (includes bonuses)
 var next_turn_bonus_actions: int = 0  # For Bicéphallès' extra action power
 var used_powers_this_turn: Array[int] = []  # Track used powers (PowerType enums)
-var pending_power = null  # Stores GodPower for deferred payment (selection-based powers)
+var pending_power: GodPower = null  # Stores GodPower for deferred payment (selection-based powers)
 
 # Signals
 signal resources_changed(new_amount: int)
@@ -96,7 +99,7 @@ func add_glory(amount: int) -> void:
 
 ## Draw tiles into hand from tile pool
 ## Fills empty slots (null values) in the hand
-func draw_tiles(tile_pool, count: int) -> void:
+func draw_tiles(tile_pool: TilePool, count: int) -> void:
 	var drawn = tile_pool.draw_tiles(count)
 	var drawn_count = 0
 
@@ -127,7 +130,7 @@ func start_turn() -> void:
 	add_fervor(1)
 
 	# Apply bonus actions (e.g., Bicéphallès' power)
-	var total_actions = 3 + next_turn_bonus_actions
+	var total_actions: int = BASE_ACTIONS + next_turn_bonus_actions
 	next_turn_bonus_actions = 0  # Reset bonus for next turn
 	max_actions_this_turn = total_actions  # Track max for display
 	set_actions(total_actions)
@@ -176,18 +179,17 @@ func get_hand() -> Array:
 	return hand
 
 
-## Initialize setup tiles by drawing 2 PLAINS tiles from the tile pool
+## Initialize setup tiles by drawing SETUP_TILE_COUNT PLAINS tiles from the tile pool
 ## Called at the start of the setup phase
-func initialize_setup_tiles(tile_pool) -> void:
+func initialize_setup_tiles(tile_pool: TilePool) -> void:
 	setup_tiles.clear()
 	setup_tiles_placed = 0
 
-	# Draw 2 PLAINS tiles from the tile pool
+	# Draw PLAINS tiles from the tile pool
 	var plains_drawn = 0
 	var attempts = 0
-	var max_attempts = 100  # Safety limit
 
-	while plains_drawn < 2 and attempts < max_attempts:
+	while plains_drawn < SETUP_TILE_COUNT and attempts < MAX_SETUP_DRAW_ATTEMPTS:
 		var tile = tile_pool.draw_tile()
 		attempts += 1
 
@@ -206,7 +208,7 @@ func initialize_setup_tiles(tile_pool) -> void:
 			# Return non-PLAINS tile to pool
 			tile_pool.return_tile(tile)
 
-	if plains_drawn < 2:
-		Log.error("Could not draw 2 PLAINS tiles for setup! Only got %d" % plains_drawn)
+	if plains_drawn < SETUP_TILE_COUNT:
+		Log.error("Could not draw %d PLAINS tiles for setup! Only got %d" % [SETUP_TILE_COUNT, plains_drawn])
 
 	Log.info("%s: Setup tiles initialized (%d PLAINS tiles)" % [player_name, plains_drawn])

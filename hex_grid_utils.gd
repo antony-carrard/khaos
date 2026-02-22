@@ -5,6 +5,8 @@ class_name HexGridUtils
 
 const HEX_SIZE: float = 1.0
 const TILE_HEIGHT: float = 0.3
+const RAY_DISTANCE: float = 1000.0
+const NO_HIT: Vector2i = Vector2i(-999, -999)  # Sentinel returned when raycast misses
 
 
 ## Converts axial hex coordinates (q, r) and height to 3D world position.
@@ -60,17 +62,17 @@ static func get_axial_neighbors(q: int, r: int) -> Array[Vector2i]:
 ## Returns Vector2i(-999, -999) if no valid position found (no camera or raycast miss).
 static func get_axial_at_mouse(mouse_pos: Vector2, camera: Camera3D, world_3d: World3D) -> Vector2i:
 	if not camera:
-		return Vector2i(-999, -999)
+		return NO_HIT
 
 	var from = camera.project_ray_origin(mouse_pos)
-	var to = from + camera.project_ray_normal(mouse_pos) * 1000
+	var to = from + camera.project_ray_normal(mouse_pos) * RAY_DISTANCE
 
 	if not world_3d:
-		return Vector2i(-999, -999)
+		return NO_HIT
 
 	var space_state = world_3d.direct_space_state
 	if not space_state:
-		return Vector2i(-999, -999)
+		return NO_HIT
 
 	var query = PhysicsRayQueryParameters3D.create(from, to)
 	query.collision_mask = 0b11  # Layers 1 and 2
@@ -79,4 +81,4 @@ static func get_axial_at_mouse(mouse_pos: Vector2, camera: Camera3D, world_3d: W
 	if result:
 		return world_to_axial(result.position)
 
-	return Vector2i(-999, -999)
+	return NO_HIT

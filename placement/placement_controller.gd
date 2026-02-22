@@ -19,14 +19,14 @@ var preview_position: Vector3i = Vector3i.ZERO
 var tile_manager: TileManager = null
 var village_manager: VillageManager = null
 var camera: Camera3D = null
-var board_manager = null  # For coordinate conversion helpers
+var board_manager: Node3D = null
 
 var is_ready: bool = false
 
 
 ## Initializes the PlacementController with required manager references.
 ## Call this once after instantiation. Waits one frame before marking ready.
-func initialize(_tile_manager: TileManager, _village_manager: VillageManager, _camera: Camera3D, _board_manager) -> void:
+func initialize(_tile_manager: TileManager, _village_manager: VillageManager, _camera: Camera3D, _board_manager: Node3D) -> void:
 	tile_manager = _tile_manager
 	village_manager = _village_manager
 	camera = _camera
@@ -62,7 +62,7 @@ func handle_mouse_input(event: InputEvent) -> void:
 				current_strategy = null
 		else:
 			var axial = get_axial_at_mouse()
-			if axial != Vector2i(-999, -999):
+			if axial != HexGridUtils.NO_HIT:
 				if current_strategy.on_click(self, axial.x, axial.y):
 					current_strategy = null
 
@@ -117,7 +117,7 @@ func update_village_preview() -> void:
 
 	var mouse_pos = viewport.get_mouse_position()
 	var axial = HexGridUtils.get_axial_at_mouse(mouse_pos, camera, board_manager.get_world_3d())
-	if axial == Vector2i(-999, -999):
+	if axial == HexGridUtils.NO_HIT:
 		preview_village.visible = false
 		if board_manager.ui:
 			board_manager.ui.show_village_sell_tooltip(false)
@@ -157,7 +157,7 @@ func update_tile_preview() -> void:
 
 	var mouse_pos = viewport.get_mouse_position()
 	var from = camera.project_ray_origin(mouse_pos)
-	var to = from + camera.project_ray_normal(mouse_pos) * 1000
+	var to = from + camera.project_ray_normal(mouse_pos) * HexGridUtils.RAY_DISTANCE
 
 	var world_3d = board_manager.get_world_3d()
 	if not world_3d:
@@ -248,11 +248,11 @@ func select_downgrade_tile_mode() -> void:
 	current_strategy = DowngradeTileStrategy.new()
 
 
-## Returns Vector2i(-999, -999) if no valid position found.
+## Returns HexGridUtils.NO_HIT if no valid position found.
 func get_axial_at_mouse() -> Vector2i:
 	var viewport = get_viewport()
 	if not viewport:
-		return Vector2i(-999, -999)
+		return HexGridUtils.NO_HIT
 	var mouse_pos = viewport.get_mouse_position()
 	return HexGridUtils.get_axial_at_mouse(mouse_pos, camera, board_manager.get_world_3d())
 

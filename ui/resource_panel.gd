@@ -4,6 +4,12 @@ class_name ResourcePanel
 ## Resource panel component - displays resources, fervor, and glory
 ## Extracted from tile_selector_ui.gd for better code organization
 
+# Layout constants
+const PANEL_SIZE: Vector2 = Vector2(120, 100)
+const PANEL_MARGIN: int = 10
+const ICON_SIZE: Vector2 = Vector2(20, 20)
+const FONT_SIZE: int = 16
+
 var resource_label: Label = null
 var fervor_label: Label = null
 var glory_label: Label = null
@@ -23,14 +29,14 @@ func _create_panel() -> void:
 	style.corner_radius_bottom_left = 10
 	style.corner_radius_bottom_right = 10
 	add_theme_stylebox_override("panel", style)
-	custom_minimum_size = Vector2(120, 100)
+	custom_minimum_size = PANEL_SIZE
 
 	# Inner margin
 	var margin = MarginContainer.new()
-	margin.add_theme_constant_override("margin_left", 10)
-	margin.add_theme_constant_override("margin_right", 10)
-	margin.add_theme_constant_override("margin_top", 10)
-	margin.add_theme_constant_override("margin_bottom", 10)
+	margin.add_theme_constant_override("margin_left", PANEL_MARGIN)
+	margin.add_theme_constant_override("margin_right", PANEL_MARGIN)
+	margin.add_theme_constant_override("margin_top", PANEL_MARGIN)
+	margin.add_theme_constant_override("margin_bottom", PANEL_MARGIN)
 	add_child(margin)
 
 	var vbox = VBoxContainer.new()
@@ -55,7 +61,7 @@ func _create_resource_row(parent: VBoxContainer, icon_path: String, initial_valu
 
 	# Icon
 	var icon = TextureRect.new()
-	icon.custom_minimum_size = Vector2(20, 20)
+	icon.custom_minimum_size = ICON_SIZE
 	icon.expand_mode = TextureRect.EXPAND_FIT_WIDTH_PROPORTIONAL
 	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	var texture = load(icon_path) as Texture2D
@@ -69,7 +75,7 @@ func _create_resource_row(parent: VBoxContainer, icon_path: String, initial_valu
 	label.add_theme_color_override("font_color", Color.WHITE)
 	label.add_theme_color_override("font_outline_color", Color.BLACK)
 	label.add_theme_constant_override("outline_size", 4)
-	label.add_theme_font_size_override("font_size", 16)
+	label.add_theme_font_size_override("font_size", FONT_SIZE)
 	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	hbox.add_child(label)
 

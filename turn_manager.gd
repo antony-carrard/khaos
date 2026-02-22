@@ -18,8 +18,8 @@ var current_player: Player = null
 var village_manager: VillageManager = null
 var tile_manager: TileManager = null
 var tile_pool: TilePool = null
-var board_manager = null  # For VictoryManager (needs get_axial_neighbors)
-var ui = null
+var board_manager: Node3D = null
+var ui: Control = null
 
 # Game end state
 var has_game_ended: bool = false
@@ -35,7 +35,7 @@ signal game_ended()
 
 ## Initialize the turn manager with required references
 func initialize(player: Player, v_manager: VillageManager, t_manager: TileManager,
-				t_pool: TilePool, b_manager) -> void:
+				t_pool: TilePool, b_manager: Node3D) -> void:
 	current_player = player
 	village_manager = v_manager
 	tile_manager = t_manager
@@ -44,7 +44,7 @@ func initialize(player: Player, v_manager: VillageManager, t_manager: TileManage
 
 
 ## Set UI reference (called after UI is created)
-func set_ui(ui_instance) -> void:
+func set_ui(ui_instance: Control) -> void:
 	ui = ui_instance
 
 

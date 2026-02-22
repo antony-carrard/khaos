@@ -1,8 +1,42 @@
 # Implementation Status
 
-**Last Updated:** 2026-02-20
+**Last Updated:** 2026-02-22
 
 This document tracks detailed implementation progress and serves as context for continuing development.
+
+## Recent Changes (2026-02-22)
+
+**Type Hints + Magic Numbers (§5 and §6 of Refactoring Plan):**
+- **Added type hints throughout** all .gd files:
+  - Class variables, function parameters, and return types typed across all 30+ files
+  - `board_manager` typed as `Node3D` (no `class_name` on board_manager.gd)
+  - `TilePool.TileDefinition` params intentionally left untyped — GDScript 4 can't use inner-class types from other files as hints
+  - `var pending_power: GodPower = null` in player.gd
+  - `Array[GodPower]`, `Array[God]` typed where applicable
+- **Extracted all magic numbers to named constants** in every file:
+  - `HexGridUtils` got `RAY_DISTANCE: float = 1000.0` and `NO_HIT: Vector2i = Vector2i(-999, -999)`
+  - All `Vector2i(-999, -999)` sentinel literals replaced with `HexGridUtils.NO_HIT`
+  - `god_manager.gd` got `LE_BATISSEUR_FLAT_VILLAGE_COST: int = 4`
+  - All UI files now have named `const` blocks for sizes, margins, font sizes, corner radii
+  - Camera: `NEAR_PARALLEL_THRESHOLD: float = 0.0001` (was inline literal)
+  - Player: `BASE_ACTIONS = 3`, `SETUP_TILE_COUNT = 2`, `MAX_SETUP_DRAW_ATTEMPTS = 100`
+
+---
+
+**Unit Tests — GdUnit4 v6.1.1 (§7 of Refactoring Plan):**
+- **Installed GdUnit4 v6.1.1** at `addons/gdUnit4/`, test folder `test/`
+- **39 tests across 4 suites** — all pass:
+  - `test/test_tile_pool.gd` (8 tests): pool init, draw, empty-bag guard, return tile
+  - `test/test_victory_scoring.gd` (6 tests): resource/fervor/glory point formulas, floor division, totals
+  - `test/test_hex_grid_utils.gd` (8 tests): neighbor count, known neighbors of origin, world positions, uniqueness
+  - `test/test_player.gd` (17 tests): add/spend resources & fervor, glory, action consumption, hand size
+- **Patterns established** (see MEMORY.md):
+  - `auto_free()` for all manager instances — no `add_child()` needed for pure-logic tests
+  - Inject state directly into `placed_tiles[Vector3i]` / `placed_villages[Vector2i]` to skip PackedScene
+  - HexTile (StaticBody3D) excluded from tests — physics RID creation on GdUnit4's worker thread causes SIGABRT; separate tile data from scene node first
+- **Known issue — GdUnit4 exit crash:** SIGABRT occurs after all tests complete during subprocess shutdown. Root cause: GdUnit4 v6.1.1 + Godot 4.6 compatibility bug (missing `GdUnitTools.dispose_all()` in editor runner + `--no-window` Vulkan init). Tests pass correctly; crash is cosmetic. **Fix: update GdUnit4** from Asset Library or GitHub.
+
+---
 
 ## Recent Changes (2026-02-20)
 
@@ -550,7 +584,7 @@ HexGridUtils (static hex math)
 - ✅ Manual UI updates (switched to signals)
 
 **Active:**
-- None currently!
+- GdUnit4 v6.1.1 crashes on exit with Godot 4.6 (cosmetic — tests pass before crash). Update GdUnit4 to fix.
 
 ---
 

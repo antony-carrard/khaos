@@ -5,6 +5,8 @@ class_name TooltipManager
 ## Currently handles village sell value tooltip
 ## Extracted from tile_selector_ui.gd for better code organization
 
+const TOOLTIP_OFFSET: Vector2 = Vector2(20, 20)  # Offset from cursor so it doesn't obscure
+
 var tooltip_panel: PanelContainer = null
 var tooltip_label: Label = null
 
@@ -20,7 +22,7 @@ func _process(_delta: float) -> void:
 	if tooltip_panel and tooltip_panel.visible:
 		var mouse_pos = get_viewport().get_mouse_position()
 		# Offset the tooltip slightly down and to the right of cursor
-		tooltip_panel.position = mouse_pos + Vector2(20, 20)
+		tooltip_panel.position = mouse_pos + TOOLTIP_OFFSET
 
 
 ## Creates the tooltip panel

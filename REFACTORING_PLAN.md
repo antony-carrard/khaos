@@ -125,126 +125,70 @@ placement/
 
 ## 🔵 **Low Priority** - Polish for Later
 
-### 5. Add Type Hints Throughout
+### 5. ✅ Add Type Hints Throughout (DONE - 2026-02-22)
 
-**Current:**
-```gdscript
-var board_manager = null
-var tile_def = null
-var god_manager_ref = null
-```
+**What was done:**
+- Added type hints to all class variables across all .gd files
+- Typed function parameters and return types throughout
+- `board_manager` typed as `Node3D` (no `class_name` on that file)
+- `TilePool.TileDefinition` params left untyped — GDScript can't use inner-class types from other files as hints
+- `Array[GodPower]`, `Array[God]` typed where applicable
+- `var pending_power: GodPower = null` in player.gd
+- `HexGridUtils.NO_HIT` constant added for the `Vector2i(-999, -999)` sentinel
 
-**Better:**
-```gdscript
-var board_manager: BoardManager = null
-var tile_def: TilePool.TileDefinition = null
-var god_manager_ref: GodManager = null
-```
-
-**Benefits:**
-- Autocomplete in Godot editor
-- Catch type errors at parse time
-- Self-documenting code
-- Better IDE support
-
-**Areas to Add Types:**
-1. All class variables
-2. Function parameters
-3. Function return types
-4. Array types: `Array[GodPower]` instead of `Array`
-
-**Estimated Time:** 1 day (gradual, can do file-by-file)
+**Files modified:** `hex_grid_utils.gd`, `hex_tile.gd`, `tile_manager.gd`, `village_manager.gd`, `camera_controller.gd`, `player.gd`, `turn_manager.gd`, `god_manager.gd`, `power_executor.gd`, `placement/placement_controller.gd`, all `ui/*.gd` files, `tile_selector_ui.gd`, `god_selection_ui.gd`
 
 ---
 
-### 6. Extract Magic Numbers to Constants
+### 6. ✅ Extract Magic Numbers to Constants (DONE - 2026-02-22)
 
-**Current:**
+**What was done:**
+- Added named `const` blocks at top of every file with UI layout values
+- `HexGridUtils` got shared constants `RAY_DISTANCE` and `NO_HIT` (used by placement_controller)
+- All `Vector2i(-999, -999)` sentinel literals replaced with `HexGridUtils.NO_HIT`
+- `god_manager.gd` got `LE_BATISSEUR_FLAT_VILLAGE_COST: int = 4`
+- All UI files have named constants for panel sizes, margins, font sizes, button sizes, corner radii
+
+**Key constants added (examples):**
 ```gdscript
-god_panel.custom_minimum_size = Vector2(350, 120)
-button.custom_minimum_size = Vector2(220, 40)
-tile_count_label.add_theme_font_size_override("font_size", 14)
+# hex_grid_utils.gd
+const RAY_DISTANCE: float = 1000.0
+const NO_HIT: Vector2i = Vector2i(-999, -999)
+
+# tile_selector_ui.gd
+const END_TURN_BUTTON_SIZE: Vector2 = Vector2(270, 40)
+const VILLAGE_BUTTON_WIDTH: int = 130
+const ACTIONS_FONT_SIZE: int = 16
+
+# ui/victory_screen.gd
+const VICTORY_PANEL_SIZE: Vector2 = Vector2(600, 500)
+const VICTORY_TITLE_FONT_SIZE: int = 36
 ```
 
-**Better:**
-```gdscript
-# At top of file
-const GOD_PANEL_SIZE := Vector2(350, 120)
-const POWER_BUTTON_SIZE := Vector2(220, 40)
-const TILE_COUNT_FONT_SIZE := 14
-const UI_PADDING := 20
-
-# Usage
-god_panel.custom_minimum_size = GOD_PANEL_SIZE
-```
-
-**Benefits:**
-- Easy to adjust layout globally
-- Self-documenting (names explain purpose)
-- Consistency across UI
-
-**When to Do This:**
-- During UI component extraction
-- When tweaking UI layout
-
-**Estimated Time:** 1 day (part of UI refactor)
+**Files modified:** All .gd files with UI layout or threshold values
 
 ---
 
-### 7. Add Unit Tests
+### 7. ✅ Add Unit Tests (DONE - 2026-02-22, 39 tests across 4 suites)
 
-**Why Test a Prototype?**
-- Core logic (tile placement, scoring) is already production-quality
-- Tests catch regressions when refactoring
-- Some logic is complex enough to benefit from tests now
+**GdUnit4 v6.1.1** installed at `addons/gdUnit4/`. Test folder: `test/`.
 
-**What to Test:**
+**Test suites written:**
 
-**Critical (test before "final state"):**
-```gdscript
-# test_tile_placement.gd
-func test_cannot_place_glory_on_plains():
-    assert_false(board_manager._is_valid_resource_type_for_tile(
-        TileManager.TileType.PLAINS,
-        TileManager.ResourceType.GLORY
-    ))
+| File | Tests | Covers |
+|------|-------|--------|
+| `test/test_tile_pool.gd` | 8 | TilePool init, draw, empty bag, return tile |
+| `test/test_victory_scoring.gd` | 6 | Resource/fervor/glory scoring, floor division |
+| `test/test_hex_grid_utils.gd` | 8 | Axial neighbors, world positions, coordinate math |
+| `test/test_player.gd` | 17 | Resources, fervor, glory, actions, hand management |
 
-func test_village_blocks_stacking():
-    # Place tile, place village, try to stack
-    assert_false(tile_manager.is_valid_placement(...))
+**Known issue — GdUnit4 crash on exit:**
+GdUnit4 v6.1.1 has a SIGABRT crash during subprocess shutdown with Godot 4.6. All 39 tests pass; the crash is cosmetic (happens after results are sent to editor). **Fix: update GdUnit4** to a version that targets Godot 4.6 (Asset Library or GitHub releases).
 
-# test_victory_conditions.gd
-func test_village_scoring():
-    # 1 village on plains = 1pt
-    # 1 village on hills = 2pts
-    # 1 village on mountain = 3pts
-    assert_equal(score, expected)
-
-func test_territory_calculation():
-    # Test contiguous village groups
-    assert_equal(territory_points, expected)
-
-# test_god_powers.gd
-func test_le_batisseur_flat_cost():
-    # All villages cost 4 regardless of terrain
-    assert_equal(player.get_village_cost(2), 4)
-    assert_equal(player.get_village_cost(8), 4)
-
-func test_power_cannot_be_used_twice():
-    god_manager.activate_power(power, player, board)
-    assert_false(player.has_used_power(power.power_type))
-```
-
-**Nice to Have:**
-- Power validation edge cases
-- Deferred payment system
-- Resource spending logic
-
-**Testing Framework:**
-- GdUnit4 (recommended) or Gut
-- Run tests in CI/CD pipeline
-
-**Estimated Time:** Ongoing (add as you refactor)
+**Still to add (low priority):**
+- `test_tile_placement.gd` — placement validation, glory-on-plains rule, village-blocks-stacking
+- `test_victory_territory.gd` — contiguous village group scoring (needs HexTile data separation first)
+- `test_god_powers.gd` — le_batisseur flat cost, once-per-turn enforcement
 
 ---
 
@@ -262,15 +206,15 @@ Use this checklist when ready to refactor:
 
 ### Should Do (Quality of Life):
 - [ ] Refactor board_manager.gd if >800 lines
-- [ ] Extract magic numbers to constants (during UI refactor)
-- [ ] Add type hints to all class variables
-- [ ] Add type hints to function signatures
+- [x] Extract magic numbers to constants ✅ (done 2026-02-22)
+- [x] Add type hints to all class variables ✅ (done 2026-02-22)
+- [x] Add type hints to function signatures ✅ (done 2026-02-22)
 - [x] Consider logging system ✅ (done 2026-02-20 — Log autoload with 4 levels)
 
 ### Could Do (If Needed):
 - [x] Implement placement strategy pattern ✅ (done 2026-02-19)
 - [x] Extract power execution from board_manager ✅ (done 2026-02-19)
-- [ ] Add comprehensive test coverage (>70%)
+- [ ] Add comprehensive test coverage (>70%) — 39 tests exist, placement/territory/powers still needed
 - [ ] Create game_initializer for setup flow
 
 ---

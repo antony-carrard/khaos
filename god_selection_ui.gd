@@ -3,6 +3,15 @@ extends Control
 ## God selection screen shown at game start
 ## Displays all 4 gods and lets player choose one
 
+# Layout constants
+const GOD_CARD_SIZE: Vector2 = Vector2(400, 500)
+const GOD_PORTRAIT_SIZE: Vector2 = Vector2(360, 240)
+const GOD_CARD_SEPARATION: int = 30
+const GOD_SELECTION_FONT_SIZE: int = 48
+# Offset = -(4 × GOD_CARD_SIZE.x + 3 × GOD_CARD_SEPARATION) / 2
+const HBOX_OFFSET_LEFT: float = -845.0
+const HBOX_OFFSET_TOP: float = -280.0  # Half of GOD_CARD_SIZE.y minus title space
+
 signal god_selected(god: God)
 
 var gods: Array[God] = []
@@ -21,7 +30,7 @@ func _ready() -> void:
 	# Title
 	var title = Label.new()
 	title.text = "Choisissez votre Dieu"
-	title.add_theme_font_size_override("font_size", 48)
+	title.add_theme_font_size_override("font_size", GOD_SELECTION_FONT_SIZE)
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	title.position = Vector2(0, 50)
 	title.set_anchors_preset(Control.PRESET_TOP_WIDE)
@@ -31,13 +40,13 @@ func _ready() -> void:
 	# Create god cards container (1x4 horizontal row)
 	var hbox = HBoxContainer.new()
 	hbox.alignment = BoxContainer.ALIGNMENT_CENTER
-	hbox.add_theme_constant_override("separation", 30)
+	hbox.add_theme_constant_override("separation", GOD_CARD_SEPARATION)
 	hbox.anchor_left = 0.5
 	hbox.anchor_top = 0.5
 	hbox.anchor_right = 0.5
 	hbox.anchor_bottom = 0.5
-	hbox.offset_left = -845  # Center (total: 4×400 + 3×30 = 1690px)
-	hbox.offset_top = -280   # Center vertically
+	hbox.offset_left = HBOX_OFFSET_LEFT
+	hbox.offset_top = HBOX_OFFSET_TOP
 	hbox.mouse_filter = Control.MOUSE_FILTER_IGNORE  # Allow clicks to pass through to cards
 	add_child(hbox)
 
@@ -49,7 +58,7 @@ func _ready() -> void:
 ## Create a clickable god card
 func create_god_card(god: God) -> Control:
 	var card = PanelContainer.new()
-	card.custom_minimum_size = Vector2(400, 500)  # Smaller cards for 1920x1080
+	card.custom_minimum_size = GOD_CARD_SIZE
 
 	# Style panel
 	var style = StyleBoxFlat.new()
@@ -88,7 +97,7 @@ func create_god_card(god: God) -> Control:
 
 	# God portrait
 	var portrait = TextureRect.new()
-	portrait.custom_minimum_size = Vector2(360, 240)  # Proportionally smaller
+	portrait.custom_minimum_size = GOD_PORTRAIT_SIZE
 	portrait.expand_mode = TextureRect.EXPAND_FIT_WIDTH_PROPORTIONAL
 	portrait.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	portrait.mouse_filter = Control.MOUSE_FILTER_IGNORE

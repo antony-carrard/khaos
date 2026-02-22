@@ -4,6 +4,16 @@ class_name GodPanel
 ## God panel component - displays god portrait and divine powers
 ## Extracted from tile_selector_ui.gd for better code organization
 
+# Layout constants
+const PANEL_SIZE: Vector2 = Vector2(350, 120)
+const PANEL_MARGIN: int = 10
+const PANEL_BORDER_WIDTH: int = 2
+const PANEL_CORNER_RADIUS: int = 10
+const PORTRAIT_SIZE: Vector2 = Vector2(80, 80)
+const POWER_BUTTON_SIZE: Vector2 = Vector2(220, 40)
+const POWER_BUTTON_CORNER_RADIUS: int = 6
+const FERVOR_ICON_SIZE: Vector2 = Vector2(14, 14)
+
 signal power_activated(power: GodPower, god_manager: GodManager)
 
 var god_portrait: TextureRect = null
@@ -22,25 +32,25 @@ func _ready() -> void:
 func _create_panel() -> void:
 	var style = StyleBoxFlat.new()
 	style.bg_color = Color(0.15, 0.15, 0.2, 0.95)
-	style.corner_radius_top_left = 10
-	style.corner_radius_top_right = 10
-	style.corner_radius_bottom_left = 10
-	style.corner_radius_bottom_right = 10
-	style.border_width_left = 2
-	style.border_width_top = 2
-	style.border_width_right = 2
-	style.border_width_bottom = 2
+	style.corner_radius_top_left = PANEL_CORNER_RADIUS
+	style.corner_radius_top_right = PANEL_CORNER_RADIUS
+	style.corner_radius_bottom_left = PANEL_CORNER_RADIUS
+	style.corner_radius_bottom_right = PANEL_CORNER_RADIUS
+	style.border_width_left = PANEL_BORDER_WIDTH
+	style.border_width_top = PANEL_BORDER_WIDTH
+	style.border_width_right = PANEL_BORDER_WIDTH
+	style.border_width_bottom = PANEL_BORDER_WIDTH
 	style.border_color = Color(0.6, 0.5, 0.3)  # Gold border
 	add_theme_stylebox_override("panel", style)
-	custom_minimum_size = Vector2(350, 120)
+	custom_minimum_size = PANEL_SIZE
 	mouse_filter = Control.MOUSE_FILTER_PASS  # Allow camera input while buttons still work
 
 	# Inner margin
 	var margin = MarginContainer.new()
-	margin.add_theme_constant_override("margin_left", 10)
-	margin.add_theme_constant_override("margin_right", 10)
-	margin.add_theme_constant_override("margin_top", 10)
-	margin.add_theme_constant_override("margin_bottom", 10)
+	margin.add_theme_constant_override("margin_left", PANEL_MARGIN)
+	margin.add_theme_constant_override("margin_right", PANEL_MARGIN)
+	margin.add_theme_constant_override("margin_top", PANEL_MARGIN)
+	margin.add_theme_constant_override("margin_bottom", PANEL_MARGIN)
 	add_child(margin)
 
 	# Horizontal layout: portrait+name on left, powers on right
@@ -67,7 +77,7 @@ func _create_panel() -> void:
 
 	# God portrait
 	god_portrait = TextureRect.new()
-	god_portrait.custom_minimum_size = Vector2(80, 80)
+	god_portrait.custom_minimum_size = PORTRAIT_SIZE
 	god_portrait.expand_mode = TextureRect.EXPAND_FIT_WIDTH_PROPORTIONAL
 	god_portrait.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	left_vbox.add_child(god_portrait)
@@ -149,7 +159,7 @@ func update_god_display(god: God, god_manager: GodManager, board_manager) -> voi
 ## Create a power button with icon and styling
 func _create_power_button(power: GodPower, god_manager: GodManager) -> Button:
 	var button = Button.new()
-	button.custom_minimum_size = Vector2(220, 40)
+	button.custom_minimum_size = POWER_BUTTON_SIZE
 	button.mouse_filter = Control.MOUSE_FILTER_STOP
 
 	# Style based on power type
@@ -163,10 +173,10 @@ func _create_power_button(power: GodPower, god_manager: GodManager) -> Button:
 		style.bg_color = Color(0.3, 0.2, 0.5, 0.9)
 		button.pressed.connect(_on_power_button_pressed.bind(power, god_manager))
 
-	style.corner_radius_top_left = 6
-	style.corner_radius_top_right = 6
-	style.corner_radius_bottom_left = 6
-	style.corner_radius_bottom_right = 6
+	style.corner_radius_top_left = POWER_BUTTON_CORNER_RADIUS
+	style.corner_radius_top_right = POWER_BUTTON_CORNER_RADIUS
+	style.corner_radius_bottom_left = POWER_BUTTON_CORNER_RADIUS
+	style.corner_radius_bottom_right = POWER_BUTTON_CORNER_RADIUS
 	button.add_theme_stylebox_override("normal", style)
 
 	# Create content container (vbox for name + cost row)
@@ -209,7 +219,7 @@ func _create_power_button(power: GodPower, god_manager: GodManager) -> Button:
 
 		# Fervor icon
 		var icon = TextureRect.new()
-		icon.custom_minimum_size = Vector2(14, 14)
+		icon.custom_minimum_size = FERVOR_ICON_SIZE
 		icon.expand_mode = TextureRect.EXPAND_FIT_WIDTH_PROPORTIONAL
 		icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 		icon.mouse_filter = Control.MOUSE_FILTER_IGNORE

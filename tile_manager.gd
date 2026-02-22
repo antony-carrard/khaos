@@ -48,7 +48,7 @@ var max_stack_height: int = 3
 var placed_tiles: Dictionary = {}
 
 # Reference to village manager (for validation)
-var village_manager = null
+var village_manager: VillageManager = null
 
 
 ## Initializes the TileManager with required configuration.
