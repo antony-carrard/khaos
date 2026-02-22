@@ -353,8 +353,8 @@ func _on_village_remove_pressed() -> void:
 	village_remove_selected.emit()
 
 
-## Shows the setup phase UI with setup tiles
-## Hides normal hand display and shows setup tiles instead
+## Shows the setup phase UI with setup tiles.
+## Disables buttons that require actions phase so they can't be accidentally clicked.
 func show_setup_phase(setup_tiles: Array) -> void:
 	if hand_display:
 		hand_display.show_setup_phase(setup_tiles)
@@ -362,6 +362,12 @@ func show_setup_phase(setup_tiles: Array) -> void:
 		harvest_ui.hide_harvest_options()
 	if actions_label:
 		actions_label.visible = false
+	if village_place_button:
+		village_place_button.disabled = true
+	if village_remove_button:
+		village_remove_button.disabled = true
+	if end_turn_button:
+		end_turn_button.disabled = true
 
 
 ## Updates the setup tiles display
@@ -489,6 +495,12 @@ func show_setup_village_prompt() -> void:
 	if setup_title_label:
 		setup_title_label.text = "Place your village on one of your tiles"
 		setup_title_label.visible = true
+	if village_place_button:
+		village_place_button.disabled = true
+	if village_remove_button:
+		village_remove_button.disabled = true
+	if end_turn_button:
+		end_turn_button.disabled = true
 
 
 ## Shows or hides the village sell tooltip with the refund amount

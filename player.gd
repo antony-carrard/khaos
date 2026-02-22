@@ -15,7 +15,7 @@ var glory: int = 0        # Victory points
 # Player's hand of tiles (fixed size array with null for empty slots)
 const HAND_SIZE: int = 3
 const BASE_ACTIONS: int = 3          # Default actions per turn (before bonuses)
-const SETUP_TILE_COUNT: int = 1       # Plains tile dealt per setup round (called once per round)
+const SETUP_TILE_COUNT: int = 2       # Plains tiles dealt at game start (player chooses order of placement)
 const MAX_SETUP_DRAW_ATTEMPTS: int = 100  # Safety cap when fishing for PLAINS tiles
 var hand: Array = [null, null, null]  # Array of TilePool.TileDefinition or null
 

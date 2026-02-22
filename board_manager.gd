@@ -119,11 +119,15 @@ func _ready() -> void:
 		await show_god_selection(player, selected_so_far)
 		selected_so_far.append(player.god)
 
+	# Deal both setup tiles to every player upfront (they choose which to place each round)
+	for player in players:
+		player.initialize_setup_tiles(tile_pool)
+
+	Log.info("Tile pool count after setup deal: %d" % tile_pool.get_remaining_count())
+
 	# Bind first player and set up UI BEFORE starting setup phase
 	_switch_to_player(0)
 	setup_ui()
-
-	Log.info("Tile pool count at start: %d" % tile_pool.get_remaining_count())
 
 	# Start setup phase
 	turn_manager.start_setup_phase()
@@ -169,7 +173,11 @@ func _on_active_player_changed(player: Player) -> void:
 	ui.update_current_player(player)
 	if player.god:
 		ui.update_god_display(player.god, god_manager)
-	ui.update_hand_display()
+	if turn_manager.is_setup_phase() and setup_round <= 2:
+		# Show this player's remaining setup tiles (Round 3 village prompt is handled separately)
+		ui.show_setup_phase(player.setup_tiles)
+	elif not turn_manager.is_setup_phase():
+		ui.update_hand_display()
 
 
 func setup_ui() -> void:
@@ -404,9 +412,8 @@ func _on_setup_action_done() -> void:
 		setup_round += 1
 
 		if setup_round <= 2:
-			# Start next tile-placement round from player 0
+			# Start next tile-placement round from player 0 (tiles already in hand)
 			_switch_to_player(0)
-			turn_manager.draw_setup_tile_for_current_player()
 		elif setup_round == 3:
 			# Village placement round — start from player 0
 			_switch_to_player(0)
@@ -418,10 +425,9 @@ func _on_setup_action_done() -> void:
 		# More players in this round
 		var next_index = (current_player_index + 1) % players.size()
 		_switch_to_player(next_index)
-		if setup_round <= 2:
-			turn_manager.draw_setup_tile_for_current_player()
-		else:
+		if setup_round == 3:
 			_start_setup_village_for_player()
+		# setup_round <= 2: _on_active_player_changed() already called show_setup_phase()
 
 
 ## Enter setup village placement mode for the current player.

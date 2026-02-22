@@ -85,21 +85,14 @@ func is_actions_phase() -> bool:
 
 
 ## Starts the setup phase of the game.
-## Draws one PLAINS tile for the first player and shows setup UI.
+## All players have already been dealt their setup tiles in board_manager._ready().
+## Shows setup UI for the first player.
 func start_setup_phase() -> void:
 	current_phase = Phase.SETUP
 	phase_changed.emit(current_phase)
-	draw_setup_tile_for_current_player()
-	Log.info("=== SETUP PHASE ===")
-
-
-## Draws one PLAINS setup tile for the current player and shows setup UI.
-## Called at the start of each setup tile round (rounds 1 and 2) per player.
-func draw_setup_tile_for_current_player() -> void:
-	current_player.initialize_setup_tiles(tile_pool)
 	if ui:
 		ui.show_setup_phase(current_player.setup_tiles)
-	Log.info("%s: Drawing setup tile" % current_player.player_name)
+	Log.info("=== SETUP PHASE ===")
 
 
 ## Called when a setup tile is placed during setup phase.
