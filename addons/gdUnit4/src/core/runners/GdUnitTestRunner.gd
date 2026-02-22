@@ -1,5 +1,7 @@
 @tool
 extends "res://addons/gdUnit4/src/core/runners/GdUnitTestSessionRunner.gd"
+
+const GdUnitTools := preload("res://addons/gdUnit4/src/core/GdUnitTools.gd")
 ## Runner implementation used by the editor UI.[br]
 ## [br]
 ## This runner connects to a GdUnit server via TCP to report test results.[br]
@@ -45,6 +47,7 @@ func _ready() -> void:
 func quit(code: int) -> void:
 	if code != RETURN_SUCCESS:
 		_state = EXIT
+	GdUnitTools.dispose_all()
 	await GdUnitMemoryObserver.gc_on_guarded_instances()
 	await super.quit(code)
 

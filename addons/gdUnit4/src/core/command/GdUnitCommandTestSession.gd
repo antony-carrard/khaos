@@ -102,7 +102,7 @@ func execute(...parameters: Array) -> void:
 		var arguments := Array()
 		if OS.is_stdout_verbose():
 			arguments.append("--verbose")
-		arguments.append("--no-window")
+		arguments.append("--headless")
 		arguments.append("--path")
 		arguments.append(ProjectSettings.globalize_path("res://"))
 		arguments.append("res://addons/gdUnit4/src/core/runners/GdUnitTestRunner.tscn")

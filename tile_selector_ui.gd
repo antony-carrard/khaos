@@ -416,6 +416,9 @@ func update_turn_phase(phase: int) -> void:
 				village_place_button.disabled = true
 			if village_remove_button:
 				village_remove_button.disabled = true
+			# Block end turn until harvest is chosen (except in test mode for quick skipping)
+			if end_turn_button and not board_manager.test_mode:
+				end_turn_button.disabled = true
 			# Refresh hand display to disable tile cards and sell buttons
 			update_hand_display()
 		TurnManager.Phase.ACTIONS:
@@ -429,6 +432,8 @@ func update_turn_phase(phase: int) -> void:
 				village_place_button.disabled = false
 			if village_remove_button:
 				village_remove_button.disabled = false
+			if end_turn_button:
+				end_turn_button.disabled = false
 			# Refresh hand display to re-enable tile cards and sell buttons
 			update_hand_display()
 
