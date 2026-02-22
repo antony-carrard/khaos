@@ -1,10 +1,37 @@
 # Implementation Status
 
-**Last Updated:** 2026-02-22
+**Last Updated:** 2026-02-22 (multiplayer + bug fixes)
 
 This document tracks detailed implementation progress and serves as context for continuing development.
 
-## Recent Changes (2026-02-22)
+## Recent Changes (2026-02-22) — Hot-Seat Multiplayer + Bug Fixes
+
+**Hot-Seat Multiplayer (1–4 players):**
+- **`ActivePlayerView` signal bridge** (`active_player_view.gd`) — UI connects to this once; `bind(player)` rewires all signals on each player switch. Eliminates stale-signal bugs.
+- **`SetupPhaseUI` overlay** (`ui/setup_phase_ui.gd`) — standalone CanvasLayer created in `_ready()`, freed in `_complete_setup()`. `board_manager.ui` is **null during setup**; `setup_phase_ui` is **null during normal gameplay**. Completely replaces old setup hacks in `tile_selector_ui.gd`/`hand_display.gd`.
+- **God selection per player** — `god_selection_ui.gd` now shows player name in their color as a header, greys out taken gods (shows "TAKEN" overlay on cards). `board_manager` loops through all players sequentially: `await show_god_selection(player, selected_so_far)`.
+- **Player colors** — `PLAYER_COLORS` array in `board_manager.gd` (Blue P1, Red P2, Green P3, Yellow P4). Villages receive `_apply_player_color()` treatment in `village_manager.gd`.
+- **3-round setup flow**: Round 1 (each player draws+places 1 PLAINS tile) → Round 2 (each player draws+places 1 PLAINS tile) → Round 3 (each player places free village on any tile). Replaced old single-player auto-village logic.
+  - `player.setup_tile_positions: Array[Vector2i]` records placed tile coordinates (for reference; village placement no longer restricted to own tiles)
+  - New `SetupVillagePlaceStrategy` — valid on any tile that exists and has no village
+- **`_switch_to_player(index)`** — single function in `board_manager.gd` that updates `current_player`, `turn_manager.current_player`, `power_executor.current_player`, and calls `active_player_view.bind()`. No rewiring elsewhere.
+- **Final round** — triggers when tile pool empties; game ends when the next player would be the triggering player again.
+- **Victory screen** updated to accept multi-player `results` array; basic display works but layout tuning may be needed with 4 players.
+- **`player_changed` connected in `_ready()`** — routes to `setup_phase_ui.update_for_player()` during setup, or `ui.update_current_player()` + `ui.update_hand_display()` during gameplay.
+- **Files created:** `active_player_view.gd`, `ui/setup_phase_ui.gd`, `placement/strategies/setup_village_place_strategy.gd`
+- **Files heavily modified:** `board_manager.gd`, `turn_manager.gd`, `player.gd`, `placement/placement_controller.gd`, `god_selection_ui.gd`, `village_manager.gd`, `ui/god_panel.gd`, `tile_selector_ui.gd`, `ui/hand_display.gd`
+
+**Bug Fixes (same session):**
+- **`placement_controller.gd` — strategy-replace-in-callback**: `handle_mouse_input` saves `var strategy = current_strategy` before `on_click`. Only sets `current_strategy = null` if `current_strategy == strategy` (i.e., the callback didn't install a new strategy). Previously, Round 3 village placement mode was immediately wiped after setup tile placed.
+- **`hex_tile.gd` — Godot 4 API**: `depth_draw_opaque_only = false` → `depth_draw_mode = BaseMaterial3D.DEPTH_DRAW_ALWAYS` (removes deprecation warning on every tile placement)
+- **`power_executor.gd` + `downgrade_tile_strategy.gd` — Rakun affaissement**: Was targeting own villages instead of enemy. Fixed: `==` / `!=` direction corrected in both files.
+- **`tile_manager.gd` — upgrade yield**: `upgrade_tile()` was copying `current_tile.yield_value` (Plains yield 1 onto a Hills tile). Fixed: added `TILE_TYPE_YIELDS = {PLAINS:1, HILLS:2, MOUNTAIN:4}` constant; upgrade now uses `TILE_TYPE_YIELDS[new_tile_type]`.
+- **`god_selection_ui.gd` — double text**: Player header label said `"%s, choose your god"` while a separate `"Choisissez votre Dieu"` title existed. Fixed: header now shows only the player name.
+- **`board_manager.gd` — sell tile resource type**: `sell_tile()` always called `add_resources()`. Fixed: matches on `tile.resource_type` — fervor tiles call `add_fervor()`.
+
+---
+
+## Recent Changes (2026-02-22) — Type Hints + Tests
 
 **Type Hints + Magic Numbers (§5 and §6 of Refactoring Plan):**
 - **Added type hints throughout** all .gd files:
@@ -290,10 +317,12 @@ This document tracks detailed implementation progress and serves as context for 
 
 **Turn System** (turn_manager.gd - extracted and complete!)
 - ✅ Turn phases (SETUP, HARVEST, ACTIONS) with Phase enum
-- ✅ **Setup phase** - player places 2 PLAINS tiles with free villages
-  - `start_setup_phase()` - draws 2 PLAINS from pool, shows setup UI
-  - `on_setup_tile_placed()` - tracks progress, removes placed tiles, updates UI
-  - `complete_setup_phase()` - draws 3 tiles into hand, transitions to harvest
+- ✅ **3-round setup phase** (hot-seat multiplayer)
+  - Round 1 & 2: each player draws 1 PLAINS tile and places it (`on_setup_tile_placed`)
+  - Round 3: each player places 1 free village on any existing tile (`on_setup_village_placed`)
+  - `setup_action_done` signal drives board_manager's per-player sequencing
+  - `_complete_setup()` — draws 3 tiles for all players, switches to Player 0, begins normal gameplay
+  - `SetupPhaseUI` (CanvasLayer) displays current player's setup state; freed after setup
 - ✅ Harvest phase with smart type detection
   - Auto-harvest if only one resource type available
   - Show choice UI if multiple types
@@ -324,17 +353,22 @@ This document tracks detailed implementation progress and serves as context for 
 
 **Placement Controller** (placement/placement_controller.gd)
 - ✅ Mouse-based placement with preview
-- ✅ 8 modes via Strategy pattern (TILE, VILLAGE_PLACE, VILLAGE_REMOVE, STEAL_HARVEST, DESTROY_VILLAGE_FREE, CHANGE_TILE_TYPE, UPGRADE_TILE_KEEP_VILLAGE, DOWNGRADE_TILE_KEEP_VILLAGE)
+- ✅ 9 strategies (TILE, VILLAGE_PLACE, VILLAGE_REMOVE, STEAL_HARVEST, DESTROY_VILLAGE_FREE, CHANGE_TILE_TYPE, UPGRADE_TILE_KEEP_VILLAGE, DOWNGRADE_TILE_KEEP_VILLAGE, SETUP_VILLAGE_PLACE)
 - ✅ Valid/invalid preview coloring
 - ✅ Hand tile placement integration
-- ✅ **Setup phase support** - auto-places villages for free during setup
+- ✅ **Setup phase support** — `SetupVillagePlaceStrategy` for Round 3 free village placement on any tile
+- ✅ Strategy-in-callback safety: saves `current_strategy` before `on_click`, only nulls if unchanged
 - ✅ ESC to cancel placement
 
 **Starting Conditions**
-- ✅ **Setup phase** - players place 2 PLAINS tiles with villages (per rules.md lines 53-63)
-  - 2 PLAINS tiles drawn from tile pool (random RESOURCES/FERVOR mix)
-  - Villages auto-placed for free (no resource cost during setup)
-  - After setup complete: draw 3 tiles into hand
+- ✅ **3-round setup phase** — hot-seat, each player participates in each round
+  - Round 1: each player draws 1 PLAINS tile, places it on board
+  - Round 2: each player draws 1 PLAINS tile, places it on board
+  - Round 3: each player places 1 free village on any tile
+  - After all rounds: each player draws 3 tiles into hand
+  - `player.setup_tile_positions: Array[Vector2i]` records where tiles were placed
+- ✅ God selection per player before setup — taken gods greyed out for later players
+- ✅ Player colors (Blue/Red/Green/Yellow) assigned at start; villages rendered in player color
 - ✅ Starting resources: +1 resource, +1 fervor from `start_turn()` after setup
 - ✅ Test mode: 999 resources/fervor/actions for design testing
 
@@ -478,20 +512,29 @@ func show_village_sell_tooltip(visible: bool, amount: int = 0) -> void:
 ### Manager Organization
 ```
 board_manager (orchestrator)
-├── Owns: tile_manager, village_manager, placement_controller, tile_pool, turn_manager, player, power_executor
-├── Handles: tile/village placement coordination, UI setup, scene initialization
-├── Delegates: turn flow to turn_manager
-├── Delegates: god power execution to power_executor
-└── Wraps: hex math via HexGridUtils (static, no instance)
+├── Owns: players[] array, tile_manager, village_manager, placement_controller,
+│         tile_pool, turn_manager, god_manager, power_executor, active_player_view
+├── During setup: setup_phase_ui (CanvasLayer), ui = null
+├── During gameplay: ui (TileSelectorUI), setup_phase_ui = null
+├── Handles: player switching, setup rounds, final round, god selection loop
+├── Delegates: turn flow → turn_manager, god power execution → power_executor
+└── Uses: HexGridUtils (static, no instance)
+
+active_player_view (signal bridge)
+├── Mirrors player signals so UI connects once, never rewires
+├── bind(player) disconnects old player, connects new, emits current values
+└── Emits: resources_changed, fervor_changed, glory_changed, actions_changed,
+          power_used, player_changed
 
 turn_manager (turn flow)
-├── Owns: references to player, village_manager, tile_manager, tile_pool
-├── Handles: phase management, harvest logic, action validation, game end detection
-└── Emits: phase_changed, turn_started, turn_ended, game_ended signals
+├── Owns: reference to current_player, village_manager, tile_manager, tile_pool
+├── Handles: phase management, harvest logic, action validation
+└── Emits: phase_changed, turn_started, turn_ended, setup_action_done
 
 power_executor (god power effects)
-├── Owns: references to player, tile_manager, village_manager, god_manager, placement_controller, ui
-└── Handles: all on_* callbacks triggered by placement strategies (steal, destroy, upgrade, downgrade, change type)
+├── Owns: references to current_player, tile_manager, village_manager, god_manager,
+│         placement_controller, ui, board_manager
+└── Handles: all on_* callbacks triggered by placement strategies
 
 HexGridUtils (static hex math)
 └── Pure functions: axial_to_world, world_to_axial, axial_round, get_axial_neighbors, get_axial_at_mouse
@@ -524,27 +567,6 @@ HexGridUtils (static hex math)
 - Better card hover effects
 - Disable end turn during harvest phase
 - Show "must harvest first" feedback
-
-### Medium Priority
-
-**Divine Powers (Fervor Spending)**
-- Define power list from rules.md
-- Create power selection UI
-- Implement power effects
-- Most powers cost fervor + 1 action
-
-**God-Specific Abilities**
-- Bicéphales: Dual resource harvest
-- Augia: Resource generation
-- Rakun: Glory multiplier
-- Le Bâtisseur: Building discount
-- Need god selection at game start
-
-**Multiplayer Structure**
-- Currently single player only
-- Player class ready for multiple instances
-- Need: Turn order, player switching, victory conditions
-- **See detailed plan:** `MULTIPLAYER_PLAN.md`
 
 ### Low Priority
 
@@ -585,6 +607,8 @@ HexGridUtils (static hex math)
 
 **Active:**
 - GdUnit4 v6.1.1 crashes on exit with Godot 4.6 (cosmetic — tests pass before crash). Update GdUnit4 to fix.
+- Victory screen layout may need tuning with 3–4 players (designed for 1 player originally).
+- No unit tests yet for multiplayer switching, setup rounds, or `ActivePlayerView.bind()`.
 
 ---
 
@@ -595,38 +619,58 @@ HexGridUtils (static hex math)
 2. ✅ ~~Add village building cost~~ (DONE)
 3. ✅ ~~Fix action validation~~ (DONE)
 4. ✅ ~~Implement end game detection and point counting~~ (DONE)
-5. ✅ ~~Implement setup phase~~ (DONE)
-6. ✅ ~~Implement divine powers system~~ (DONE - 4/8 powers implemented)
+5. ✅ ~~Implement setup phase~~ (DONE — 3-round hot-seat multiplayer setup)
+6. ✅ ~~Implement divine powers system~~ (DONE — all 8 powers)
+7. ✅ ~~Add multiplayer player switching~~ (DONE — hot-seat 1–4 players, ActivePlayerView bridge)
 
-**Divine Powers - ALL COMPLETE! ✅**
-1. ✅ **DESTROY_VILLAGE_FREE** (Le Bâtisseur) - DONE
-2. ✅ **CHANGE_TILE_TYPE** (Augia) - DONE (2026-01-18)
-3. ✅ **UPGRADE_TILE_KEEP_VILLAGE** (Augia) - DONE (2026-01-18)
-4. ✅ **DOWNGRADE_TILE_KEEP_VILLAGE** (Rakun) - DONE (2026-01-18)
-
-**Medium Tasks:**
-1. Polish UI (disable end turn during harvest, better hover effects)
-2. Add multiplayer player switching (see MULTIPLAYER_PLAN.md)
-3. Test divine powers thoroughly for balance
-
-**Best Starting Point:**
-All divine powers are now complete! Next focus areas:
-1. **Multiplayer implementation** - Add player switching and turn order (see MULTIPLAYER_PLAN.md)
-2. **UI polish** - Disable end turn during harvest, better hover effects
-3. **Playtesting** - Test all powers thoroughly for balance and edge cases
+**What's Left (Recommended Order):**
+1. **Playtesting** — Play a full 2-player game end-to-end. Look for: village color visibility, SetupPhaseUI layout on 1080p, final round trigger edge cases, god power interactions.
+2. **Victory screen multi-player layout** — Currently fragile with 4 players; may need scrollable or grid layout.
+3. **UI polish** — "Disable end turn during harvest" feedback, better card hover effects.
+4. **Unit tests for new systems** — `ActivePlayerView.bind()`, setup round transitions, `_switch_to_player()`.
+5. **Camera controls** — Pan, zoom, rotate for larger boards.
 
 ---
 
 ## 📚 Context for New Sessions
 
-**Current State Summary:**
-You have a **fully playable** turn-based hexagonal tile placement game with **complete divine powers system**. Game starts with god selection (4 clickable cards), then proper setup phase (place 2 PLAINS tiles with free villages), then normal gameplay. Players harvest resources/fervor/glory from villages, place tiles (free, 1 action), build villages (costs resources + 1 action, modified by god abilities), and use divine powers (spend fervor for special abilities). The game ends when the tile bag empties, triggering final scoring. **All 8 divine powers are fully functional** - Le Bâtisseur (flat village cost passive + destroy enemy village free), Bicéphallès (extra action + second harvest), Rakun (steal harvest + downgrade tile), and Augia (change tile type + upgrade tile). **Deferred payment system** prevents resource loss when canceling selection-based powers.
+**Current State Summary (2026-02-22):**
+You have a **fully playable hot-seat multiplayer** (1–4 players) turn-based hexagonal tile placement game. Game flow: god selection per player (taken gods greyed out) → 3-round setup (each player places 1 PLAINS tile × 2 rounds, then 1 free village) → normal gameplay → final round on tile bag empty → victory screen with per-player scoring.
 
-**Code Quality:**
-Architecture is clean with **data-driven god system**. god_power.gd defines power types (enum), god.gd holds power collections, god_manager.gd centralizes all power logic. **Deferred payment system** prevents resource loss on cancellation - immediate powers (EXTRA_ACTION, SECOND_HARVEST) pay upfront, deferred powers (STEAL_HARVEST, DESTROY_VILLAGE_FREE, CHANGE_TILE_TYPE, UPGRADE_TILE_KEEP_VILLAGE, DOWNGRADE_TILE_KEEP_VILLAGE) only pay when action completes. Player has god reference, `get_village_cost()` helper for god ability modifications, and `pending_power` for deferred payments. Placement controller supports 8 modes (TILE, VILLAGE_PLACE, VILLAGE_REMOVE, STEAL_HARVEST, DESTROY_VILLAGE_FREE, CHANGE_TILE_TYPE, UPGRADE_TILE_KEEP_VILLAGE, DOWNGRADE_TILE_KEEP_VILLAGE) with `get_axial_at_mouse()` helper to reduce duplication. TileManager has `upgrade_tile()` and `downgrade_tile()` methods that preserve resource properties during level changes. God selection UI uses MOUSE_FILTER_IGNORE pattern for proper clickability. In-game UI shows god portrait and clickable power buttons with dynamic states. Signal-based reactive UI working well. All managers properly separated (TileManager, VillageManager, TurnManager, GodManager, VictoryManager).
+**Multiplayer architecture:** `ActivePlayerView` node acts as a permanent signal bridge — UI connects to it once. `_switch_to_player(index)` in `board_manager` is the single player-switching function; `active_player_view.bind(player)` handles all rewiring. Villages are color-coded by player. `SetupPhaseUI` (CanvasLayer) owns setup display; it is freed when setup ends, and `board_manager.ui` (TileSelectorUI) is null until then.
 
-**What Works Well:**
-God selection is intuitive and visual. Power buttons provide clear feedback (purple=active, gray=passive, shows cost). Selection-based powers (STEAL_HARVEST, DESTROY_VILLAGE_FREE, CHANGE_TILE_TYPE, UPGRADE_TILE_KEEP_VILLAGE, DOWNGRADE_TILE_KEEP_VILLAGE) use consistent pattern - preview colors show validity, click to execute. SECOND_HARVEST reuses existing harvest UI seamlessly. Le Bâtisseur's passive applies transparently everywhere costs are checked. CHANGE_TILE_TYPE shows elegant modal UI with dynamic button visibility (no Glory on Plains). UPGRADE/DOWNGRADE preserve all tile properties while changing height level. Deferred payment system prevents frustrating "paid but failed" scenarios. Resolution fixed to 1920×1080 with proper UI scaling.
+**God system:** Data-driven (god.gd, god_power.gd, god_manager.gd). All 8 divine powers fully functional. Deferred payment prevents resource loss on cancellation. Power buttons dynamically grey out based on fervor, phase, and once-per-turn tracking.
+
+**Code patterns to remember:**
+- Strategy-in-callback: save `var strategy = current_strategy` before `on_click`, only null if unchanged
+- `TileManager.TILE_TYPE_YIELDS` for canonical yield per tier
+- Rakun downgrade = enemy villages; Augia upgrade = own villages
+- `depth_draw_mode = BaseMaterial3D.DEPTH_DRAW_ALWAYS` (Godot 4, not `depth_draw_opaque_only`)
+- Sell tile: match `tile.resource_type` to call correct `add_*()` method
 
 **Next Focus:**
-All divine powers complete! Next priority is **multiplayer implementation** - add player switching, turn order, and test multi-target powers (DESTROY_VILLAGE_FREE, STEAL_HARVEST) with real enemy villages.
+Playtesting and polish — full 2-player game to surface edge cases. Victory screen layout with multiple players. Unit tests for multiplayer switching and setup rounds.
+
+---
+
+## 🌐 Network Multiplayer Roadmap (Future)
+
+Hot-seat (Phase 1) is complete. Network play is not started — implement only after the game is polished and playtested.
+
+### Phase 2 — LAN / VPN Testing
+**Architecture:** Host is authoritative (runs full game logic). Clients send actions, receive state updates — display only.
+
+**Quickest path to test with a friend:**
+- Add a lobby scene with Host/Join buttons using `ENetMultiplayerPeer`
+- For NAT traversal during testing: **Radmin VPN** (both install, no code changes) or **ngrok** (`ngrok tcp 7777`, share the URL)
+
+**Key code changes needed:**
+- `board_manager.gd`: `is_multiplayer`, `is_host`, `local_player_id` flags
+- Tile/village placement: clients call `rpc_id(1, "_host_action", ...)` → host validates → broadcasts `_sync_game_state()`
+- Player actions during opponent's turn must be blocked client-side
+
+### Phase 3 — Production NAT
+Pick one based on distribution target:
+- **Steam** (`GodotSteam` plugin) — automatic NAT traversal, $100 fee, players need Steam
+- **Relay server** (Python WebSockets on Railway/Render free tier) — simple 6-char game codes, works everywhere, ~$0–5/mo
+- **WebRTC** — fully peer-to-peer, most complex
