@@ -377,7 +377,7 @@ func on_village_removed(q: int, r: int) -> bool:
 		return false
 
 	var building_cost: int = current_player.get_village_cost(tile.village_building_cost)
-	var refund: int = building_cost / 2
+	var refund: int = int(building_cost / 2.0)
 
 	if not turn_manager.consume_action("remove village"):
 		return false

@@ -24,8 +24,8 @@ func calculate_player_score(player: Player, village_manager: VillageManager,
 	var village_data = _calculate_village_points(player, village_manager, tile_manager)
 
 	# Resource/Fervor pairs (floor division)
-	var resource_pts: int = player.resources / 2
-	var fervor_pts: int = player.fervor / 2
+	var resource_pts: int = int(player.resources / 2.0)
+	var fervor_pts: int = int(player.fervor / 2.0)
 
 	# Glory (1:1 ratio)
 	var glory_pts = player.glory
