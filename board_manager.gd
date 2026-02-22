@@ -26,7 +26,8 @@ var turn_manager: TurnManager
 var god_manager: GodManager
 
 # UI
-var ui: Control = null
+var ui: Control = null                   # Main game UI — null during setup phase
+var setup_phase_ui: SetupPhaseUI = null  # Setup-only overlay — freed when setup completes
 
 # Camera reference
 var camera: Camera3D = null
@@ -125,9 +126,22 @@ func _ready() -> void:
 
 	Log.info("Tile pool count after setup deal: %d" % tile_pool.get_remaining_count())
 
-	# Bind first player and set up UI BEFORE starting setup phase
+	# Bind first player (main game UI not created yet — setup_ui() is called after setup)
 	_switch_to_player(0)
-	setup_ui()
+
+	# Connect player_changed once here so both setup and gameplay phases are covered
+	active_player_view.player_changed.connect(_on_active_player_changed)
+
+	# Create the dedicated setup UI (replaces all setup hacks in tile_selector_ui)
+	var setup_canvas_layer = CanvasLayer.new()
+	add_child(setup_canvas_layer)
+	setup_phase_ui = SetupPhaseUI.new()
+	setup_phase_ui.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	setup_canvas_layer.add_child(setup_phase_ui)
+	setup_phase_ui.initialize(TileManager.TILE_TYPE_COLORS)
+	setup_phase_ui.setup_tile_selected.connect(_on_setup_tile_selected)
+	# Manually push the first player since player_changed already fired before connection
+	setup_phase_ui.update_for_player(current_player, setup_round)
 
 	# Start setup phase
 	turn_manager.start_setup_phase()
@@ -168,15 +182,16 @@ func _switch_to_player(index: int) -> void:
 
 ## Called by active_player_view.player_changed → rebuilds player-specific UI sections.
 func _on_active_player_changed(player: Player) -> void:
-	if not ui:
+	if setup_phase_ui != null:
+		# During setup: delegate entirely to the dedicated setup UI
+		setup_phase_ui.update_for_player(player, setup_round)
 		return
-	ui.update_current_player(player)
-	if player.god:
-		ui.update_god_display(player.god, god_manager)
-	if turn_manager.is_setup_phase() and setup_round <= 2:
-		# Show this player's remaining setup tiles (Round 3 village prompt is handled separately)
-		ui.show_setup_phase(player.setup_tiles)
-	elif not turn_manager.is_setup_phase():
+
+	# Gameplay: update main game UI
+	if ui:
+		ui.update_current_player(player)
+		if player.god:
+			ui.update_god_display(player.god, god_manager)
 		ui.update_hand_display()
 
 
@@ -193,16 +208,15 @@ func setup_ui() -> void:
 	ui.tile_type_selected.connect(placement_controller.select_tile_type)
 	ui.tile_selected_from_hand.connect(_on_tile_selected_from_hand)
 	ui.tile_sold_from_hand.connect(sell_tile)
-	ui.setup_tile_selected.connect(_on_setup_tile_selected)
 	ui.village_place_selected.connect(placement_controller.select_village_place_mode)
 	ui.village_remove_selected.connect(placement_controller.select_village_remove_mode)
 
 	# Connect active_player_view signals to UI (once — never rewired on player switch)
+	# Note: player_changed is connected once in _ready() and routes to setup_phase_ui or ui
 	active_player_view.resources_changed.connect(ui.update_resources)
 	active_player_view.fervor_changed.connect(ui.update_fervor)
 	active_player_view.glory_changed.connect(ui.update_glory)
 	active_player_view.actions_changed.connect(ui.update_actions)
-	active_player_view.player_changed.connect(_on_active_player_changed)
 
 	# Set UI reference in turn_manager
 	turn_manager.set_ui(ui)
@@ -427,26 +441,31 @@ func _on_setup_action_done() -> void:
 		_switch_to_player(next_index)
 		if setup_round == 3:
 			_start_setup_village_for_player()
-		# setup_round <= 2: _on_active_player_changed() already called show_setup_phase()
+		# setup_round <= 2: _on_active_player_changed() updates setup_phase_ui automatically
 
 
 ## Enter setup village placement mode for the current player.
+## The setup_phase_ui already shows the round 3 prompt via _on_active_player_changed().
 func _start_setup_village_for_player() -> void:
 	placement_controller.select_setup_village_mode()
-	if ui:
-		ui.show_setup_village_prompt()
 	Log.info("%s: Place your village on one of your tiles" % current_player.player_name)
 
 
 ## Called when all 3 setup rounds are done. Draws starting hands and begins play.
 func _complete_setup() -> void:
 	Log.info("=== SETUP COMPLETE ===")
+
+	# Destroy the dedicated setup UI — main game UI is created next
+	if setup_phase_ui:
+		setup_phase_ui.get_parent().queue_free()  # frees CanvasLayer + SetupPhaseUI
+		setup_phase_ui = null
+
 	for player in players:
 		player.draw_tiles(tile_pool, 3)
+
 	_switch_to_player(0)
+	setup_ui()  # Creates tile_selector_ui, connects APV → UI signals, creates power_executor
 	turn_manager.begin_player_turn()
-	if ui:
-		ui.update_hand_display()
 
 
 # ==================== TURN FLOW ====================

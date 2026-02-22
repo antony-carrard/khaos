@@ -86,12 +86,10 @@ func is_actions_phase() -> bool:
 
 ## Starts the setup phase of the game.
 ## All players have already been dealt their setup tiles in board_manager._ready().
-## Shows setup UI for the first player.
+## The setup_phase_ui (created by board_manager) handles display.
 func start_setup_phase() -> void:
 	current_phase = Phase.SETUP
 	phase_changed.emit(current_phase)
-	if ui:
-		ui.show_setup_phase(current_player.setup_tiles)
 	Log.info("=== SETUP PHASE ===")
 
 

@@ -29,7 +29,6 @@ const HAND_SIZE: int = 3  # Number of tiles in hand
 signal tile_type_selected(tile_type: int)
 signal tile_selected_from_hand(hand_index: int)
 signal tile_sold_from_hand(hand_index: int)
-signal setup_tile_selected(setup_index: int)
 signal village_place_selected()
 signal village_remove_selected()
 
@@ -56,8 +55,6 @@ var tooltip_manager: TooltipManager = null
 
 # Container references (for hand display)
 var hand_container: HBoxContainer = null
-var setup_tiles_container: HBoxContainer = null
-var setup_title_label: Label = null
 var tile_count_label: Label = null
 
 
@@ -78,7 +75,6 @@ func _ready() -> void:
 	add_child(hand_display)
 	hand_display.tile_selected_from_hand.connect(_on_hand_card_pressed)
 	hand_display.tile_sold_from_hand.connect(_on_sell_button_pressed)
-	hand_display.setup_tile_selected.connect(_on_setup_tile_pressed)
 
 	# Add resource_type_picker last so it appears on top when shown
 	resource_type_picker = ResourceTypePickerScene.new()
@@ -153,39 +149,6 @@ func initialize(colors: Dictionary, _board_manager: Node3D = null) -> void:
 	tile_count_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	hand_vbox.add_child(tile_count_label)
 
-	# Setup phase title (hidden by default)
-	setup_title_label = Label.new()
-	setup_title_label.text = "Setup Phase - Place Your Starting Tiles"
-	setup_title_label.add_theme_color_override("font_color", Color(0.9, 0.8, 0.3))  # Gold
-	setup_title_label.add_theme_color_override("font_outline_color", Color.BLACK)
-	setup_title_label.add_theme_constant_override("outline_size", 4)
-	setup_title_label.add_theme_font_size_override("font_size", SETUP_TITLE_FONT_SIZE)
-	setup_title_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	setup_title_label.visible = false
-	hand_vbox.add_child(setup_title_label)
-
-	# Setup tiles panel (hidden by default)
-	var setup_panel = PanelContainer.new()
-	var setup_style = StyleBoxFlat.new()
-	setup_style.bg_color = Color(0.15, 0.12, 0.05, 0.9)  # Darker brown for special tiles
-	setup_style.border_color = Color(0.9, 0.8, 0.3)  # Gold border
-	setup_style.border_width_left = 3
-	setup_style.border_width_right = 3
-	setup_style.border_width_top = 3
-	setup_style.border_width_bottom = 3
-	setup_style.corner_radius_top_left = 10
-	setup_style.corner_radius_top_right = 10
-	setup_style.corner_radius_bottom_left = 10
-	setup_style.corner_radius_bottom_right = 10
-	setup_panel.add_theme_stylebox_override("panel", setup_style)
-	setup_panel.visible = false
-	hand_vbox.add_child(setup_panel)
-
-	setup_tiles_container = HBoxContainer.new()
-	setup_tiles_container.add_theme_constant_override("separation", 10)
-	setup_tiles_container.alignment = BoxContainer.ALIGNMENT_CENTER  # Center the tiles
-	setup_panel.add_child(setup_tiles_container)
-
 	# Hand panel
 	var hand_panel = PanelContainer.new()
 	var hand_style = StyleBoxFlat.new()
@@ -255,8 +218,6 @@ func initialize(colors: Dictionary, _board_manager: Node3D = null) -> void:
 	
 	hand_display.initialize(tile_type_colors, board_manager)
 	hand_display.set_hand_container(hand_container)
-	hand_display.set_setup_container(setup_tiles_container)
-	hand_display.set_setup_title_label(setup_title_label)
 	hand_display.set_tile_count_label(tile_count_label)
 
 
@@ -353,34 +314,6 @@ func _on_village_remove_pressed() -> void:
 	village_remove_selected.emit()
 
 
-## Shows the setup phase UI with setup tiles.
-## Disables buttons that require actions phase so they can't be accidentally clicked.
-func show_setup_phase(setup_tiles: Array) -> void:
-	if hand_display:
-		hand_display.show_setup_phase(setup_tiles)
-	if harvest_ui:
-		harvest_ui.hide_harvest_options()
-	if actions_label:
-		actions_label.visible = false
-	if village_place_button:
-		village_place_button.disabled = true
-	if village_remove_button:
-		village_remove_button.disabled = true
-	if end_turn_button:
-		end_turn_button.disabled = true
-
-
-## Updates the setup tiles display
-func update_setup_tiles_display(setup_tiles: Array) -> void:
-	if hand_display:
-		hand_display.update_setup_tiles_display(setup_tiles)
-
-
-## Called when a setup tile card is clicked
-func _on_setup_tile_pressed(setup_index: int) -> void:
-	setup_tile_selected.emit(setup_index)
-
-
 ## Update the hand display with current tiles
 func update_hand_display() -> void:
 	if hand_display:
@@ -412,18 +345,11 @@ func _on_harvest_button_pressed(resource_type: int) -> void:
 		board_manager.turn_manager.harvest(resource_type)
 
 
-## Updates UI based on current turn phase
+## Updates UI based on current turn phase (HARVEST or ACTIONS only — setup has its own UI)
 func update_turn_phase(phase: int) -> void:
 	match phase:
-		TurnManager.Phase.SETUP:
-			# Setup phase: show setup tiles, hide normal game UI
-			if board_manager and board_manager.current_player:
-				show_setup_phase(board_manager.current_player.setup_tiles)
 		TurnManager.Phase.HARVEST:
 			# Show harvest buttons, hide actions label
-			# Restore normal hand display (hide setup UI)
-			if hand_display:
-				hand_display.hide_setup_phase()
 			if harvest_ui:
 				harvest_ui.visible = true
 			if actions_label:
@@ -488,19 +414,6 @@ func update_current_player(player: Player) -> void:
 	if player_turn_label:
 		player_turn_label.text = "%s's Turn" % player.player_name
 		player_turn_label.add_theme_color_override("font_color", player.player_color)
-
-
-## Shows a prompt for setup Round 3 village placement
-func show_setup_village_prompt() -> void:
-	if setup_title_label:
-		setup_title_label.text = "Place your village on one of your tiles"
-		setup_title_label.visible = true
-	if village_place_button:
-		village_place_button.disabled = true
-	if village_remove_button:
-		village_remove_button.disabled = true
-	if end_turn_button:
-		end_turn_button.disabled = true
 
 
 ## Shows or hides the village sell tooltip with the refund amount
