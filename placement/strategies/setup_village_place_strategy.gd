@@ -1,12 +1,11 @@
 class_name SetupVillagePlaceStrategy extends PlacementStrategy
 
-## Placement strategy for setup Round 3: place a village on one of your own setup tiles.
-## Valid positions are tiles the current player placed in setup rounds 1 and 2.
+## Placement strategy for setup Round 3: place a free village on any tile.
+## No cost, no actions required — valid on any tile that doesn't already have a village.
 
 
 func on_click(controller: PlacementController, q: int, r: int) -> bool:
-	var positions = controller.board_manager.current_player.setup_tile_positions
-	if not Vector2i(q, r) in positions:
+	if not controller.tile_manager.has_tile_at(q, r):
 		return false
 	if controller.village_manager.has_village_at(q, r):
 		return false
@@ -16,6 +15,5 @@ func on_click(controller: PlacementController, q: int, r: int) -> bool:
 
 
 func get_validity(controller: PlacementController, q: int, r: int) -> bool:
-	var positions = controller.board_manager.current_player.setup_tile_positions
-	return (Vector2i(q, r) in positions and
+	return (controller.tile_manager.has_tile_at(q, r) and
 			not controller.village_manager.has_village_at(q, r))
