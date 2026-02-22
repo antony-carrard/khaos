@@ -57,14 +57,20 @@ func handle_mouse_input(event: InputEvent) -> void:
 		if current_strategy == null:
 			return
 
-		if current_strategy.uses_tile_preview:
-			if current_strategy.on_click(self, preview_position.x, preview_position.y):
-				current_strategy = null
+		# Save reference: on_click may synchronously replace current_strategy via callbacks
+		# (e.g. setup tile placed → _on_setup_action_done → select_setup_village_mode).
+		# Only null it out if the callback didn't install a new strategy.
+		var strategy = current_strategy
+		if strategy.uses_tile_preview:
+			if strategy.on_click(self, preview_position.x, preview_position.y):
+				if current_strategy == strategy:
+					current_strategy = null
 		else:
 			var axial = get_axial_at_mouse()
 			if axial != HexGridUtils.NO_HIT:
-				if current_strategy.on_click(self, axial.x, axial.y):
-					current_strategy = null
+				if strategy.on_click(self, axial.x, axial.y):
+					if current_strategy == strategy:
+						current_strategy = null
 
 
 func handle_keyboard_input(event: InputEvent) -> void:
