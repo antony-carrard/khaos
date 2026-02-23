@@ -1,12 +1,12 @@
 # Introduction
 
-Devenez un dieu et essayez de vous emparer du trône, afin de devenir le
-dieu des dieux. Élevez des montagnes, construisez des villages, suscitez
+Devenez un Dieu et essayez de vous emparer du trône, afin de devenir le
+Dieu des Dieux. Élevez des montagnes, construisez des villages, suscitez
 la ferveur des habitants. Que le Chaos commence.
 
 ## But du jeu
 
-Obtenez le plus de points de victoire pour devenir le dieu des dieux.
+Obtenez le plus de points de victoire pour devenir le Dieu des Dieux.
 Vous obtiendrez les points de victoire en récoltant de la gloire, des
 ressources et de la ferveur, et en contrôlant les plus grands
 territoires.
@@ -15,17 +15,17 @@ territoires.
 
 ## Liste de matériel
 
--   28 Tuiles de Plaine, dont , 14 Ressources et 14 Ferveur.
+-   28 tuiles Plaine, dont 14 Ressources et 14 Ferveur.
 
--   21 Tuiles de colline, dont 3 Gloire, 9 Ressources et 9 Ferveur.
+-   21 tuiles Colline, dont 3 Gloire, 9 Ressources et 9 Ferveur.
 
--   14 Tuiles de montagne, dont 6 Gloire, 4 Ressources et 4 Ferveur.
+-   14 tuiles Montagne, dont 6 Gloire, 4 Ressources et 4 Ferveur.
 
 -   40 jetons Ferveur.
 
 -   40 jetons Gloire.
 
--   40 jetons ressources.
+-   40 jetons Ressources.
 
 -   24 jetons ville \"Augia\".
 
@@ -35,7 +35,7 @@ territoires.
 
 -   24 jetons ville \"Rakun\".
 
--   4 cartes de dieux avec Rappel des règles au verso.
+-   4 cartes de Dieu avec rappel des règles au verso.
 
 -   1 bloc de comptage de points.
 
@@ -43,47 +43,50 @@ territoires.
 
 # Mise en place
 
-1.  Chaque joueur prend 1 carte dieu ainsi que les jetons ville
+1.  Chaque joueur prend 1 carte Dieu ainsi que les jetons ville
     associés.
 
-2.  Placer les jeton ressources, ferveur, et gloire à portée de tous les
+2.  Placer les jetons Ressources, Ferveur et Gloire à portée de tous les
     joueurs. Cela constituera la réserve. Durant la partie, s'il manque
     des jetons, utilisez un substitut.
 
-3.  Prenez 2 plaines par joueur (1 ressource et 1 ferveur).
+3.  Prenez 2 tuiles Plaine par joueur (1 Ressources et 1 Ferveur).
 
 4.  Choisissez le premier joueur.
 
-5.  Le premier joueur place une de ses 2 tuiles sur la table et y pose
-    une de ses villes.
+5.  Le premier joueur place une de ses 2 tuiles au centre de la table.
 
-6.  Dans le sens horaire, chaque joueur place 1 tuile et une ville
-    dessus. Cette mise en place se fait jusqu'à que tous les joueur
-    aient posé leur tuiles et ville. Les tuile, sauf la première,
-    doivent toujours être posées à côté d'au moins une autre tuile.
+6.  Dans le sens horaire, chaque joueur suivant place une de ses 2
+    tuiles sur la table. Les tuiles doivent toujours être posées à côté
+    d'au moins une autre tuile.
 
-7.  Chaque joueur prends 3 tuiles au hasard dans les sac de tuile.
+7.  Chaque joueur place ensuite sa seconde tuile en respectant les
+    règles précédentes.
 
-La partie peut commencer!
+8.  Chaque joueur place finalement sa ville sur une tuile de son choix.
+
+9.  Chaque joueur prend 3 tuiles au hasard dans le sac de tuile.
+
+La partie peut commencer !
 
 ## Type de Tuile
 
 -   **Ressources** : Symbolisé par Chaque Bâtiment posé sur une Tuile
-    Ressources fait gagner le nombre de Ressources indiqué. Les
+    Ressources, fait gagner le nombre de Ressources indiqué. Les
     Ressources servent à construire de nouveaux Villages.
 
 -   **Ferveur** : Symbolisé par Chaque Bâtiment posé sur une Tuile à
-    Énergie fait gagner le nombre de ferveur indiqué. La ferveur sert à
-    utiliser ses Pouvoirs divins.
+    Énergie, fait gagner le nombre de Ferveurs indiqué. La Ferveur sert
+    à utiliser ses Pouvoirs divins.
 
--   **Gloire** : Chaque Bâtiment posé sur une Tuile gloire fait gagner
+-   **Gloire** : Chaque Bâtiment posé sur une Tuile gloire, fait gagner
     le nombre de Gloires indiqué. La Gloire sert à la fin de la partie.
 
 Un Bâtiment posé sur une Tuile à Énergie devient un Sanctuaire.\
 
-## Cartes dieux
+## Cartes Dieu
 
-Il y a 4 cartes dieux, avec chacun, un Pouvoir Mineur et un Pouvoir
+Il y a 4 cartes Dieu, avec chacun un Pouvoir Mineur et un Pouvoir
 Majeur.
 
 # Déroulement
@@ -96,7 +99,7 @@ Chaque tour se passe ainsi :
     ferveur et la gloire. Il récolte alors sur tous ses bâtiments posés
     sur le type de tuile choisi.
 
-2.  Il fait ensuite entre 0 et 3 actions. S'il le veux un joueur peut
+2.  Il fait ensuite entre 0 et 3 actions. S'il le veut, un joueur peut
     répéter une action. Les répétions comptent dans les 3 actions du
     tour.
 
@@ -109,12 +112,12 @@ terminent alors leur dernier tour et on procède au comptage des points.
 ## Actions
 
 Nous parlerons, ici, du **\"joueur actif\"** pour parler du joueur dont
-c'est le tour. Durant son tour le joueur peut choisir de:\
+c'est le tour. Durant son tour, le joueur peut choisir de :\
 
 -   **Poser une Plaine** :
 
     Il est possible de placer une plaine pour façonner le monde. Une
-    plaine doit obligatoirement être posée à coté d'une autre tuile (pas
+    plaine doit obligatoirement être posée à côté d'une autre tuile (pas
     de formation d'îlots).\
 
 -   **Poser un village** :
@@ -126,15 +129,15 @@ c'est le tour. Durant son tour le joueur peut choisir de:\
 
 -   **Utiliser un pouvoir divin** :
 
-    Il est possible pour un joueur d'utiliser un de ses pouvoir s'il
+    Il est possible pour un joueur d'utiliser un de ses pouvoirs s'il
     possède assez de ferveur pour cela.\
 
 -   **Augmenter la tuile d'un niveau** :
 
     Augmenter le niveau d'une tuile consiste à augmenter son altitude.
-    Pour ce faire le joueur actif pose une colline sur une plaine ou une
-    montagne sur une colline.\
-    Il est possible d'augmenter une Tuile d'un niveau supérieur ,
+    Pour ce faire, le joueur actif pose une colline sur une plaine ou
+    une montagne sur une colline.\
+    Il est possible d'augmenter une Tuile d'un niveau supérieur,
     **uniquement si elle est vide ou si c'est un de ses propres Village
     qui est construit dessus**. Cela engendre la destruction du village
     éventuellement présent sur cette Tuile. Le joueur récupère alors la
@@ -153,22 +156,22 @@ c'est le tour. Durant son tour le joueur peut choisir de:\
         contrôlée par le joueur actif.
 
     3.  Le joueur actif doit avoir assez de ressources pour rembourser
-        la moité du coût de construction du village.
+        la moitié du coût de construction du village.
 
-    Le joueur actif doit alors payer la moité du coût de construction au
-    joueur lésé.
+    Le joueur actif doit alors payer la moitié du coût de construction
+    au joueur lésé.
 
--   **Destruction d'un de ses propres village** :
+-   **Destruction d'un de ses propres villages** :
 
-    Le joueur peut détruire n'importe lequel de ses village. Il récupère
-    alors la moitié du prix de construction en réparation. Le Bâtiment
-    revient dans sa main.\
+    Le joueur peut détruire n'importe lequel de ses villages. Il
+    récupère alors la moitié du prix de construction en réparation. Le
+    Bâtiment revient dans sa main.\
 
 -   **Vendre une tuile ferveur ou ressources** :
 
     Le joueur peut décider de vendre une Tuile ferveur ou Ressources
     (mais pas gloire) présente dans sa main. Le prix de revient est
-    indiqué par le symbole du milieux de la tuile.
+    indiqué par le symbole du milieu de la tuile.
 
 ## Comptage des points
 
@@ -191,7 +194,7 @@ c'est le tour. Durant son tour le joueur peut choisir de:\
 
 -   **Pouvoir mineur** :
 
-    Bicéphallès a la possibilité de faire 4 action lors du prochain
+    Bicéphallès a la possibilité de faire 4 actions lors du prochain
     tour. Coût en ferveur : 3
 
 -   **Pouvoir majeur** :
@@ -209,7 +212,7 @@ c'est le tour. Durant son tour le joueur peut choisir de:\
 
 -   **Contrainte** :
 
-    Les Bâtiment lui coûte 4 ressources de construction peu importe
+    Les Bâtiments lui coûtent 4 ressources de construction peu importe
     l'emplacement (Plaine, Colline ou Montagne).
 
 ## Augia
@@ -221,14 +224,14 @@ c'est le tour. Durant son tour le joueur peut choisir de:\
 
 -   **Pouvoir majeur** :
 
-    Elle peut augmenter une Tuile d'un niveau, au tour en cours,sans
+    Elle peut augmenter une Tuile d'un niveau, au tour en cours, sans
     détruire le Bâtiment présent. Coût en ferveur : 5
 
 ## Rakun
 
 -   **Pouvoir mineur** :
 
-    Rakun peut choisir le Bâtiment d'un autre dieu et récolter les
+    Rakun peut choisir le Bâtiment d'un autre Dieu et récolter les
     possessions indiquées sur la Tuile, au tour en cours. Coût en
     ferveur : 2
 
