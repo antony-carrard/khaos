@@ -9,6 +9,12 @@ extends Node3D
 @export var test_mode: bool = false  # Test mode: unlimited resources/actions for testing
 @export var player_count: int = 2    # Number of players (1–4)
 
+# Emitted whenever the active player changes (both hot-seat and network modes).
+# UI elements that need to know who is currently taking a turn connect here.
+# In network mode, active_player_view stat signals stay bound to local player only,
+# so this separate signal is the reliable way to track turn changes.
+signal active_player_switched(player: Player)
+
 # Player colors assigned in order
 const PLAYER_COLORS: Array[Color] = [
 	Color(0.2, 0.4, 1.0),  # Blue   — P1
@@ -40,6 +46,11 @@ var current_player: Player = null   # always == players[current_player_index]
 var power_executor: PowerExecutor = null
 var active_player_view: ActivePlayerView = null
 var status_header: PlayerStatusHeader = null
+var not_your_turn_overlay: NotYourTurnOverlay = null
+
+# Index of the player that runs on this machine.
+# 0 in hot-seat (all players are local); set from GameConfig.local_player_index in network mode.
+var local_player_index: int = 0
 
 # Final round tracking
 var final_round_triggered: bool = false
@@ -82,6 +93,10 @@ func _ready() -> void:
 		if test_mode:
 			player.set_actions(999)
 		players.append(player)
+
+	# In network mode, record which player index belongs to this machine
+	if GameConfig.initialized and GameConfig.mode == GameConfig.GameMode.NETWORK:
+		local_player_index = clampi(GameConfig.local_player_index, 0, players.size() - 1)
 
 	# Create and initialize turn manager
 	turn_manager = TurnManager.new()
@@ -136,16 +151,28 @@ func _ready() -> void:
 	status_header.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	header_canvas.add_child(status_header)
 	status_header.initialize(self)
-	active_player_view.player_changed.connect(status_header.on_player_changed)
+	# active_player_switched (board_manager signal) drives who-is-active display in the header.
+	# APV stat signals (resources/fervor/glory) drive per-player stat updates in the header.
+	active_player_switched.connect(status_header.on_player_changed)
 	active_player_view.resources_changed.connect(status_header.on_active_resources_changed)
 	active_player_view.fervor_changed.connect(status_header.on_active_fervor_changed)
 	active_player_view.glory_changed.connect(status_header.on_active_glory_changed)
 
+	# Create "not your turn" lock overlay (hidden by default; shown in network mode on other players' turns)
+	var overlay_canvas := CanvasLayer.new()
+	overlay_canvas.layer = 10  # render above all other CanvasLayers
+	add_child(overlay_canvas)
+	not_your_turn_overlay = NotYourTurnOverlay.new()
+	not_your_turn_overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	overlay_canvas.add_child(not_your_turn_overlay)
+	if OS.is_debug_build():
+		not_your_turn_overlay.debug_end_turn_requested.connect(_on_debug_end_opponent_turn)
+
 	# Bind first player (main game UI not created yet — setup_ui() is called after setup)
 	_switch_to_player(0)
 
-	# Connect player_changed once here so both setup and gameplay phases are covered
-	active_player_view.player_changed.connect(_on_active_player_changed)
+	# active_player_switched drives setup_phase_ui and main game UI rebuilds on player change
+	active_player_switched.connect(_on_active_player_changed)
 
 	# Create the dedicated setup UI (replaces all setup hacks in tile_selector_ui)
 	var setup_canvas_layer = CanvasLayer.new()
@@ -155,7 +182,13 @@ func _ready() -> void:
 	setup_canvas_layer.add_child(setup_phase_ui)
 	setup_phase_ui.initialize(TileManager.TILE_TYPE_COLORS, god_manager, self)
 	setup_phase_ui.setup_tile_selected.connect(_on_setup_tile_selected)
-	# Manually push the first player since player_changed already fired before connection
+
+	# Network mode: bind APV stat signals to the local player once and permanently.
+	# Hot-seat: _switch_to_player() already called bind() on players[0].
+	if GameConfig.initialized and GameConfig.mode == GameConfig.GameMode.NETWORK:
+		active_player_view.bind(players[local_player_index])
+
+	# Manually push the first player since active_player_switched already fired before connection
 	setup_phase_ui.update_for_player(current_player, setup_round)
 
 	# Start setup phase
@@ -185,14 +218,29 @@ func show_god_selection(player: Player, taken_gods: Array[God]) -> void:
 
 
 ## Switch the active player to the given index.
-## Updates current_player, turn_manager, power_executor, and the active_player_view signal bridge.
+## Updates current_player, turn_manager, power_executor, and (in hot-seat) the APV signal bridge.
+## In network mode APV stays permanently bound to the local player; only active_player_switched fires.
 func _switch_to_player(index: int) -> void:
 	current_player_index = index
 	current_player = players[index]
 	turn_manager.current_player = current_player
 	if power_executor:
 		power_executor.current_player = current_player
-	active_player_view.bind(current_player)
+
+	var is_network: bool = GameConfig.initialized and GameConfig.mode == GameConfig.GameMode.NETWORK
+	if not is_network:
+		# Hot-seat: rebind APV so its stat signals track the new player and seed the UI
+		active_player_view.bind(current_player)
+
+	# Always notify status header and setup_phase_ui / game UI about the active player change
+	active_player_switched.emit(current_player)
+
+	# Show or hide the lock overlay based on whose turn it is
+	if not_your_turn_overlay:
+		if is_network and index != local_player_index:
+			not_your_turn_overlay.show_for_player(current_player)
+		else:
+			not_your_turn_overlay.hide_overlay()
 
 
 ## Called by active_player_view.player_changed → rebuilds player-specific UI sections.
@@ -236,10 +284,21 @@ func setup_ui() -> void:
 	# Set UI reference in turn_manager
 	turn_manager.set_ui(ui)
 
-	# Re-bind active_player_view so freshly-connected UI signals fire immediately
-	active_player_view.bind(current_player)
+	# Re-bind APV so freshly-connected UI stat signals fire immediately with current values.
+	# Network mode: always bind to local player (UI always shows local player's stats).
+	# Hot-seat: bind to current_player (active player owns the UI this turn).
+	var _is_network: bool = GameConfig.initialized and GameConfig.mode == GameConfig.GameMode.NETWORK
+	if _is_network:
+		active_player_view.bind(players[local_player_index])
+	else:
+		active_player_view.bind(current_player)
 
-	# Update initial display
+	# Seed player-specific displays.
+	# active_player_switched already fired during _switch_to_player(0) in _complete_setup(),
+	# but ui was null at that point so _on_active_player_changed() skipped the god/player update.
+	ui.update_current_player(current_player)
+	if current_player.god:
+		ui.update_god_display(current_player.god, god_manager)
 	ui.update_hand_display()
 	ui.update_turn_phase(turn_manager.current_phase)
 
@@ -519,6 +578,22 @@ func _on_turn_ended() -> void:
 	turn_manager.begin_player_turn()
 	if ui:
 		ui.update_hand_display()
+
+
+## Debug only: skip the opponent's current action (setup or normal turn) without them doing anything.
+## Called by the NotYourTurnOverlay debug button for single-machine stub testing.
+func _on_debug_end_opponent_turn() -> void:
+	Log.info("Debug overlay: skipping action for %s" % current_player.player_name)
+	# Cancel any placement mode the opponent may have entered (tile selected but not placed,
+	# or village placement mode in setup round 3).  Must happen before advancing the turn so
+	# the new active player starts with a clean placement state.
+	placement_controller.cancel_placement()
+	if turn_manager.is_setup_phase():
+		# Advance past this player's setup slot without placing a tile/village.
+		# The tile stays unplaced in setup_tiles (minor board gap — acceptable for a debug stub).
+		turn_manager.setup_action_done.emit()
+	else:
+		turn_manager.end_turn()
 
 
 ## Calculates scores for all players and shows the victory screen.

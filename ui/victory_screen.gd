@@ -295,8 +295,8 @@ func _create_button_style(bg_color: Color) -> StyleBoxFlat:
 
 
 ## Called when New Game button is pressed.
+## GameConfig is left unchanged so the rematch uses the same mode, player count, and local index.
 func _on_new_game() -> void:
-	GameConfig.initialized = false  # Let board_manager fall back to @export defaults
 	get_tree().reload_current_scene()
 
 

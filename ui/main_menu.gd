@@ -33,8 +33,13 @@ const COLOR_TAGLINE: Color = Color(0.55, 0.50, 0.75)
 
 var _mode_container: CenterContainer = null
 var _count_container: CenterContainer = null
+var _count_start_btn: Button = null  # stored so text can be updated ("Start Game" vs "Next →")
 var _count_buttons: Array[Button] = []
 var _selected_count: int = 2
+
+var _index_container: CenterContainer = null  # "which player are you?" section (network only)
+var _index_buttons: Array[Button] = []
+var _selected_index: int = 0
 
 
 func _ready() -> void:
@@ -89,7 +94,7 @@ func _build_mode_section() -> void:
 	_mode_container.add_child(hbox)
 
 	_build_mode_card(hbox, "Hot-Seat", "1–4 players\nOne machine", false, _on_hot_seat_pressed)
-	_build_mode_card(hbox, "Network", "Coming Soon", true, Callable())
+	_build_mode_card(hbox, "Network", "1–4 players\nSame machine (stub)", false, _on_network_pressed)
 
 
 func _build_mode_card(parent: Control, title: String, subtitle: String,
@@ -188,6 +193,7 @@ func _build_count_section() -> void:
 	start_btn.custom_minimum_size = Vector2(240, 64)
 	start_btn.pressed.connect(_on_start_pressed)
 	vbox.add_child(start_btn)
+	_count_start_btn = start_btn
 
 	var back_btn := Button.new()
 	back_btn.text = "← Back"
@@ -227,14 +233,126 @@ func _on_hot_seat_pressed() -> void:
 	GameConfig.mode = GameConfig.GameMode.HOT_SEAT
 	_mode_container.visible = false
 	_count_container.visible = true
+	if _count_start_btn:
+		_count_start_btn.text = "Start Game"
+
+
+func _on_network_pressed() -> void:
+	GameConfig.mode = GameConfig.GameMode.NETWORK
+	_mode_container.visible = false
+	_count_container.visible = true
+	if _count_start_btn:
+		_count_start_btn.text = "Next →"
 
 
 func _on_start_pressed() -> void:
-	GameConfig.player_count = _selected_count
-	GameConfig.initialized = true
-	get_tree().change_scene_to_file("res://main.tscn")
+	if GameConfig.mode == GameConfig.GameMode.NETWORK:
+		# Network: show player index picker before starting
+		_show_index_section()
+	else:
+		GameConfig.player_count = _selected_count
+		GameConfig.initialized = true
+		get_tree().change_scene_to_file("res://main.tscn")
 
 
 func _on_back_pressed() -> void:
 	_count_container.visible = false
 	_mode_container.visible = true
+
+
+## Show "which player are you?" screen for network mode.
+## Dynamically built based on _selected_count so the buttons match the chosen player count.
+func _show_index_section() -> void:
+	if _index_container:
+		_index_container.queue_free()
+		_index_container = null
+	_index_buttons.clear()
+
+	GameConfig.player_count = _selected_count
+	_selected_index = 0
+
+	_index_container = CenterContainer.new()
+	_index_container.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_index_container.offset_top = TITLE_BOTTOM_Y
+	add_child(_index_container)
+
+	var vbox := VBoxContainer.new()
+	vbox.alignment = BoxContainer.ALIGNMENT_CENTER
+	vbox.add_theme_constant_override("separation", 36)
+	_index_container.add_child(vbox)
+
+	var prompt := Label.new()
+	prompt.text = "Which player are you?"
+	prompt.add_theme_font_size_override("font_size", 36)
+	prompt.add_theme_color_override("font_color", Color.WHITE)
+	prompt.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	vbox.add_child(prompt)
+
+	var hbox := HBoxContainer.new()
+	hbox.alignment = BoxContainer.ALIGNMENT_CENTER
+	hbox.add_theme_constant_override("separation", 24)
+	vbox.add_child(hbox)
+
+	for i in range(_selected_count):
+		var btn := Button.new()
+		btn.text = "Player %d" % (i + 1)
+		btn.add_theme_font_size_override("font_size", COUNT_BTN_FONT_SIZE)
+		btn.custom_minimum_size = COUNT_BTN_SIZE
+		var idx := i  # capture for lambda
+		btn.pressed.connect(func() -> void: _select_index(idx))
+		hbox.add_child(btn)
+		_index_buttons.append(btn)
+
+	var start_btn := Button.new()
+	start_btn.text = "Start Game"
+	start_btn.add_theme_font_size_override("font_size", START_BTN_FONT_SIZE)
+	start_btn.custom_minimum_size = Vector2(240, 64)
+	start_btn.pressed.connect(_on_index_start_pressed)
+	vbox.add_child(start_btn)
+
+	var back_btn := Button.new()
+	back_btn.text = "← Back"
+	back_btn.add_theme_font_size_override("font_size", 24)
+	back_btn.pressed.connect(_on_index_back_pressed)
+	vbox.add_child(back_btn)
+
+	_count_container.visible = false
+	_select_index(0)
+
+
+func _select_index(idx: int) -> void:
+	_selected_index = idx
+	for i in range(_index_buttons.size()):
+		var btn: Button = _index_buttons[i]
+		var selected: bool = (i == idx)
+
+		var style_normal := StyleBoxFlat.new()
+		style_normal.set_corner_radius_all(COUNT_BTN_CORNER_RADIUS)
+		style_normal.border_width_left = 2
+		style_normal.border_width_right = 2
+		style_normal.border_width_top = 2
+		style_normal.border_width_bottom = 2
+		if selected:
+			style_normal.bg_color = COLOR_COUNT_SELECTED_BG
+			style_normal.border_color = COLOR_COUNT_SELECTED_BORDER
+		else:
+			style_normal.bg_color = COLOR_COUNT_NORMAL_BG
+			style_normal.border_color = COLOR_COUNT_NORMAL_BORDER
+
+		btn.add_theme_stylebox_override("normal", style_normal)
+		btn.add_theme_stylebox_override("hover", style_normal)
+		btn.add_theme_color_override("font_color",
+			Color.WHITE if selected else Color(0.60, 0.60, 0.70))
+
+
+func _on_index_start_pressed() -> void:
+	GameConfig.local_player_index = _selected_index
+	GameConfig.initialized = true
+	get_tree().change_scene_to_file("res://main.tscn")
+
+
+func _on_index_back_pressed() -> void:
+	if _index_container:
+		_index_container.queue_free()
+		_index_container = null
+	_count_container.visible = true
