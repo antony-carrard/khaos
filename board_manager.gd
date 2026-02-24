@@ -39,6 +39,7 @@ var current_player: Player = null   # always == players[current_player_index]
 
 var power_executor: PowerExecutor = null
 var active_player_view: ActivePlayerView = null
+var status_header: PlayerStatusHeader = null
 
 # Final round tracking
 var final_round_triggered: bool = false
@@ -126,6 +127,19 @@ func _ready() -> void:
 		player.initialize_setup_tiles(tile_pool)
 
 	Log.info("Tile pool count after setup deal: %d" % tile_pool.get_remaining_count())
+
+	# Create persistent status header — lives through setup and gameplay phases.
+	# Must be created before _switch_to_player(0) so bind() auto-seeds it via signal.
+	var header_canvas = CanvasLayer.new()
+	add_child(header_canvas)
+	status_header = PlayerStatusHeader.new()
+	status_header.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	header_canvas.add_child(status_header)
+	status_header.initialize(self)
+	active_player_view.player_changed.connect(status_header.on_player_changed)
+	active_player_view.resources_changed.connect(status_header.on_active_resources_changed)
+	active_player_view.fervor_changed.connect(status_header.on_active_fervor_changed)
+	active_player_view.glory_changed.connect(status_header.on_active_glory_changed)
 
 	# Bind first player (main game UI not created yet — setup_ui() is called after setup)
 	_switch_to_player(0)
@@ -510,6 +524,8 @@ func _on_turn_ended() -> void:
 ## Calculates scores for all players and shows the victory screen.
 func _trigger_game_end() -> void:
 	Log.info("=== GAME OVER ===")
+	if status_header:
+		status_header.visible = false
 
 	var victory_mgr = VictoryManager.new()
 	var results = []

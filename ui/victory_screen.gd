@@ -162,15 +162,16 @@ func _create_player_breakdown(player: Player, scores: Dictionary, is_winner: boo
 	panel.custom_minimum_size = VICTORY_PLAYER_CARD_SIZE
 
 	var style = StyleBoxFlat.new()
-	style.bg_color = Color(0.15, 0.15, 0.2, 0.95)
+	style.bg_color = player.player_color.darkened(0.55)
+	style.bg_color.a = 0.95
 	if is_winner:
-		style.border_color = Color(0.9, 0.75, 0.2)  # Gold
+		style.border_color = Color(0.9, 0.75, 0.2)  # Gold for winner
 		style.border_width_left = 4
 		style.border_width_right = 4
 		style.border_width_top = 4
 		style.border_width_bottom = 4
 	else:
-		style.border_color = Color(0.4, 0.4, 0.5)
+		style.border_color = player.player_color.darkened(0.7)
 		style.border_width_left = 2
 		style.border_width_right = 2
 		style.border_width_top = 2
@@ -197,7 +198,7 @@ func _create_player_breakdown(player: Player, scores: Dictionary, is_winner: boo
 	name_label.text = player.player_name
 	name_label.add_theme_font_size_override("font_size", 22)
 	name_label.add_theme_color_override("font_color",
-		Color(0.9, 0.8, 0.3) if is_winner else Color(0.9, 0.9, 0.9))
+		Color(0.9, 0.8, 0.3) if is_winner else player.player_color.lightened(0.3))
 	name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	vbox.add_child(name_label)
 

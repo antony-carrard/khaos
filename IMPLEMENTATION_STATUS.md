@@ -4,6 +4,27 @@
 
 This document tracks detailed implementation progress and serves as context for continuing development.
 
+## Recent Changes (2026-02-24) — Persistent Player Status Header
+
+**New `ui/player_status_header.gd`:**
+- Persistent top-of-screen strip showing all players' god portrait, name, and live stats (glory / resources / fervor) throughout both setup and gameplay
+- Cards use each player's color: dark tinted card at rest, full player color floods in on active turn; name switches from player-colored to white simultaneously
+- Small `▶` triangle indicator left of name on active card (replaces a "YOUR TURN" label)
+- No background bar — cards float directly over the game world; `MOUSE_FILTER_IGNORE` on root so game clicks pass through
+- Signal wiring: `player_changed` → full refresh of all cards; `resources/fervor/glory_changed` → lightweight single-card update mid-turn
+
+**Lifecycle in `board_manager.gd`:**
+- Created on its own `CanvasLayer` in `_ready()` after god selection (portraits available), before `_switch_to_player(0)` — that `bind()` call auto-seeds the header via signals
+- Survives the setup→gameplay transition (no recreate needed); signals stay live
+- `status_header.visible = false` in `_trigger_game_end()` — hides before victory overlay appears
+- Files modified: `board_manager.gd` (new `var status_header`), `ui/player_status_header.gd` (new)
+
+**Victory screen player color (`ui/victory_screen.gd`):**
+- Each player's breakdown card now uses `player.player_color.darkened(0.55)` as background — consistent visual language with the header
+- Non-winner name uses `player_color.lightened(0.3)`; winner name and border stay gold
+
+---
+
 ## Recent Changes (2026-02-24) — Setup Phase UI Polish
 
 **GodPanel integrated into SetupPhaseUI:**
