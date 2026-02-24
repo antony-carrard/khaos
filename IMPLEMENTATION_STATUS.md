@@ -1,20 +1,54 @@
 # Implementation Status
 
-**Last Updated:** 2026-02-24
+**Last Updated:** 2026-02-25
 
 This document tracks detailed implementation progress and serves as context for continuing development.
+
+## Recent Changes (2026-02-25) — Network Mode Stub
+
+**`GameConfig` (`game_config.gd`):**
+- Added `local_player_index: int = 0` — which player index belongs to this machine (network mode only)
+
+**`ui/not_your_turn_overlay.gd` (new):**
+- Shown whenever `current_player_index != local_player_index` in NETWORK mode
+- Visual: subtle 12% full-screen tint + compact 68px bottom banner with player name in their color
+- Input: `_input()` consumes left/right mouse button events (blocks tile/village interaction) but skips middle-mouse (camera pan) and clicks inside the banner strip (so the debug button works)
+- Debug build only: `[DEBUG] End Opponent Turn` button — skips setup actions (emits `setup_action_done`) or ends gameplay turns (`turn_manager.end_turn()`)
+
+**`board_manager.gd`:**
+- New `signal active_player_switched(player)` — emitted on every `_switch_to_player()` call regardless of game mode. Status header and `_on_active_player_changed` connect here instead of `active_player_view.player_changed`. This decouples "who is the active player" from "whose stats does the UI track"
+- `local_player_index: int` — read from `GameConfig` on startup (clamped to valid range)
+- `not_your_turn_overlay: NotYourTurnOverlay` — created on `CanvasLayer.layer=10`; shown/hidden in `_switch_to_player()`
+- `_switch_to_player()` in NETWORK mode: skips `active_player_view.bind()` (APV stays permanently bound to local player); always emits `active_player_switched`; shows/hides overlay
+- One-time `active_player_view.bind(players[local_player_index])` in `_ready()` and `setup_ui()` for NETWORK mode so APV stat signals always track the local player
+- `setup_ui()` now explicitly seeds `update_current_player()` + `update_god_display()` — fixes "No God" shown at game start (the `active_player_switched` that fires during `_complete_setup()` arrives while `ui` is still null)
+- `_on_debug_end_opponent_turn()`: calls `placement_controller.cancel_placement()` first, then emits `setup_action_done` (setup) or calls `end_turn()` (gameplay)
+
+**`ui/main_menu.gd`:**
+- Network card enabled (was greyed out "Coming Soon")
+- Three-screen flow for network: mode cards → count picker (button relabelled "Next →") → **"Which player are you?"** index picker → Start Game
+- `GameConfig.local_player_index` set from the index picker before loading `main.tscn`
+
+**`ui/victory_screen.gd`:**
+- "New Game" no longer resets `GameConfig.initialized` — rematch reuses the same mode, player count, and local player index
+
+**Bug fixes:**
+- God panel showed "No God" on game start (see `setup_ui()` fix above)
+- Debug overlay button was silently swallowed by its own `_input()` hook; fixed by exempting clicks in the banner strip
+- "New Game" was restarting in hot-seat 2-player regardless of session settings
+
+---
 
 ## Recent Changes (2026-02-24) — Main Menu + Game Mode Architecture
 
 **`GameConfig` autoload (`game_config.gd`):**
 - Lightweight singleton holding `mode: GameMode` (HOT_SEAT / NETWORK), `player_count: int = 2`, `initialized: bool`
 - Set by the main menu before loading `main.tscn`; `initialized = false` means board_manager falls back to its `@export player_count` (preserves direct editor testing)
-- Foundation for network multiplayer: `GameConfig.mode` will drive Option-B local-player-index behavior in the next phase
 
 **`main_menu.tscn` + `ui/main_menu.gd` (new):**
 - Programmatic UI matching project style (dark bg, styled cards, outline fonts)
 - CHAOS title with purple outline + tagline
-- Two mode cards: **Hot-Seat** (enabled) → player count picker (1–4, default 2) → Start Game; **Network** (grayed out, "Coming Soon")
+- Two mode cards: **Hot-Seat** (enabled) → player count picker (1–4, default 2) → Start Game; **Network** (now enabled, stub)
 - Back button returns from count picker to mode cards
 - `project.godot`: main scene changed from `main.tscn` → `main_menu.tscn`
 
@@ -23,7 +57,6 @@ This document tracks detailed implementation progress and serves as context for 
 
 **`ui/victory_screen.gd`:**
 - "Return to Menu" button enabled and wired to `change_scene_to_file("res://main_menu.tscn")`
-- "New Game" resets `GameConfig.initialized = false` before reload so export defaults apply
 
 **Project rename Khaos → Chaos:**
 - `project.godot` config name, `ui/main_menu.gd` title text, `README.md` — display text only
@@ -721,22 +754,30 @@ HexGridUtils (static hex math)
 7. ✅ ~~Add multiplayer player switching~~ (DONE — hot-seat 1–4 players, ActivePlayerView bridge)
 
 **What's Left (Recommended Order):**
-1. **Playtesting** — Play a full 2-player game end-to-end. Look for: village color visibility, SetupPhaseUI layout on 1080p, final round trigger edge cases, god power interactions.
-2. **Victory screen multi-player layout** — Currently fragile with 4 players; may need scrollable or grid layout.
-3. **UI polish** — "Disable end turn during harvest" feedback, better card hover effects.
-4. **Unit tests for new systems** — `ActivePlayerView.bind()`, setup round transitions, `_switch_to_player()`.
-5. **Camera controls** — Pan, zoom, rotate for larger boards.
+1. ✅ ~~Network stub: lock overlay + local_player_index + lobby UI~~ (DONE)
+2. **Actual networking** — real `ENetMultiplayerPeer` host/client; see roadmap below.
+3. **Victory screen multi-player layout** — Fragile with 4 players; may need scrollable or grid layout.
+4. **UI polish** — "Disable end turn during harvest" feedback, better card hover effects.
+5. **Unit tests for new systems** — setup round transitions, network mode switching.
+6. **Camera controls** — Pan, zoom, rotate for larger boards.
 
 ---
 
 ## 📚 Context for New Sessions
 
-**Current State Summary (2026-02-22):**
-You have a **fully playable hot-seat multiplayer** (1–4 players) turn-based hexagonal tile placement game. Game flow: god selection per player (taken gods greyed out) → 3-round setup (each player places 1 PLAINS tile × 2 rounds, then 1 free village) → normal gameplay → final round on tile bag empty → victory screen with per-player scoring.
+**Current State Summary (2026-02-25):**
+Fully playable **hot-seat multiplayer** (1–4 players) with a **network mode stub** (same machine, lock overlay, player index picker). Game flow: main menu → god selection per player → 3-round setup → normal gameplay → final round → victory screen.
 
-**Multiplayer architecture:** `ActivePlayerView` node acts as a permanent signal bridge — UI connects to it once. `_switch_to_player(index)` in `board_manager` is the single player-switching function; `active_player_view.bind(player)` handles all rewiring. Villages are color-coded by player. `SetupPhaseUI` (CanvasLayer) owns setup display; it is freed when setup ends, and `board_manager.ui` (TileSelectorUI) is null until then.
+**Network stub architecture:**
+- `GameConfig.local_player_index` set from the menu lobby; `board_manager.local_player_index` reads it
+- `board_manager.signal active_player_switched(player)` — fires on every `_switch_to_player()` for all modes; status_header and `_on_active_player_changed` connect here (not to `APV.player_changed`)
+- `APV` permanently bound to `players[local_player_index]` in NETWORK mode (UI always shows local player's stats)
+- `NotYourTurnOverlay` — subtle tint + bottom banner; `_input()` blocks left/right clicks but lets middle-mouse through; debug button skips turns (setup and gameplay)
+- "New Game" preserves GameConfig; "Return to Menu" clears it
 
-**God system:** Data-driven (god.gd, god_power.gd, god_manager.gd). All 8 divine powers fully functional. Deferred payment prevents resource loss on cancellation. Power buttons dynamically grey out based on fervor, phase, and once-per-turn tracking.
+**Hot-seat multiplayer architecture:** `ActivePlayerView` bridges player signals to the UI (connects once, rebinds on player switch via `bind(player)`). `_switch_to_player(index)` is the single player-switching function. `SetupPhaseUI` (CanvasLayer) owns setup display; freed when setup ends; `board_manager.ui` is null until `_complete_setup()`.
+
+**God system:** Data-driven (god.gd, god_power.gd, god_manager.gd). All 8 divine powers fully functional. Deferred payment prevents resource loss on cancellation.
 
 **Code patterns to remember:**
 - Strategy-in-callback: save `var strategy = current_strategy` before `on_click`, only null if unchanged
@@ -744,15 +785,13 @@ You have a **fully playable hot-seat multiplayer** (1–4 players) turn-based he
 - Rakun downgrade = enemy villages; Augia upgrade/transform = own villages
 - `depth_draw_mode = BaseMaterial3D.DEPTH_DRAW_ALWAYS` (Godot 4, not `depth_draw_opaque_only`)
 - Sell tile: match `tile.resource_type` to call correct `add_*()` method
-
-**Next Focus:**
-Playtesting and polish — full 2-player game to surface edge cases. Victory screen layout with multiple players. Unit tests for multiplayer switching and setup rounds.
+- `setup_ui()` must explicitly seed `update_current_player()` + `update_god_display()` — `active_player_switched` fires before ui exists
 
 ---
 
 ## 🌐 Network Multiplayer Roadmap (Future)
 
-Hot-seat (Phase 1) is complete. Network play is not started — implement only after the game is polished and playtested.
+Hot-seat (Phase 1) complete. Network stub (Phase 1.5) complete — overlay, local_player_index, lobby picker all wired. Real network play not yet started.
 
 ### Phase 2 — LAN / VPN Testing
 **Architecture:** Host is authoritative (runs full game logic). Clients send actions, receive state updates — display only.
