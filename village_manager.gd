@@ -111,7 +111,7 @@ func create_preview_village() -> Node3D:
 
 ## Updates the preview village color based on placement validity.
 func update_preview_color(preview: Node3D, is_valid: bool) -> void:
-	var color = Color(0.3, 0.8, 0.3, 0.6) if is_valid else Color(0.8, 0.3, 0.3, 0.6)
+	var color = Color(0.15, 0.92, 0.15, 0.72) if is_valid else Color(0.92, 0.15, 0.15, 0.72)
 	_set_color_recursive(preview, color)
 
 
@@ -155,8 +155,13 @@ func _set_color_recursive(node: Node, color: Color) -> void:
 		_set_color_recursive(child, color)
 
 
-## Applies a player color to a village node, handling both override and base mesh materials.
+## Strength of the player color tint (0 = no tint, 1 = full replacement).
+## Keep low so original material details survive and validation colors stay readable.
+const PLAYER_COLOR_TINT: float = 0.4
+
+## Applies a player color tint to a village node, handling both override and base mesh materials.
 ## Creates per-instance material duplicates so villages don't share materials.
+## Uses lerp rather than full replacement so the original material look is preserved.
 func _apply_player_color(node: Node, color: Color) -> void:
 	if node is MeshInstance3D:
 		var mi := node as MeshInstance3D
@@ -166,7 +171,7 @@ func _apply_player_color(node: Node, color: Color) -> void:
 				mat = mi.mesh.surface_get_material(i)
 			if mat and mat is StandardMaterial3D:
 				var colored := mat.duplicate() as StandardMaterial3D
-				colored.albedo_color = color
+				colored.albedo_color = colored.albedo_color.lerp(color, PLAYER_COLOR_TINT)
 				mi.set_surface_override_material(i, colored)
 	for child in node.get_children():
 		_apply_player_color(child, color)
