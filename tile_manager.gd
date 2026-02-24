@@ -23,13 +23,6 @@ const TILE_TYPE_TO_HEIGHT = {
 	TileType.MOUNTAIN: 2
 }
 
-# Standard yield value per tile type (used when upgrading a tile)
-const TILE_TYPE_YIELDS = {
-	TileType.PLAINS: 1,
-	TileType.HILLS: 2,
-	TileType.MOUNTAIN: 3
-}	# TODO: This is dangerous is it is not tied to tiles values: Rework to get a real tile.
-
 # Visual colors for each tile type
 const TILE_TYPE_COLORS = {
 	TileType.PLAINS: Color(0.4, 0.7, 0.3),    # Green
@@ -56,6 +49,9 @@ var placed_tiles: Dictionary = {}
 
 # Reference to village manager (for validation)
 var village_manager: VillageManager = null
+
+# Reference to tile pool (for bag-draw on upgrade)
+var tile_pool: TilePool = null
 
 
 ## Initializes the TileManager with required configuration.
@@ -203,9 +199,18 @@ func upgrade_tile(q: int, r: int) -> bool:
 		_:
 			return false
 
-	# Carry resource type and costs from current tile; yield matches the new tier
+	# Draw the upgrade tile from the bag to get its yield value.
+	# NOTE: To also return the buried tile back to the bag (full board-game fidelity),
+	# call tile_pool.return_tile() here with its TileDefinition equivalent before drawing.
+	if not tile_pool:
+		Log.error("upgrade_tile: tile_pool is not set")
+		return false
+	var bag_tile = tile_pool.draw_tile_of_type(new_tile_type)
+	if not bag_tile:
+		return false  # No tile of this type in bag — upgrade blocked
+
 	var res_type = current_tile.resource_type
-	var yield_val = TILE_TYPE_YIELDS[new_tile_type]
+	var yield_val = bag_tile.yield_value
 	var village_cost = current_tile.village_building_cost
 	var sell_val = current_tile.sell_price
 	var old_tile_type = current_tile.tile_type

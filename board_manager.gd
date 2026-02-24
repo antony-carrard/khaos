@@ -67,6 +67,7 @@ func _ready() -> void:
 	tile_pool = TilePool.new()
 	add_child(tile_pool)
 	tile_pool.initialize()
+	tile_manager.tile_pool = tile_pool
 
 	# Create N players
 	var count = clampi(player_count, 1, 4)

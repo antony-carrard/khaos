@@ -156,6 +156,34 @@ func draw_plains_tile(resource_type: int) -> TileDefinition:
 	return null
 
 
+## Check if the bag has at least one tile of the given tile type
+func has_tile_of_type(tile_type: int) -> bool:
+	for tile in tile_bag:
+		if tile.tile_type == tile_type:
+			return true
+	return false
+
+
+## Draw any tile of the given tile type from the bag
+## Returns TileDefinition or null if none available
+## NOTE: To implement full board-game fidelity (return buried tile to bag on upgrade),
+## call return_tile() with the old tile definition before calling this.
+func draw_tile_of_type(tile_type: int) -> TileDefinition:
+	for i in range(tile_bag.size()):
+		if tile_bag[i].tile_type == tile_type:
+			var tile = tile_bag[i]
+			tile_bag.remove_at(i)
+			removed_tiles.append(tile)
+			Log.debug("TilePool: Drew %s %s tile from bag. Remaining: %d" % [
+				TileManager.ResourceType.keys()[tile.resource_type],
+				TileManager.TileType.keys()[tile.tile_type],
+				tile_bag.size()
+			])
+			return tile
+	Log.warn("TilePool: No %s tile available in bag!" % TileManager.TileType.keys()[tile_type])
+	return null
+
+
 ## Return a tile to the bag and shuffle
 ## Used when a tile needs to be put back (e.g., wrong type for starting tile)
 func return_tile(tile: TileDefinition) -> void:
