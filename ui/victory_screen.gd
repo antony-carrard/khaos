@@ -205,7 +205,7 @@ func _create_player_breakdown(player: Player, scores: Dictionary, is_winner: boo
 	if is_winner:
 		var winner_tag = Label.new()
 		winner_tag.text = "* WINNER *"
-		winner_tag.add_theme_font_size_override("font_size", 14)
+		winner_tag.add_theme_font_size_override("font_size", 16)
 		winner_tag.add_theme_color_override("font_color", Color(0.9, 0.8, 0.3))
 		winner_tag.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		vbox.add_child(winner_tag)
@@ -234,7 +234,7 @@ Territory Bonus: %d pts
 
 	var breakdown_label = Label.new()
 	breakdown_label.text = breakdown_text
-	breakdown_label.add_theme_font_size_override("font_size", 13)
+	breakdown_label.add_theme_font_size_override("font_size", 16)
 	breakdown_label.add_theme_color_override("font_color", Color(0.85, 0.85, 0.85))
 	breakdown_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	breakdown_label.size_flags_vertical = Control.SIZE_EXPAND_FILL

@@ -150,18 +150,6 @@ func create_god_card(god: God, is_taken: bool = false) -> Control:
 
 	vbox.add_child(portrait)
 
-	# "Taken" overlay label
-	if is_taken:
-		var taken_label = Label.new()
-		taken_label.text = "TAKEN"
-		taken_label.add_theme_font_size_override("font_size", 48)
-		taken_label.add_theme_color_override("font_color", Color(0.8, 0.2, 0.2, 0.9))
-		taken_label.add_theme_color_override("font_outline_color", Color.BLACK)
-		taken_label.add_theme_constant_override("outline_size", 4)
-		taken_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		taken_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		vbox.add_child(taken_label)
-
 	# Powers section
 	var powers_label = Label.new()
 	powers_label.text = "Pouvoirs:"
