@@ -59,3 +59,35 @@ func test_glory_only_on_hills_and_mountains() -> void:
 	for tile in all_tiles:
 		if tile.resource_type == TileManager.ResourceType.GLORY:
 			assert_int(tile.tile_type).is_not_equal(TileManager.TileType.PLAINS)
+
+
+func test_draw_plains_tile_returns_correct_type() -> void:
+	var tile = pool.draw_plains_tile(TileManager.ResourceType.RESOURCES)
+	assert_object(tile).is_not_null()
+	assert_int(tile.tile_type).is_equal(TileManager.TileType.PLAINS)
+	assert_int(tile.resource_type).is_equal(TileManager.ResourceType.RESOURCES)
+
+
+func test_draw_plains_tile_fervor_returns_correct_type() -> void:
+	var tile = pool.draw_plains_tile(TileManager.ResourceType.FERVOR)
+	assert_object(tile).is_not_null()
+	assert_int(tile.tile_type).is_equal(TileManager.TileType.PLAINS)
+	assert_int(tile.resource_type).is_equal(TileManager.ResourceType.FERVOR)
+
+
+func test_draw_plains_tile_reduces_count() -> void:
+	pool.draw_plains_tile(TileManager.ResourceType.RESOURCES)
+	assert_int(pool.get_remaining_count()).is_equal(62)
+
+
+func test_draw_plains_tile_returns_null_when_exhausted() -> void:
+	# Draw all 14 PLAINS/Resources tiles
+	for i in range(14):
+		pool.draw_plains_tile(TileManager.ResourceType.RESOURCES)
+	var tile = pool.draw_plains_tile(TileManager.ResourceType.RESOURCES)
+	assert_object(tile).is_null()
+
+
+func test_draw_plains_tile_does_not_return_glory() -> void:
+	var tile = pool.draw_plains_tile(TileManager.ResourceType.GLORY)
+	assert_object(tile).is_null()
