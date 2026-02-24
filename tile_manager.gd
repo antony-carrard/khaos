@@ -27,8 +27,8 @@ const TILE_TYPE_TO_HEIGHT = {
 const TILE_TYPE_YIELDS = {
 	TileType.PLAINS: 1,
 	TileType.HILLS: 2,
-	TileType.MOUNTAIN: 4
-}
+	TileType.MOUNTAIN: 3
+}	# TODO: This is dangerous is it is not tied to tiles values: Rework to get a real tile.
 
 # Visual colors for each tile type
 const TILE_TYPE_COLORS = {

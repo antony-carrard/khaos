@@ -69,24 +69,24 @@ func initialize() -> void:
 		))
 
 	# MOUNTAINS (14 total): 4 Resources + 4 Fervor + 6 Glory
-	# yield=4, village_cost=8, sell=1 (glory sell=0)
+	# yield=3, village_cost=6, sell=1 (glory sell=0)
 	for i in range(4):
 		tile_bag.append(TileDefinition.new(
 			TileManager.TileType.MOUNTAIN,
 			TileManager.ResourceType.RESOURCES,
-			4, 8, 1
+			3, 6, 1
 		))
 	for i in range(4):
 		tile_bag.append(TileDefinition.new(
 			TileManager.TileType.MOUNTAIN,
 			TileManager.ResourceType.FERVOR,
-			4, 8, 1
+			3, 6, 1
 		))
 	for i in range(6):
 		tile_bag.append(TileDefinition.new(
 			TileManager.TileType.MOUNTAIN,
 			TileManager.ResourceType.GLORY,
-			4, 8, 0  # Glory can't be sold
+			3, 6, 0  # Glory can't be sold
 		))
 
 	# Shuffle the bag

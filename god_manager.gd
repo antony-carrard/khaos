@@ -50,7 +50,7 @@ static func create_bicephalles() -> God:
 	var minor = GodPower.new(
 		"Actions supplémentaires",
 		"4 actions au prochain tour",
-		3,  # Cost from rules.md line 195
+		2,  # Cost from rules.md line 195
 		GodPower.PowerType.EXTRA_ACTION,
 		false
 	)
