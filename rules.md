@@ -124,7 +124,7 @@ c'est le tour. Durant son tour, le joueur peut choisir de :\
 
     Le joueur peut décider de construire un village s'il possède assez
     de ressources pour cela (2 pour construire sur une plaine, 4 pour
-    construire sur une colline et 8 pour construire sur une montagne).
+    construire sur une colline et 6 pour construire sur une montagne).
     Le prix est indiqué sur la gauche de la tuile.\
 
 -   **Utiliser un pouvoir divin** :
@@ -195,7 +195,7 @@ c'est le tour. Durant son tour, le joueur peut choisir de :\
 -   **Pouvoir mineur** :
 
     Bicéphallès a la possibilité de faire 4 actions lors du prochain
-    tour. Coût en ferveur : 3
+    tour. Coût en ferveur : 2
 
 -   **Pouvoir majeur** :
 
