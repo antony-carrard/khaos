@@ -243,9 +243,7 @@ func end_turn() -> void:
 	Log.info("=== END TURN ===")
 
 	# Discard and draw for the finishing player
-	for i in range(current_player.HAND_SIZE):
-		current_player.hand[i] = null
-	current_player.draw_tiles(tile_pool, 3)
+	current_player.refresh_hand(tile_pool)
 
 	turn_ended.emit()   # board_manager._on_turn_ended() handles switch + final round check
 

@@ -97,6 +97,13 @@ func add_glory(amount: int) -> void:
 	Log.debug("%s: Gained %d glory. Total: %d" % [player_name, amount, glory])
 
 
+## Discard all tiles in hand and draw a full hand from the pool
+func refresh_hand(tile_pool: TilePool) -> void:
+	for i in range(HAND_SIZE):
+		hand[i] = null
+	draw_tiles(tile_pool, HAND_SIZE)
+
+
 ## Draw tiles into hand from tile pool
 ## Fills empty slots (null values) in the hand
 func draw_tiles(tile_pool: TilePool, count: int) -> void:

@@ -466,7 +466,7 @@ func _complete_setup() -> void:
 		setup_phase_ui = null
 
 	for player in players:
-		player.draw_tiles(tile_pool, 3)
+		player.refresh_hand(tile_pool)
 
 	_switch_to_player(0)
 	setup_ui()  # Creates tile_selector_ui, connects APV → UI signals, creates power_executor

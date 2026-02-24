@@ -4,6 +4,17 @@
 
 This document tracks detailed implementation progress and serves as context for continuing development.
 
+## Recent Changes (2026-02-24) — Hand Refresh Refactor
+
+**Single source of truth for hand size:**
+- Added `Player.refresh_hand(tile_pool)` — clears all hand slots to null, then draws `HAND_SIZE` tiles. Encapsulates the discard+draw pair that was previously duplicated across two files.
+- `turn_manager.gd:end_turn()` — replaced 3-line clear+draw with `current_player.refresh_hand(tile_pool)` (was also using hardcoded `3` instead of the constant).
+- `board_manager.gd:_complete_setup()` — replaced `player.draw_tiles(tile_pool, HAND_SIZE)` with `player.refresh_hand(tile_pool)`.
+- Removed duplicate `const HAND_SIZE: int = 3` from `board_manager.gd`; `Player.HAND_SIZE` is now the single source of truth.
+- Files modified: `player.gd`, `turn_manager.gd`, `board_manager.gd`
+
+---
+
 ## Recent Changes (2026-02-24) — Setup Tile Drawing Rule Change
 
 **Deterministic setup tile draw:**
