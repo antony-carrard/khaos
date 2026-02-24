@@ -4,6 +4,18 @@
 
 This document tracks detailed implementation progress and serves as context for continuing development.
 
+## Recent Changes (2026-02-24) — Setup Phase UI Polish
+
+**GodPanel integrated into SetupPhaseUI:**
+- `SetupPhaseUI` now uses `CenterContainer → HBoxContainer → [GodPanel | setup panel | balancing spacer]`, mirroring the regular game's bottom bar layout
+- `GodPanel` reused directly (same class, no duplication); power buttons appear naturally disabled during setup (wrong phase / no actions)
+- `initialize()` now accepts `god_manager` and `board_manager` so `GodPanel.update_god_display()` can wire its signals; `board_manager.gd` updated accordingly
+- Balancing `Control` spacer (width = `GodPanel.PANEL_SIZE.x`) on the right keeps the setup info panel visually centered regardless of round
+- `GodPanel.PORTRAIT_SIZE` bumped `80 → 105`, `PANEL_SIZE` height `120 → 140` so the portrait fills most of the panel height
+- Files modified: `ui/setup_phase_ui.gd`, `ui/god_panel.gd`, `board_manager.gd`
+
+---
+
 ## Recent Changes (2026-02-24) — Tile Bag as Source of Truth for Upgrade & Transform
 
 **Removed TILE_TYPE_YIELDS constant; tile values now come from the bag:**

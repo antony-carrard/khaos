@@ -5,11 +5,11 @@ class_name GodPanel
 ## Extracted from tile_selector_ui.gd for better code organization
 
 # Layout constants
-const PANEL_SIZE: Vector2 = Vector2(350, 120)
+const PANEL_SIZE: Vector2 = Vector2(350, 140)
 const PANEL_MARGIN: int = 10
 const PANEL_BORDER_WIDTH: int = 2
 const PANEL_CORNER_RADIUS: int = 10
-const PORTRAIT_SIZE: Vector2 = Vector2(80, 80)
+const PORTRAIT_SIZE: Vector2 = Vector2(105, 105)
 const POWER_BUTTON_SIZE: Vector2 = Vector2(220, 40)
 const POWER_BUTTON_CORNER_RADIUS: int = 6
 const FERVOR_ICON_SIZE: Vector2 = Vector2(14, 14)

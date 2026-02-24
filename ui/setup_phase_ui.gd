@@ -17,7 +17,10 @@ const TITLE_FONT_SIZE: int = 20
 const INSTRUCTION_FONT_SIZE: int = 15
 
 var tile_type_colors: Dictionary = {}
+var _god_manager_ref: GodManager = null
+var _board_manager_ref = null
 
+var _god_panel: GodPanel = null
 var _player_label: Label = null
 var _round_label: Label = null
 var _instruction_label: Label = null
@@ -30,8 +33,10 @@ func _ready() -> void:
 
 
 ## Call once after instantiation to supply tile colors and build the UI hierarchy.
-func initialize(colors: Dictionary) -> void:
+func initialize(colors: Dictionary, god_manager: GodManager, board_manager) -> void:
 	tile_type_colors = colors
+	_god_manager_ref = god_manager
+	_board_manager_ref = board_manager
 	_build_ui()
 
 
@@ -50,6 +55,17 @@ func _build_ui() -> void:
 	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	anchor.add_child(center)
 
+	# Side-by-side layout mirroring regular game: god panel left, setup info right
+	var main_hbox = HBoxContainer.new()
+	main_hbox.alignment = BoxContainer.ALIGNMENT_CENTER
+	main_hbox.add_theme_constant_override("separation", 20)
+	center.add_child(main_hbox)
+
+	# God panel (left) — same component as regular game; power buttons show as disabled
+	_god_panel = GodPanel.new()
+	main_hbox.add_child(_god_panel)
+
+	# Setup info panel (center)
 	var panel = PanelContainer.new()
 	var style = StyleBoxFlat.new()
 	style.bg_color = Color(0.10, 0.08, 0.04, 0.93)
@@ -63,7 +79,7 @@ func _build_ui() -> void:
 	style.corner_radius_bottom_left = 12
 	style.corner_radius_bottom_right = 12
 	panel.add_theme_stylebox_override("panel", style)
-	center.add_child(panel)
+	main_hbox.add_child(panel)
 
 	var margin = MarginContainer.new()
 	margin.add_theme_constant_override("margin_left", PANEL_PADDING)
@@ -113,10 +129,18 @@ func _build_ui() -> void:
 	_cards_container.alignment = BoxContainer.ALIGNMENT_CENTER
 	vbox.add_child(_cards_container)
 
+	# Balancing spacer (right) — mirrors god panel width so setup panel is visually centered
+	var spacer = Control.new()
+	spacer.custom_minimum_size = Vector2(GodPanel.PANEL_SIZE.x, 0)
+	main_hbox.add_child(spacer)
+
 
 ## Refreshes the UI for the given player and setup round.
 ## Called from board_manager._on_active_player_changed() on every player switch.
 func update_for_player(player: Player, setup_round: int) -> void:
+	if player.god and _god_panel:
+		_god_panel.update_god_display(player.god, _god_manager_ref, _board_manager_ref)
+
 	_player_label.text = player.player_name
 	_player_label.add_theme_color_override("font_color", player.player_color)
 

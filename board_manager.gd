@@ -139,7 +139,7 @@ func _ready() -> void:
 	setup_phase_ui = SetupPhaseUI.new()
 	setup_phase_ui.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	setup_canvas_layer.add_child(setup_phase_ui)
-	setup_phase_ui.initialize(TileManager.TILE_TYPE_COLORS)
+	setup_phase_ui.initialize(TileManager.TILE_TYPE_COLORS, god_manager, self)
 	setup_phase_ui.setup_tile_selected.connect(_on_setup_tile_selected)
 	# Manually push the first player since player_changed already fired before connection
 	setup_phase_ui.update_for_player(current_player, setup_round)
