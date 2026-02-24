@@ -167,7 +167,8 @@ func on_downgrade_tile(q: int, r: int) -> bool:
 
 
 ## Show resource type selection UI for CHANGE_TILE_TYPE power
-## Displays UI with 3 buttons (RESOURCES, FERVOR, GLORY) to pick new type
+## Displays UI with 3 buttons (RESOURCES, FERVOR, GLORY) to pick new type.
+## Buttons for types not present in the bag are shown greyed out.
 func show_resource_type_selection(q: int, r: int) -> void:
 	var village = village_manager.get_village_at(q, r)
 	if not village or village.player_owner != current_player:
@@ -179,18 +180,22 @@ func show_resource_type_selection(q: int, r: int) -> void:
 		Log.error("PowerExecutor: Village at (%d,%d) has no tile" % [q, r])
 		return
 
+	var tile_pool = board_manager.tile_pool
+	var available_types: Array[int] = []
+	for res_type in TileManager.ResourceType.values():
+		if tile_pool.has_tile_of_type_and_resource(tile.tile_type, res_type):
+			available_types.append(res_type)
+
 	if ui:
-		ui.show_resource_type_picker(q, r, tile.resource_type, tile.tile_type)
+		ui.show_resource_type_picker(q, r, tile.resource_type, tile.tile_type, available_types)
 
 
 ## Handle tile resource type change (Augia's power)
-## Changes the resource type of the tile at the given position
-##
-## DESIGN NOTE: This power does NOT check if tiles of the target type exist in the tile pool.
-## This is an intentional digital convenience - the power always works after paying its cost
-## (2 fervor + 1 action). In the physical game, you would swap tiles from the bag, but requiring
-## tile pool checks here would create frustrating "paid but failed" scenarios. The power is
-## already balanced by its once-per-turn limitation and fervor cost.
+## Changes the resource type of the tile at the given position.
+## Requires a matching tile in the bag — blocked if unavailable.
+## NOTE: To also return the current board tile to the bag (full board-game fidelity),
+## create a TileDefinition from tile's properties and call board_manager.tile_pool.return_tile()
+## before the draw below.
 func on_change_tile_type(q: int, r: int, new_resource_type: int) -> bool:
 	var village = village_manager.get_village_at(q, r)
 	if not village or village.player_owner != current_player:
@@ -221,15 +226,25 @@ func on_change_tile_type(q: int, r: int, new_resource_type: int) -> bool:
 		placement_controller.cancel_placement()
 		return false
 
+	var bag_tile = board_manager.tile_pool.draw_tile_of_type_and_resource(tile.tile_type, new_resource_type)
+	if not bag_tile:
+		Log.warn("No %s %s tile in bag — transformation blocked" % [
+			TileManager.TileType.keys()[tile.tile_type],
+			TileManager.ResourceType.keys()[new_resource_type]
+		])
+		current_player.pending_power = null
+		placement_controller.cancel_placement()
+		return false
+
 	god_manager.complete_deferred_power(current_player)
 
 	var old_type = tile.resource_type
 	var icon_path = TileManager.RESOURCE_TYPE_ICONS[new_resource_type]
 	tile.set_resource_properties(
 		new_resource_type,
-		tile.yield_value,
-		tile.village_building_cost,
-		tile.sell_price,
+		bag_tile.yield_value,
+		bag_tile.village_building_cost,
+		bag_tile.sell_price,
 		icon_path
 	)
 

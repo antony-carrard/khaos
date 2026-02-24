@@ -30,7 +30,8 @@ func _ready() -> void:
 ## q, r: tile position to change
 ## current_type: current resource type (for display)
 ## tile_type: terrain type (affects whether Glory is available)
-func show_picker(q: int, r: int, current_type: int, tile_type: int) -> void:
+## available_types: resource types that exist in the bag; others shown greyed out
+func show_picker(q: int, r: int, current_type: int, tile_type: int, available_types: Array[int]) -> void:
 	# If an overlay already exists, force close it first
 	if overlay:
 		_close_picker()
@@ -115,12 +116,12 @@ func show_picker(q: int, r: int, current_type: int, tile_type: int) -> void:
 
 	# Create buttons for each valid resource type
 	# Plains can only be Resources or Fervor (no Glory on Plains!)
-	_create_resource_type_button(button_container, TileManager.ResourceType.RESOURCES, "Resources", Color(0.6, 0.4, 0.2))
-	_create_resource_type_button(button_container, TileManager.ResourceType.FERVOR, "Fervor", Color(0.4, 0.3, 0.6))
+	_create_resource_type_button(button_container, TileManager.ResourceType.RESOURCES, "Resources", Color(0.6, 0.4, 0.2), available_types.has(TileManager.ResourceType.RESOURCES))
+	_create_resource_type_button(button_container, TileManager.ResourceType.FERVOR, "Fervor", Color(0.4, 0.3, 0.6), available_types.has(TileManager.ResourceType.FERVOR))
 
 	# Glory only available on Hills and Mountains
 	if tile_type != TileManager.TileType.PLAINS:
-		_create_resource_type_button(button_container, TileManager.ResourceType.GLORY, "Glory", Color(0.7, 0.6, 0.2))
+		_create_resource_type_button(button_container, TileManager.ResourceType.GLORY, "Glory", Color(0.7, 0.6, 0.2), available_types.has(TileManager.ResourceType.GLORY))
 
 	# Cancel button
 	var cancel_button = Button.new()
@@ -138,20 +139,23 @@ func show_picker(q: int, r: int, current_type: int, tile_type: int) -> void:
 
 
 ## Helper to create a resource type button
-func _create_resource_type_button(container: VBoxContainer, resource_type: int, type_name: String, color: Color) -> void:
+## available: whether this type exists in the tile bag; false shows greyed-out disabled button
+func _create_resource_type_button(container: VBoxContainer, resource_type: int, type_name: String, color: Color, available: bool) -> void:
 	var button = Button.new()
-	button.text = type_name
+	button.text = type_name if available else type_name + " (bag empty)"
 	button.custom_minimum_size = Vector2(0, RESOURCE_BUTTON_HEIGHT)
+	button.disabled = not available
 
 	var btn_style = StyleBoxFlat.new()
-	btn_style.bg_color = color
+	btn_style.bg_color = color if available else Color(0.35, 0.35, 0.35)
 	btn_style.corner_radius_top_left = 8
 	btn_style.corner_radius_top_right = 8
 	btn_style.corner_radius_bottom_left = 8
 	btn_style.corner_radius_bottom_right = 8
 	button.add_theme_stylebox_override("normal", btn_style)
 
-	button.pressed.connect(_on_resource_type_button_pressed.bind(resource_type))
+	if available:
+		button.pressed.connect(_on_resource_type_button_pressed.bind(resource_type))
 	container.add_child(button)
 
 

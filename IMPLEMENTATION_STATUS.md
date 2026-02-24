@@ -4,6 +4,22 @@
 
 This document tracks detailed implementation progress and serves as context for continuing development.
 
+## Recent Changes (2026-02-24) — Tile Bag as Source of Truth for Upgrade & Transform
+
+**Removed TILE_TYPE_YIELDS constant; tile values now come from the bag:**
+- `upgrade_tile()` in `tile_manager.gd` draws a matching tile from the bag via `tile_pool.draw_tile_of_type()`; upgrade blocked if bag has no tile of that level
+- `UpgradeTileStrategy.get_validity()` checks `tile_pool.has_tile_of_type(next_type)` — upgrade hexes go red when the bag is exhausted for that level
+- `tile_manager.tile_pool` wired by `board_manager` after both are initialised
+- Augia's CHANGE_TILE_TYPE power now also draws from the bag via `tile_pool.draw_tile_of_type_and_resource()`; transformation blocked (and picker button greyed out) when bag has no matching tile
+- `show_resource_type_selection()` in `power_executor.gd` computes `available_types` from the bag and passes it to the picker; picker buttons show "(bag empty)" and are disabled for unavailable types
+- Bug fix: `on_change_tile_type()` now uses the drawn tile's `sell_price`, `yield_value`, and `village_building_cost` instead of copying the old tile's values (previously Glory→Resources would keep sell_price=0)
+- Removed "intentional digital convenience" design note from `power_executor.gd`
+- NOTE comments mark exact insertion points for future return-to-bag logic in `tile_pool.gd`, `upgrade_tile()`, and `on_change_tile_type()`
+- `TilePool` gains four helpers: `has_tile_of_type()`, `draw_tile_of_type()`, `has_tile_of_type_and_resource()`, `draw_tile_of_type_and_resource()`
+- Files modified: `tile_pool.gd`, `tile_manager.gd`, `board_manager.gd`, `placement/strategies/upgrade_tile_strategy.gd`, `power_executor.gd`, `ui/resource_type_picker.gd`, `tile_selector_ui.gd`
+
+---
+
 ## Recent Changes (2026-02-24) — Hand Refresh Refactor
 
 **Single source of truth for hand size:**
@@ -46,7 +62,7 @@ This document tracks detailed implementation progress and serves as context for 
 - **`placement_controller.gd` — strategy-replace-in-callback**: `handle_mouse_input` saves `var strategy = current_strategy` before `on_click`. Only sets `current_strategy = null` if `current_strategy == strategy` (i.e., the callback didn't install a new strategy). Previously, Round 3 village placement mode was immediately wiped after setup tile placed.
 - **`hex_tile.gd` — Godot 4 API**: `depth_draw_opaque_only = false` → `depth_draw_mode = BaseMaterial3D.DEPTH_DRAW_ALWAYS` (removes deprecation warning on every tile placement)
 - **`power_executor.gd` + `downgrade_tile_strategy.gd` — Rakun affaissement**: Was targeting own villages instead of enemy. Fixed: `==` / `!=` direction corrected in both files.
-- **`tile_manager.gd` — upgrade yield**: `upgrade_tile()` was copying `current_tile.yield_value` (Plains yield 1 onto a Hills tile). Fixed: added `TILE_TYPE_YIELDS = {PLAINS:1, HILLS:2, MOUNTAIN:4}` constant; upgrade now uses `TILE_TYPE_YIELDS[new_tile_type]`.
+- **`tile_manager.gd` — upgrade yield**: `upgrade_tile()` was copying `current_tile.yield_value` (Plains yield 1 onto a Hills tile). Fixed: upgrade now draws a tile from the bag and uses the drawn tile's `yield_value` (TILE_TYPE_YIELDS constant removed).
 - **`god_selection_ui.gd` — double text**: Player header label said `"%s, choose your god"` while a separate `"Choisissez votre Dieu"` title existed. Fixed: header now shows only the player name.
 - **`board_manager.gd` — sell tile resource type**: `sell_tile()` always called `add_resources()`. Fixed: matches on `tile.resource_type` — fervor tiles call `add_fervor()`.
 
@@ -664,8 +680,8 @@ You have a **fully playable hot-seat multiplayer** (1–4 players) turn-based he
 
 **Code patterns to remember:**
 - Strategy-in-callback: save `var strategy = current_strategy` before `on_click`, only null if unchanged
-- `TileManager.TILE_TYPE_YIELDS` for canonical yield per tier
-- Rakun downgrade = enemy villages; Augia upgrade = own villages
+- Tile yield values come from the drawn `TileDefinition` (bag), not a constant
+- Rakun downgrade = enemy villages; Augia upgrade/transform = own villages
 - `depth_draw_mode = BaseMaterial3D.DEPTH_DRAW_ALWAYS` (Godot 4, not `depth_draw_opaque_only`)
 - Sell tile: match `tile.resource_type` to call correct `add_*()` method
 

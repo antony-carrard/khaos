@@ -459,9 +459,9 @@ func _on_power_activated(power: GodPower, god_manager: GodManager) -> void:
 
 ## Shows the resource type picker UI for CHANGE_TILE_TYPE power
 ## Delegates to resource_type_picker component.
-func show_resource_type_picker(q: int, r: int, current_type: int, tile_type: int) -> void:
+func show_resource_type_picker(q: int, r: int, current_type: int, tile_type: int, available_types: Array[int]) -> void:
 	if resource_type_picker:
-		resource_type_picker.show_picker(q, r, current_type, tile_type)
+		resource_type_picker.show_picker(q, r, current_type, tile_type, available_types)
 
 
 ## Handle resource type selection from picker
