@@ -1,8 +1,18 @@
 # Implementation Status
 
-**Last Updated:** 2026-02-22 (multiplayer + bug fixes)
+**Last Updated:** 2026-02-24
 
 This document tracks detailed implementation progress and serves as context for continuing development.
+
+## Recent Changes (2026-02-24) — Setup Tile Drawing Rule Change
+
+**Deterministic setup tile draw:**
+- Setup tiles are now always exactly one PLAINS/Resources + one PLAINS/Fervor tile (previously 2 random PLAINS tiles drawn by fishing-with-return loop)
+- Added `TilePool.draw_plains_tile(resource_type)` — directly searches bag for the first matching tile, removes it, returns it. No reshuffling.
+- Rewrote `Player.initialize_setup_tiles()` — two explicit calls to `draw_plains_tile`; removed the `MAX_SETUP_DRAW_ATTEMPTS` constant and the while-loop entirely.
+- Files modified: `tile_pool.gd`, `player.gd`
+
+---
 
 ## Recent Changes (2026-02-22) — Hot-Seat Multiplayer + Bug Fixes
 
@@ -140,7 +150,7 @@ This document tracks detailed implementation progress and serves as context for 
 - **Implemented Augia's CHANGE_TILE_TYPE power** (2 fervor + 1 action)
   - Added CHANGE_TILE_TYPE placement mode to placement_controller.gd
   - Created resource type picker UI modal (tile_selector_ui.gd)
-    - Shows 3 buttons: Resources, Fervor, Glory (or 2 if Plains tile)
+	- Shows 3 buttons: Resources, Fervor, Glory (or 2 if Plains tile)
 	- Purple border matching Augia's theme color
 	- Prevents multiple overlays from spawning
 	- Consumes mouse input to prevent click-through
@@ -185,12 +195,12 @@ This document tracks detailed implementation progress and serves as context for 
   - **Once-per-turn limitation** - powers can only be used once per turn
   - **Dynamic button states** - automatically gray out when:
 	- Player can't afford fervor cost
-    - Power already used this turn
-    - Not in actions phase
-    - No actions remaining
+	- Power already used this turn
+	- Not in actions phase
+	- No actions remaining
   - **Reactive UI updates** - connected to multiple signals:
-    - fervor_changed, power_used, actions_changed, phase_changed
-    - Buttons update immediately without "tick lag"
+	- fervor_changed, power_used, actions_changed, phase_changed
+	- Buttons update immediately without "tick lag"
   - Power buttons wired to god_manager.activate_power()
 - **Village cost refactoring** - player.gd
   - Added `player.get_village_cost(base_cost)` helper method
@@ -524,7 +534,7 @@ active_player_view (signal bridge)
 ├── Mirrors player signals so UI connects once, never rewires
 ├── bind(player) disconnects old player, connects new, emits current values
 └── Emits: resources_changed, fervor_changed, glory_changed, actions_changed,
-          power_used, player_changed
+		  power_used, player_changed
 
 turn_manager (turn flow)
 ├── Owns: reference to current_player, village_manager, tile_manager, tile_pool

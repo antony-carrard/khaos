@@ -16,7 +16,6 @@ var glory: int = 0        # Victory points
 const HAND_SIZE: int = 3
 const BASE_ACTIONS: int = 3          # Default actions per turn (before bonuses)
 const SETUP_TILE_COUNT: int = 2       # Plains tiles dealt at game start (player chooses order of placement)
-const MAX_SETUP_DRAW_ATTEMPTS: int = 100  # Safety cap when fishing for PLAINS tiles
 var hand: Array = [null, null, null]  # Array of TilePool.TileDefinition or null
 
 # Setup phase tiles (1 PLAINS tile drawn per setup round)
@@ -180,37 +179,23 @@ func get_hand() -> Array:
 	return hand
 
 
-## Initialize setup tiles by drawing SETUP_TILE_COUNT PLAINS tiles from the tile pool
+## Initialize setup tiles: one PLAINS/Resources tile and one PLAINS/Fervor tile
 ## Called at the start of the setup phase
 func initialize_setup_tiles(tile_pool: TilePool) -> void:
 	setup_tiles.clear()
 	setup_tiles_placed = 0
 	# Note: setup_tile_positions is NOT cleared here — it accumulates across rounds 1 & 2
 
-	# Draw PLAINS tiles from the tile pool
-	var plains_drawn = 0
-	var attempts = 0
+	var resources_tile = tile_pool.draw_plains_tile(TileManager.ResourceType.RESOURCES)
+	if resources_tile:
+		setup_tiles.append(resources_tile)
+	else:
+		Log.error("%s: Could not draw PLAINS/Resources tile for setup!" % player_name)
 
-	while plains_drawn < SETUP_TILE_COUNT and attempts < MAX_SETUP_DRAW_ATTEMPTS:
-		var tile = tile_pool.draw_tile()
-		attempts += 1
+	var fervor_tile = tile_pool.draw_plains_tile(TileManager.ResourceType.FERVOR)
+	if fervor_tile:
+		setup_tiles.append(fervor_tile)
+	else:
+		Log.error("%s: Could not draw PLAINS/Fervor tile for setup!" % player_name)
 
-		if tile == null:
-			Log.error("Tile pool is empty! Cannot draw setup tiles.")
-			break
-
-		if tile.tile_type == TileManager.TileType.PLAINS:
-			setup_tiles.append(tile)
-			plains_drawn += 1
-			Log.debug("%s: Drew PLAINS %s tile for setup" % [
-				player_name,
-				TileManager.ResourceType.keys()[tile.resource_type]
-			])
-		else:
-			# Return non-PLAINS tile to pool
-			tile_pool.return_tile(tile)
-
-	if plains_drawn < SETUP_TILE_COUNT:
-		Log.error("Could not draw %d PLAINS tiles for setup! Only got %d" % [SETUP_TILE_COUNT, plains_drawn])
-
-	Log.info("%s: Setup tiles initialized (%d PLAINS tiles)" % [player_name, plains_drawn])
+	Log.info("%s: Setup tiles initialized (%d tiles)" % [player_name, setup_tiles.size()])
