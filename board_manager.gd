@@ -70,8 +70,8 @@ func _ready() -> void:
 	tile_pool.initialize()
 	tile_manager.tile_pool = tile_pool
 
-	# Create N players
-	var count = clampi(player_count, 1, 4)
+	# Create N players — prefer GameConfig when coming from the main menu
+	var count = clampi(GameConfig.player_count if GameConfig.initialized else player_count, 1, 4)
 	for i in range(count):
 		var player = Player.new()
 		add_child(player)

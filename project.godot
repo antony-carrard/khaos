@@ -14,14 +14,15 @@ compatibility/default_parent_skeleton_in_mesh_instance_3d=true
 
 [application]
 
-config/name="Khaos"
-run/main_scene="res://main.tscn"
+config/name="Chaos"
+run/main_scene="res://main_menu.tscn"
 config/features=PackedStringArray("4.6", "Forward Plus")
 config/icon="res://icon.svg"
 
 [autoload]
 
 Log="*res://logger.gd"
+GameConfig="*res://game_config.gd"
 
 [display]
 

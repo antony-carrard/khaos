@@ -1,4 +1,4 @@
-# Khaos - Hexagonal God-Themed Board Game
+# Chaos - Hexagonal God-Themed Board Game
 
 A Catan-like 3D hexagonal tile placement game built in Godot 4.5.
 

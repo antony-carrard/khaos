@@ -4,6 +4,33 @@
 
 This document tracks detailed implementation progress and serves as context for continuing development.
 
+## Recent Changes (2026-02-24) — Main Menu + Game Mode Architecture
+
+**`GameConfig` autoload (`game_config.gd`):**
+- Lightweight singleton holding `mode: GameMode` (HOT_SEAT / NETWORK), `player_count: int = 2`, `initialized: bool`
+- Set by the main menu before loading `main.tscn`; `initialized = false` means board_manager falls back to its `@export player_count` (preserves direct editor testing)
+- Foundation for network multiplayer: `GameConfig.mode` will drive Option-B local-player-index behavior in the next phase
+
+**`main_menu.tscn` + `ui/main_menu.gd` (new):**
+- Programmatic UI matching project style (dark bg, styled cards, outline fonts)
+- CHAOS title with purple outline + tagline
+- Two mode cards: **Hot-Seat** (enabled) → player count picker (1–4, default 2) → Start Game; **Network** (grayed out, "Coming Soon")
+- Back button returns from count picker to mode cards
+- `project.godot`: main scene changed from `main.tscn` → `main_menu.tscn`
+
+**`board_manager.gd`:**
+- `_ready()` now reads `GameConfig.player_count if GameConfig.initialized else player_count`; `@export player_count` still used when running `main.tscn` directly in the editor
+
+**`ui/victory_screen.gd`:**
+- "Return to Menu" button enabled and wired to `change_scene_to_file("res://main_menu.tscn")`
+- "New Game" resets `GameConfig.initialized = false` before reload so export defaults apply
+
+**Project rename Khaos → Chaos:**
+- `project.godot` config name, `ui/main_menu.gd` title text, `README.md` — display text only
+- Folder name (`/home/antony/code/khaos`) left unchanged; rename independently when editor is closed
+
+---
+
 ## Recent Changes (2026-02-24) — Persistent Player Status Header
 
 **New `ui/player_status_header.gd`:**

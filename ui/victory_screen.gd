@@ -134,11 +134,10 @@ func _create_victory_screen(all_scores: Array) -> Control:
 	button_hbox.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	overlay.add_child(button_hbox)
 
-	# Return to menu button (disabled — no menu system yet)
 	var menu_button = Button.new()
 	menu_button.text = "Return to Menu"
-	menu_button.disabled = true
 	menu_button.custom_minimum_size = VICTORY_BUTTON_SIZE
+	menu_button.pressed.connect(_on_return_to_menu)
 	button_hbox.add_child(menu_button)
 
 	# New game button
@@ -297,4 +296,11 @@ func _create_button_style(bg_color: Color) -> StyleBoxFlat:
 
 ## Called when New Game button is pressed.
 func _on_new_game() -> void:
+	GameConfig.initialized = false  # Let board_manager fall back to @export defaults
 	get_tree().reload_current_scene()
+
+
+## Called when Return to Menu button is pressed.
+func _on_return_to_menu() -> void:
+	GameConfig.initialized = false
+	get_tree().change_scene_to_file("res://main_menu.tscn")
