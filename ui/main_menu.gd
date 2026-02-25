@@ -37,9 +37,7 @@ var _count_start_btn: Button = null  # stored so text can be updated ("Start Gam
 var _count_buttons: Array[Button] = []
 var _selected_count: int = 2
 
-var _index_container: CenterContainer = null  # "which player are you?" section (network only)
-var _index_buttons: Array[Button] = []
-var _selected_index: int = 0
+var _network_container: CenterContainer = null  # current active network screen
 
 
 func _ready() -> void:
@@ -247,8 +245,7 @@ func _on_network_pressed() -> void:
 
 func _on_start_pressed() -> void:
 	if GameConfig.mode == GameConfig.GameMode.NETWORK:
-		# Network: show player index picker before starting
-		_show_index_section()
+		_show_host_join_section()
 	else:
 		GameConfig.player_count = _selected_count
 		GameConfig.initialized = true
@@ -260,29 +257,34 @@ func _on_back_pressed() -> void:
 	_mode_container.visible = true
 
 
-## Show "which player are you?" screen for network mode.
-## Dynamically built based on _selected_count so the buttons match the chosen player count.
-func _show_index_section() -> void:
-	if _index_container:
-		_index_container.queue_free()
-		_index_container = null
-	_index_buttons.clear()
+## ─── NETWORK LOBBY ─────────────────────────────────────────────────────────
 
-	GameConfig.player_count = _selected_count
-	_selected_index = 0
+func _clear_network_container() -> void:
+	if _network_container:
+		_network_container.queue_free()
+		_network_container = null
 
-	_index_container = CenterContainer.new()
-	_index_container.set_anchors_preset(Control.PRESET_FULL_RECT)
-	_index_container.offset_top = TITLE_BOTTOM_Y
-	add_child(_index_container)
+
+func _make_network_container() -> VBoxContainer:
+	_clear_network_container()
+	_network_container = CenterContainer.new()
+	_network_container.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_network_container.offset_top = TITLE_BOTTOM_Y
+	add_child(_network_container)
+	_count_container.visible = false
 
 	var vbox := VBoxContainer.new()
 	vbox.alignment = BoxContainer.ALIGNMENT_CENTER
 	vbox.add_theme_constant_override("separation", 36)
-	_index_container.add_child(vbox)
+	_network_container.add_child(vbox)
+	return vbox
+
+
+func _show_host_join_section() -> void:
+	var vbox := _make_network_container()
 
 	var prompt := Label.new()
-	prompt.text = "Which player are you?"
+	prompt.text = "Network Game"
 	prompt.add_theme_font_size_override("font_size", 36)
 	prompt.add_theme_color_override("font_color", Color.WHITE)
 	prompt.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -290,69 +292,224 @@ func _show_index_section() -> void:
 
 	var hbox := HBoxContainer.new()
 	hbox.alignment = BoxContainer.ALIGNMENT_CENTER
-	hbox.add_theme_constant_override("separation", 24)
+	hbox.add_theme_constant_override("separation", CARD_SEPARATION)
 	vbox.add_child(hbox)
 
-	for i in range(_selected_count):
-		var btn := Button.new()
-		btn.text = "Player %d" % (i + 1)
-		btn.add_theme_font_size_override("font_size", COUNT_BTN_FONT_SIZE)
-		btn.custom_minimum_size = COUNT_BTN_SIZE
-		var idx := i  # capture for lambda
-		btn.pressed.connect(func() -> void: _select_index(idx))
-		hbox.add_child(btn)
-		_index_buttons.append(btn)
+	_build_mode_card(hbox, "Host", "Create a server\nfor others to join", false,
+		_show_host_section)
+	_build_mode_card(hbox, "Join", "Connect to\nan existing server", false,
+		_show_join_section)
+
+	var back_btn := Button.new()
+	back_btn.text = "← Back"
+	back_btn.add_theme_font_size_override("font_size", 24)
+	back_btn.pressed.connect(func() -> void:
+		_clear_network_container()
+		_count_container.visible = true)
+	vbox.add_child(back_btn)
+
+
+func _show_host_section() -> void:
+	var vbox := _make_network_container()
+
+	var prompt := Label.new()
+	prompt.text = "Host a Server"
+	prompt.add_theme_font_size_override("font_size", 36)
+	prompt.add_theme_color_override("font_color", Color.WHITE)
+	prompt.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	vbox.add_child(prompt)
+
+	var port_edit := LineEdit.new()
+	port_edit.text = str(NetworkManager.DEFAULT_PORT)
+	port_edit.placeholder_text = "Port"
+	port_edit.add_theme_font_size_override("font_size", 28)
+	port_edit.custom_minimum_size = Vector2(200, 52)
+	port_edit.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	vbox.add_child(port_edit)
+
+	var status_lbl := Label.new()
+	status_lbl.text = ""
+	status_lbl.add_theme_font_size_override("font_size", 22)
+	status_lbl.add_theme_color_override("font_color", Color(1.0, 0.5, 0.3))
+	status_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	vbox.add_child(status_lbl)
+
+	var create_btn := Button.new()
+	create_btn.text = "Create Server"
+	create_btn.add_theme_font_size_override("font_size", START_BTN_FONT_SIZE)
+	create_btn.custom_minimum_size = Vector2(240, 64)
+	create_btn.pressed.connect(func() -> void:
+		var port := int(port_edit.text) if port_edit.text.is_valid_int() else NetworkManager.DEFAULT_PORT
+		var err := NetworkManager.create_server(port)
+		if err != OK:
+			status_lbl.text = "Failed to create server (error %d)" % err
+		else:
+			_show_lobby_section())
+	vbox.add_child(create_btn)
+
+	var back_btn := Button.new()
+	back_btn.text = "← Back"
+	back_btn.add_theme_font_size_override("font_size", 24)
+	back_btn.pressed.connect(func() -> void:
+		NetworkManager.disconnect_network()
+		_show_host_join_section())
+	vbox.add_child(back_btn)
+
+
+func _show_join_section() -> void:
+	var vbox := _make_network_container()
+
+	var prompt := Label.new()
+	prompt.text = "Join a Server"
+	prompt.add_theme_font_size_override("font_size", 36)
+	prompt.add_theme_color_override("font_color", Color.WHITE)
+	prompt.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	vbox.add_child(prompt)
+
+	var ip_edit := LineEdit.new()
+	ip_edit.text = "127.0.0.1"
+	ip_edit.placeholder_text = "Server IP"
+	ip_edit.add_theme_font_size_override("font_size", 28)
+	ip_edit.custom_minimum_size = Vector2(300, 52)
+	ip_edit.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	vbox.add_child(ip_edit)
+
+	var port_edit := LineEdit.new()
+	port_edit.text = str(NetworkManager.DEFAULT_PORT)
+	port_edit.placeholder_text = "Port"
+	port_edit.add_theme_font_size_override("font_size", 28)
+	port_edit.custom_minimum_size = Vector2(200, 52)
+	port_edit.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	vbox.add_child(port_edit)
+
+	var status_lbl := Label.new()
+	status_lbl.text = ""
+	status_lbl.add_theme_font_size_override("font_size", 22)
+	status_lbl.add_theme_color_override("font_color", Color(1.0, 0.5, 0.3))
+	status_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	vbox.add_child(status_lbl)
+
+	var connect_btn := Button.new()
+	connect_btn.text = "Connect"
+	connect_btn.add_theme_font_size_override("font_size", START_BTN_FONT_SIZE)
+	connect_btn.custom_minimum_size = Vector2(240, 64)
+	connect_btn.pressed.connect(func() -> void:
+		var port := int(port_edit.text) if port_edit.text.is_valid_int() else NetworkManager.DEFAULT_PORT
+		status_lbl.add_theme_color_override("font_color", Color(0.6, 0.8, 0.6))
+		status_lbl.text = "Connecting…"
+		connect_btn.disabled = true
+		var err := NetworkManager.join_server(ip_edit.text.strip_edges(), port)
+		if err != OK:
+			status_lbl.add_theme_color_override("font_color", Color(1.0, 0.5, 0.3))
+			status_lbl.text = "Failed to connect (error %d)" % err
+			connect_btn.disabled = false
+			return
+		# Bind one-shot signals
+		NetworkManager.connection_succeeded.connect(func() -> void:
+			_show_waiting_section(), CONNECT_ONE_SHOT)
+		NetworkManager.connection_failed.connect(func() -> void:
+			status_lbl.add_theme_color_override("font_color", Color(1.0, 0.5, 0.3))
+			status_lbl.text = "Connection failed"
+			connect_btn.disabled = false, CONNECT_ONE_SHOT))
+	vbox.add_child(connect_btn)
+
+	var back_btn := Button.new()
+	back_btn.text = "← Back"
+	back_btn.add_theme_font_size_override("font_size", 24)
+	back_btn.pressed.connect(func() -> void:
+		NetworkManager.disconnect_network()
+		_show_host_join_section())
+	vbox.add_child(back_btn)
+
+
+func _show_waiting_section() -> void:
+	var vbox := _make_network_container()
+
+	var lbl := Label.new()
+	lbl.text = "Connected!\nWaiting for the host to start the game…"
+	lbl.add_theme_font_size_override("font_size", 30)
+	lbl.add_theme_color_override("font_color", Color(0.7, 0.9, 0.7))
+	lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	vbox.add_child(lbl)
+
+	var back_btn := Button.new()
+	back_btn.text = "← Disconnect"
+	back_btn.add_theme_font_size_override("font_size", 24)
+	back_btn.pressed.connect(func() -> void:
+		NetworkManager.disconnect_network()
+		_clear_network_container()
+		_count_container.visible = true)
+	vbox.add_child(back_btn)
+
+
+func _show_lobby_section() -> void:
+	var vbox := _make_network_container()
+
+	var prompt := Label.new()
+	prompt.text = "Lobby"
+	prompt.add_theme_font_size_override("font_size", 36)
+	prompt.add_theme_color_override("font_color", Color.WHITE)
+	prompt.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	vbox.add_child(prompt)
+
+	# Player list (rebuilt on peer connect/disconnect)
+	var player_list := VBoxContainer.new()
+	player_list.add_theme_constant_override("separation", 12)
+	vbox.add_child(player_list)
 
 	var start_btn := Button.new()
 	start_btn.text = "Start Game"
 	start_btn.add_theme_font_size_override("font_size", START_BTN_FONT_SIZE)
 	start_btn.custom_minimum_size = Vector2(240, 64)
-	start_btn.pressed.connect(_on_index_start_pressed)
+	start_btn.visible = NetworkManager.is_host
 	vbox.add_child(start_btn)
 
 	var back_btn := Button.new()
-	back_btn.text = "← Back"
+	back_btn.text = "← Disconnect"
 	back_btn.add_theme_font_size_override("font_size", 24)
-	back_btn.pressed.connect(_on_index_back_pressed)
+	back_btn.pressed.connect(func() -> void:
+		NetworkManager.disconnect_network()
+		_clear_network_container()
+		_count_container.visible = true)
 	vbox.add_child(back_btn)
 
-	_count_container.visible = false
-	_select_index(0)
+	# Rebuild player list helper
+	var refresh := func() -> void:
+		if not is_instance_valid(player_list):
+			return
+		for child in player_list.get_children():
+			child.queue_free()
+		var all_peers: Array[int] = [1]  # host is always peer 1
+		for p in NetworkManager.get_connected_peers():
+			if not all_peers.has(p):
+				all_peers.append(p)
+		var my_id := multiplayer.get_unique_id()
+		for i in range(all_peers.size()):
+			var lbl := Label.new()
+			var pid := all_peers[i]
+			var suffix := " (host)" if pid == 1 else ""
+			var me_tag := " ← you" if pid == my_id else ""
+			lbl.text = "Player %d%s%s" % [i + 1, suffix, me_tag]
+			lbl.add_theme_font_size_override("font_size", 26)
+			lbl.add_theme_color_override("font_color", Color.WHITE)
+			lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+			player_list.add_child(lbl)
 
+	refresh.call()
 
-func _select_index(idx: int) -> void:
-	_selected_index = idx
-	for i in range(_index_buttons.size()):
-		var btn: Button = _index_buttons[i]
-		var selected: bool = (i == idx)
+	# Wire peer connect/disconnect to refresh (disconnect when lobby is freed)
+	NetworkManager.peer_connected.connect(func(_id: int) -> void: refresh.call())
+	NetworkManager.peer_disconnected.connect(func(_id: int) -> void: refresh.call())
 
-		var style_normal := StyleBoxFlat.new()
-		style_normal.set_corner_radius_all(COUNT_BTN_CORNER_RADIUS)
-		style_normal.border_width_left = 2
-		style_normal.border_width_right = 2
-		style_normal.border_width_top = 2
-		style_normal.border_width_bottom = 2
-		if selected:
-			style_normal.bg_color = COLOR_COUNT_SELECTED_BG
-			style_normal.border_color = COLOR_COUNT_SELECTED_BORDER
-		else:
-			style_normal.bg_color = COLOR_COUNT_NORMAL_BG
-			style_normal.border_color = COLOR_COUNT_NORMAL_BORDER
-
-		btn.add_theme_stylebox_override("normal", style_normal)
-		btn.add_theme_stylebox_override("hover", style_normal)
-		btn.add_theme_color_override("font_color",
-			Color.WHITE if selected else Color(0.60, 0.60, 0.70))
-
-
-func _on_index_start_pressed() -> void:
-	GameConfig.local_player_index = _selected_index
-	GameConfig.initialized = true
-	get_tree().change_scene_to_file("res://main.tscn")
-
-
-func _on_index_back_pressed() -> void:
-	if _index_container:
-		_index_container.queue_free()
-		_index_container = null
-	_count_container.visible = true
+	start_btn.pressed.connect(func() -> void:
+		var all_peers: Array[int] = [1]
+		for p in NetworkManager.get_connected_peers():
+			if not all_peers.has(p):
+				all_peers.append(p)
+		var count := mini(all_peers.size(), _selected_count)
+		var peer_map: Dictionary = {}
+		for i in range(count):
+			peer_map[all_peers[i]] = i
+		var rng_seed := randi()
+		NetworkManager.rpc("start_game", count, peer_map, rng_seed))

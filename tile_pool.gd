@@ -27,8 +27,15 @@ var tile_bag: Array[TileDefinition] = []
 var removed_tiles: Array[TileDefinition] = []
 
 
-## Initialize the tile pool with all 63 tiles from rules.md
-func initialize() -> void:
+## Initialize the tile pool with all 63 tiles from rules.md.
+## Pass rng_seed >= 0 for deterministic shuffling (network mode); -1 uses random seed.
+func initialize(rng_seed: int = -1) -> void:
+	var rng := RandomNumberGenerator.new()
+	if rng_seed >= 0:
+		rng.seed = rng_seed
+	else:
+		rng.randomize()
+
 	tile_bag.clear()
 	removed_tiles.clear()
 
@@ -89,8 +96,12 @@ func initialize() -> void:
 			3, 6, 0  # Glory can't be sold
 		))
 
-	# Shuffle the bag
-	tile_bag.shuffle()
+	# Fisher-Yates shuffle using the seeded RNG for deterministic ordering
+	for i in range(tile_bag.size() - 1, 0, -1):
+		var j := rng.randi_range(0, i)
+		var tmp = tile_bag[i]
+		tile_bag[i] = tile_bag[j]
+		tile_bag[j] = tmp
 
 	Log.info("TilePool initialized: %d tiles in bag" % tile_bag.size())
 	assert(tile_bag.size() == 63, "TilePool: Expected 63 tiles, got %d" % tile_bag.size())

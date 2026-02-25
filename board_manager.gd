@@ -60,6 +60,10 @@ var triggering_player: Player = null
 var setup_round: int = 1       # 1, 2 = tile placement rounds; 3 = village placement
 var setup_players_done: int = 0
 
+# True when running in NETWORK mode (shorthand property)
+var _is_network: bool:
+	get: return GameConfig.initialized and GameConfig.mode == GameConfig.GameMode.NETWORK
+
 
 func _ready() -> void:
 	# Create active player view (signal bridge)
@@ -75,10 +79,13 @@ func _ready() -> void:
 	village_manager = VillageManager.new()
 	add_child(village_manager)
 
-	# Initialize tile pool
+	# Initialize tile pool — use shared seed in network mode for deterministic bag order
 	tile_pool = TilePool.new()
 	add_child(tile_pool)
-	tile_pool.initialize()
+	var tile_seed := -1
+	if GameConfig.initialized and GameConfig.mode == GameConfig.GameMode.NETWORK:
+		tile_seed = GameConfig.network_rng_seed
+	tile_pool.initialize(tile_seed)
 	tile_manager.tile_pool = tile_pool
 
 	# Create N players — prefer GameConfig when coming from the main menu
@@ -131,11 +138,17 @@ func _ready() -> void:
 	add_child(placement_controller)
 	await placement_controller.initialize(tile_manager, village_manager, camera, self)
 
-	# God selection for each player (in order; later players can't pick taken gods)
-	var selected_so_far: Array[God] = []
-	for player in players:
-		await show_god_selection(player, selected_so_far)
-		selected_so_far.append(player.god)
+	# God selection: hot-seat shows UI per player; network auto-assigns by player index
+	if GameConfig.initialized and GameConfig.mode == GameConfig.GameMode.NETWORK:
+		var all_gods := GodManager.create_all_gods()
+		for i in range(players.size()):
+			players[i].god = all_gods[i % all_gods.size()]
+			Log.info("Player %d auto-assigned god: %s" % [i + 1, players[i].god.god_name])
+	else:
+		var selected_so_far: Array[God] = []
+		for player in players:
+			await show_god_selection(player, selected_so_far)
+			selected_so_far.append(player.god)
 
 	# Deal both setup tiles to every player upfront (they choose which to place each round)
 	for player in players:
@@ -167,6 +180,9 @@ func _ready() -> void:
 	overlay_canvas.add_child(not_your_turn_overlay)
 	if OS.is_debug_build():
 		not_your_turn_overlay.debug_end_turn_requested.connect(_on_debug_end_opponent_turn)
+
+	# Connect network disconnect handler (no-op in hot-seat since signal never fires)
+	NetworkManager.peer_disconnected.connect(_on_network_peer_disconnected)
 
 	# Bind first player (main game UI not created yet — setup_ui() is called after setup)
 	_switch_to_player(0)
@@ -305,6 +321,7 @@ func setup_ui() -> void:
 	power_executor = PowerExecutor.new()
 	add_child(power_executor)
 	power_executor.initialize(current_player, tile_manager, village_manager, god_manager, placement_controller, ui, self)
+	power_executor.power_executed.connect(_on_power_executed)
 
 
 ## Handle setup tile selection during setup phase
@@ -358,8 +375,9 @@ func _on_tile_selected_from_hand(hand_index: int) -> void:
 	placement_controller.select_tile_from_hand(hand_index, tile_def)
 
 
-## Called by placement_controller when a tile from hand is successfully placed
-func on_tile_placed_from_hand(hand_index: int) -> void:
+## Called by TilePlacementStrategy (gameplay path) after placing a tile.
+## q, r are the hex coords of the placement for network broadcasting.
+func on_tile_placed_from_hand(hand_index: int, q: int, r: int) -> void:
 	if hand_index < 0 or hand_index >= current_player.HAND_SIZE:
 		return
 
@@ -387,6 +405,9 @@ func on_tile_placed_from_hand(hand_index: int) -> void:
 
 	if ui:
 		ui.update_hand_display()
+
+	if _is_network:
+		rpc("_rpc_place_tile", hand_index, q, r)
 
 
 ## Sell a tile from hand for resources
@@ -431,6 +452,9 @@ func sell_tile(hand_index: int) -> void:
 	if ui:
 		ui.update_hand_display()
 
+	if _is_network:
+		rpc("_rpc_sell_tile", hand_index)
+
 
 ## Called when player attempts to place a village
 func on_village_placed(q: int, r: int) -> bool:
@@ -458,6 +482,10 @@ func on_village_placed(q: int, r: int) -> bool:
 		return false
 
 	Log.info("Built village for %d resources" % cost)
+
+	if _is_network:
+		rpc("_rpc_place_village", q, r)
+
 	return true
 
 
@@ -489,6 +517,10 @@ func on_village_removed(q: int, r: int) -> bool:
 
 	current_player.add_resources(refund)
 	Log.info("Removed village, received %d resources refund" % refund)
+
+	if _is_network:
+		rpc("_rpc_remove_village", q, r)
+
 	return true
 
 
@@ -594,6 +626,209 @@ func _on_debug_end_opponent_turn() -> void:
 		turn_manager.setup_action_done.emit()
 	else:
 		turn_manager.end_turn()
+
+
+## Called by TilePlacementStrategy (setup path).
+## Records position and notifies turn_manager; broadcasts in network mode.
+func on_setup_tile_placed(setup_index: int, q: int, r: int) -> void:
+	current_player.setup_tile_positions.append(Vector2i(q, r))
+	turn_manager.on_setup_tile_placed(setup_index)
+	# turn_manager.on_setup_tile_placed already emits setup_action_done
+	if _is_network:
+		rpc("_rpc_setup_tile_placed", setup_index, q, r)
+
+
+## Called by SetupVillagePlaceStrategy (setup Round 3).
+## Notifies turn_manager; broadcasts in network mode.
+func on_setup_village_placed(q: int, r: int) -> void:
+	turn_manager.on_setup_village_placed()
+	# turn_manager.on_setup_village_placed already emits setup_action_done
+	if _is_network:
+		rpc("_rpc_setup_village_placed", q, r)
+
+
+## Called by tile_selector_ui when the player chooses a harvest type.
+func on_harvest_selected(resource_type: int) -> void:
+	turn_manager.harvest(resource_type)
+	if _is_network:
+		rpc("_rpc_harvest", resource_type)
+
+
+## Called by tile_selector_ui when the player presses End Turn.
+func on_end_turn_requested() -> void:
+	turn_manager.end_turn()
+	if _is_network:
+		rpc("_rpc_end_turn")
+
+
+## Called by tile_selector_ui._on_power_activated.
+## Executes the power locally and broadcasts instant powers to remote peers.
+func on_power_activated(power: GodPower, player: Player) -> void:
+	var success := god_manager.activate_power(power, player, self)
+	if not success:
+		return
+	# Targeted (deferred) powers broadcast via power_executor.power_executed signal.
+	# Instant powers (no target selection) broadcast here.
+	if _is_network:
+		match power.power_type:
+			GodPower.PowerType.EXTRA_ACTION, GodPower.PowerType.SECOND_HARVEST:
+				rpc("_rpc_power_instant", power.power_type)
+
+
+## Connected to power_executor.power_executed — broadcasts targeted power results to remotes.
+func _on_power_executed(power_type: int, q: int, r: int, extra: int) -> void:
+	# Only broadcast if this is the local player's turn (prevents re-broadcast on remotes)
+	if _is_network and current_player_index == local_player_index:
+		rpc("_rpc_power_target", power_type, q, r, extra)
+
+
+## Called when a remote peer disconnects during a game session.
+func _on_network_peer_disconnected(_id: int) -> void:
+	Log.warn("Network: A peer disconnected — returning to main menu")
+	NetworkManager.disconnect_network()
+	get_tree().change_scene_to_file("res://main_menu.tscn")
+
+
+## Validates that an incoming RPC comes from the peer whose turn it currently is.
+func _validate_rpc_sender() -> bool:
+	var sender_id := multiplayer.get_remote_sender_id()
+	var sender_player := NetworkManager.get_player_index(sender_id)
+	if sender_player != current_player_index:
+		push_warning("RPC from wrong player (got player %d, expected player %d)" % [sender_player, current_player_index])
+		return false
+	return true
+
+
+# ==================== RPC HANDLERS ====================
+
+@rpc("any_peer", "call_remote", "reliable")
+func _rpc_setup_tile_placed(setup_index: int, q: int, r: int) -> void:
+	if not _validate_rpc_sender(): return
+	var td = current_player.setup_tiles[setup_index]
+	if td == null:
+		push_warning("_rpc_setup_tile_placed: setup_tiles[%d] is null" % setup_index)
+		return
+	tile_manager.place_tile(q, r, td.tile_type, td.resource_type, td.yield_value, td.village_building_cost, td.sell_price)
+	current_player.setup_tile_positions.append(Vector2i(q, r))
+	turn_manager.on_setup_tile_placed(setup_index)
+
+
+@rpc("any_peer", "call_remote", "reliable")
+func _rpc_setup_village_placed(q: int, r: int) -> void:
+	if not _validate_rpc_sender(): return
+	village_manager.place_village(q, r, current_player)
+	turn_manager.on_setup_village_placed()
+
+
+@rpc("any_peer", "call_remote", "reliable")
+func _rpc_place_tile(hand_index: int, q: int, r: int) -> void:
+	if not _validate_rpc_sender(): return
+	var td = current_player.hand[hand_index]
+	if td == null:
+		push_warning("_rpc_place_tile: hand[%d] is null" % hand_index)
+		return
+	tile_manager.place_tile(q, r, td.tile_type, td.resource_type, td.yield_value, td.village_building_cost, td.sell_price)
+	current_player.remove_from_hand(hand_index)
+	turn_manager.consume_action("place tile")
+	if ui:
+		ui.update_hand_display()
+
+
+@rpc("any_peer", "call_remote", "reliable")
+func _rpc_sell_tile(hand_index: int) -> void:
+	if not _validate_rpc_sender(): return
+	var tile = current_player.hand[hand_index]
+	if tile == null:
+		push_warning("_rpc_sell_tile: hand[%d] is null" % hand_index)
+		return
+	turn_manager.consume_action("sell tile")
+	match tile.resource_type:
+		TileManager.ResourceType.FERVOR:
+			current_player.add_fervor(tile.sell_price)
+		_:
+			current_player.add_resources(tile.sell_price)
+	current_player.remove_from_hand(hand_index)
+	if ui:
+		ui.update_hand_display()
+
+
+@rpc("any_peer", "call_remote", "reliable")
+func _rpc_place_village(q: int, r: int) -> void:
+	if not _validate_rpc_sender(): return
+	var tile = tile_manager.get_tile_at(q, r)
+	if not tile:
+		push_warning("_rpc_place_village: no tile at (%d,%d)" % [q, r])
+		return
+	var cost := current_player.get_village_cost(tile.village_building_cost)
+	village_manager.place_village(q, r, current_player)
+	current_player.spend_resources(cost)
+	turn_manager.consume_action("build village")
+
+
+@rpc("any_peer", "call_remote", "reliable")
+func _rpc_remove_village(q: int, r: int) -> void:
+	if not _validate_rpc_sender(): return
+	var tile = tile_manager.get_tile_at(q, r)
+	if not tile:
+		push_warning("_rpc_remove_village: no tile at (%d,%d)" % [q, r])
+		return
+	var building_cost := current_player.get_village_cost(tile.village_building_cost)
+	var refund := int(building_cost / 2.0)
+	village_manager.remove_village(q, r)
+	current_player.add_resources(refund)
+	turn_manager.consume_action("remove village")
+
+
+@rpc("any_peer", "call_remote", "reliable")
+func _rpc_harvest(resource_type: int) -> void:
+	if not _validate_rpc_sender(): return
+	turn_manager.harvest(resource_type)
+
+
+@rpc("any_peer", "call_remote", "reliable")
+func _rpc_end_turn() -> void:
+	if not _validate_rpc_sender(): return
+	turn_manager.end_turn()
+
+
+@rpc("any_peer", "call_remote", "reliable")
+func _rpc_power_instant(power_type: int) -> void:
+	if not _validate_rpc_sender(): return
+	var power := god_manager.get_power_by_type(current_player, power_type)
+	if not power:
+		push_warning("_rpc_power_instant: power type %d not found for player" % power_type)
+		return
+	# Apply bookkeeping without UI side effects
+	if power.fervor_cost > 0:
+		current_player.spend_fervor(power.fervor_cost)
+	match power_type:
+		GodPower.PowerType.EXTRA_ACTION:
+			current_player.consume_action()
+			current_player.next_turn_bonus_actions = 1
+		GodPower.PowerType.SECOND_HARVEST:
+			pass  # Free action; actual harvest type arrives via _rpc_harvest
+	current_player.mark_power_used(power_type)
+
+
+@rpc("any_peer", "call_remote", "reliable")
+func _rpc_power_target(power_type: int, q: int, r: int, extra: int) -> void:
+	if not _validate_rpc_sender(): return
+	# Set pending_power so power_executor.complete_deferred_power() can finalize it
+	current_player.pending_power = god_manager.get_power_by_type(current_player, power_type)
+	match power_type:
+		GodPower.PowerType.UPGRADE_TILE_KEEP_VILLAGE:
+			power_executor.on_upgrade_tile(q, r)
+		GodPower.PowerType.DOWNGRADE_TILE_KEEP_VILLAGE:
+			power_executor.on_downgrade_tile(q, r)
+		GodPower.PowerType.STEAL_HARVEST:
+			power_executor.on_steal_harvest(q, r)
+		GodPower.PowerType.DESTROY_VILLAGE_FREE:
+			power_executor.on_destroy_village_free(q, r)
+		GodPower.PowerType.CHANGE_TILE_TYPE:
+			power_executor.on_change_tile_type(q, r, extra)
+		_:
+			push_warning("_rpc_power_target: unknown power type %d" % power_type)
+			current_player.pending_power = null
 
 
 ## Calculates scores for all players and shows the victory screen.

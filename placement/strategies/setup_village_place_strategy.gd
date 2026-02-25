@@ -10,7 +10,8 @@ func on_click(controller: PlacementController, q: int, r: int) -> bool:
 	if controller.village_manager.has_village_at(q, r):
 		return false
 	controller.village_manager.place_village(q, r, controller.board_manager.current_player)
-	controller.board_manager.turn_manager.on_setup_village_placed()
+	# Route through board_manager so it can broadcast the RPC in network mode
+	controller.board_manager.on_setup_village_placed(q, r)
 	return true
 
 

@@ -23,6 +23,7 @@ config/icon="res://icon.svg"
 
 Log="*res://logger.gd"
 GameConfig="*res://game_config.gd"
+NetworkManager="*res://network_manager.gd"
 
 [display]
 

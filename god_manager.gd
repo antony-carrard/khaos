@@ -321,3 +321,14 @@ static func get_village_cost(god: God, base_cost: int) -> int:
 	if god and god.has_power_type(GodPower.PowerType.FLAT_VILLAGE_COST):
 		return LE_BATISSEUR_FLAT_VILLAGE_COST
 	return base_cost
+
+
+## Find a player's GodPower object by its PowerType enum value.
+## Returns null if the player has no god or the power type is not found.
+func get_power_by_type(player: Player, power_type: int) -> GodPower:
+	if not player or not player.god:
+		return null
+	for power in player.god.powers:
+		if power.power_type == power_type:
+			return power
+	return null

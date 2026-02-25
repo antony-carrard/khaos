@@ -5,6 +5,10 @@ class_name PowerExecutor
 ## Handles all god power execution callbacks.
 ## Receives validated clicks from placement strategies and applies their effects.
 
+## Emitted after a targeted power successfully executes.
+## board_manager connects this to broadcast the action to remote peers.
+signal power_executed(power_type: int, q: int, r: int, extra: int)
+
 var current_player: Player = null
 var tile_manager: TileManager = null
 var village_manager: VillageManager = null
@@ -66,6 +70,7 @@ func on_steal_harvest(q: int, r: int) -> bool:
 			current_player.add_glory(harvest_value)
 			Log.info("Stole %d glory from enemy village" % harvest_value)
 
+	power_executed.emit(GodPower.PowerType.STEAL_HARVEST, q, r, -1)
 	return true
 
 
@@ -88,6 +93,7 @@ func on_destroy_village_free(q: int, r: int) -> bool:
 	var success = village_manager.remove_village(q, r)
 	if success:
 		Log.info("Destroyed enemy village at (%d, %d) with DESTROY_VILLAGE_FREE power" % [q, r])
+		power_executed.emit(GodPower.PowerType.DESTROY_VILLAGE_FREE, q, r, -1)
 
 	return success
 
@@ -125,6 +131,7 @@ func on_upgrade_tile(q: int, r: int) -> bool:
 		var world_pos = HexGridUtils.axial_to_world(q, r, new_height)
 		village.global_position = world_pos + Vector3(0, HexGridUtils.TILE_HEIGHT / 2, 0)
 		Log.info("Upgraded tile at (%d, %d) with UPGRADE_TILE_KEEP_VILLAGE power" % [q, r])
+		power_executed.emit(GodPower.PowerType.UPGRADE_TILE_KEEP_VILLAGE, q, r, -1)
 
 	return success
 
@@ -162,6 +169,7 @@ func on_downgrade_tile(q: int, r: int) -> bool:
 		var world_pos = HexGridUtils.axial_to_world(q, r, new_height)
 		village.global_position = world_pos + Vector3(0, HexGridUtils.TILE_HEIGHT / 2, 0)
 		Log.info("Downgraded tile at (%d, %d) with DOWNGRADE_TILE_KEEP_VILLAGE power" % [q, r])
+		power_executed.emit(GodPower.PowerType.DOWNGRADE_TILE_KEEP_VILLAGE, q, r, -1)
 
 	return success
 
@@ -256,6 +264,7 @@ func on_change_tile_type(q: int, r: int, new_resource_type: int) -> bool:
 
 	placement_controller.cancel_placement()
 
+	power_executed.emit(GodPower.PowerType.CHANGE_TILE_TYPE, q, r, new_resource_type)
 	return true
 
 

@@ -27,13 +27,12 @@ func on_click(controller: PlacementController, _q: int, _r: int) -> bool:
 
 	if success:
 		if controller.board_manager.turn_manager.is_setup_phase():
-			# Record where this player placed their tile (for setup Round 3 village placement)
-			controller.board_manager.current_player.setup_tile_positions.append(Vector2i(pos.x, pos.y))
-			controller.board_manager.turn_manager.on_setup_tile_placed(controller.selected_hand_index)
+			# Route through board_manager so it can broadcast the RPC in network mode
+			controller.board_manager.on_setup_tile_placed(controller.selected_hand_index, pos.x, pos.y)
 			# No auto-village — village placement is a separate setup Round 3
 		else:
 			if controller.selected_hand_index >= 0 and controller.board_manager:
-				controller.board_manager.on_tile_placed_from_hand(controller.selected_hand_index)
+				controller.board_manager.on_tile_placed_from_hand(controller.selected_hand_index, pos.x, pos.y)
 
 		controller.preview_tile.visible = false
 		controller.selected_hand_index = -1

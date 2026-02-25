@@ -337,12 +337,12 @@ func _on_sell_button_pressed(hand_index: int) -> void:
 
 func _on_end_turn_pressed() -> void:
 	if board_manager:
-		board_manager.turn_manager.end_turn()
+		board_manager.on_end_turn_requested()
 
 
 func _on_harvest_button_pressed(resource_type: int) -> void:
 	if board_manager:
-		board_manager.turn_manager.harvest(resource_type)
+		board_manager.on_harvest_selected(resource_type)
 
 
 ## Updates UI based on current turn phase (HARVEST or ACTIONS only — setup has its own UI)
@@ -452,9 +452,9 @@ func update_god_display(god: God, god_manager: GodManager) -> void:
 			god_panel.power_activated.connect(_on_power_activated)
 
 
-func _on_power_activated(power: GodPower, god_manager: GodManager) -> void:
+func _on_power_activated(power: GodPower, _god_manager: GodManager) -> void:
 	if board_manager and board_manager.current_player:
-		god_manager.activate_power(power, board_manager.current_player, board_manager)
+		board_manager.on_power_activated(power, board_manager.current_player)
 
 
 ## Shows the resource type picker UI for CHANGE_TILE_TYPE power
