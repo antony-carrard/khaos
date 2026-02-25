@@ -169,12 +169,14 @@ func _ready() -> void:
 	status_header.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	header_canvas.add_child(status_header)
 	status_header.initialize(self)
-	# active_player_switched (board_manager signal) drives who-is-active display in the header.
-	# APV stat signals (resources/fervor/glory) drive per-player stat updates in the header.
+	# active_player_switched drives who-is-active display in the header.
+	# Each player's stat signals are connected directly (not via APV) so the header updates
+	# for all players in real-time regardless of whose turn it is or the network mode.
 	active_player_switched.connect(status_header.on_player_changed)
-	active_player_view.resources_changed.connect(status_header.on_active_resources_changed)
-	active_player_view.fervor_changed.connect(status_header.on_active_fervor_changed)
-	active_player_view.glory_changed.connect(status_header.on_active_glory_changed)
+	for i in range(players.size()):
+		players[i].resources_changed.connect(status_header.on_resources_changed.bind(i))
+		players[i].fervor_changed.connect(status_header.on_fervor_changed.bind(i))
+		players[i].glory_changed.connect(status_header.on_glory_changed.bind(i))
 
 	# Create "not your turn" lock overlay (hidden by default; shown in network mode on other players' turns)
 	var overlay_canvas := CanvasLayer.new()
@@ -280,6 +282,7 @@ func _on_active_player_changed(player: Player) -> void:
 		if ui_player.god:
 			ui.update_god_display(ui_player.god, god_manager)
 		ui.update_hand_display()
+		ui.set_actions_interactive(ui_player == current_player)
 
 
 func setup_ui() -> void:
@@ -324,6 +327,7 @@ func setup_ui() -> void:
 	if ui_player.god:
 		ui.update_god_display(ui_player.god, god_manager)
 	ui.update_hand_display()
+	ui.set_actions_interactive(ui_player == current_player)
 	ui.update_turn_phase(turn_manager.current_phase)
 
 	power_executor = PowerExecutor.new()

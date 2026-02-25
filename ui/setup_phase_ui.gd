@@ -137,9 +137,11 @@ func _build_ui() -> void:
 
 ## Refreshes the UI for the given player and setup round.
 ## Called from board_manager._on_active_player_changed() on every player switch.
+## player = active player (shown in the label); ui_player = local player (god + tiles).
 func update_for_player(player: Player, setup_round: int) -> void:
-	if player.god and _god_panel:
-		_god_panel.update_god_display(player.god, _god_manager_ref, _board_manager_ref)
+	var ui_player: Player = _board_manager_ref.ui_player
+	if ui_player.god and _god_panel:
+		_god_panel.update_god_display(ui_player.god, _god_manager_ref, _board_manager_ref)
 
 	_player_label.text = player.player_name
 	_player_label.add_theme_color_override("font_color", player.player_color)
@@ -154,7 +156,7 @@ func update_for_player(player: Player, setup_round: int) -> void:
 
 	if setup_round <= 2:
 		_instruction_label.visible = false
-		_show_tile_cards(player.setup_tiles)
+		_show_tile_cards(ui_player.setup_tiles)
 	else:
 		_clear_cards()
 		_instruction_label.text = "Click on one of your placed tiles to build your village"

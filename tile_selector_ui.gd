@@ -36,6 +36,7 @@ var tile_type_colors: Dictionary = {}
 var buttons: Array[Button] = []
 var board_manager: Node3D = null  # Reference to get hand data
 var player_turn_label: Label = null
+var _is_my_turn: bool = true  # False during opponent turns in network mode
 
 # Turn system UI (still managed here)
 var actions_label: Label = null
@@ -370,13 +371,13 @@ func update_turn_phase(phase: int) -> void:
 				harvest_ui.visible = false
 			if actions_label:
 				actions_label.visible = true
-			# Re-enable village buttons during actions phase (will be disabled if no actions)
+			# Re-enable village/end-turn buttons only if it is our turn
 			if village_place_button:
-				village_place_button.disabled = false
+				village_place_button.disabled = not _is_my_turn
 			if village_remove_button:
-				village_remove_button.disabled = false
+				village_remove_button.disabled = not _is_my_turn
 			if end_turn_button:
-				end_turn_button.disabled = false
+				end_turn_button.disabled = not _is_my_turn
 			# Refresh hand display to re-enable tile cards and sell buttons
 			update_hand_display()
 
@@ -406,6 +407,18 @@ func update_actions(remaining: int) -> void:
 
 	# Update hand cards affordability (they might be grayed if no actions)
 	update_hand_display()
+
+
+## Enables or disables the action buttons (village place/remove, end turn).
+## Called on every turn switch so buttons are greyed during opponent turns in network mode.
+func set_actions_interactive(enabled: bool) -> void:
+	_is_my_turn = enabled
+	if village_place_button:
+		village_place_button.disabled = not enabled
+	if village_remove_button:
+		village_remove_button.disabled = not enabled
+	if end_turn_button:
+		end_turn_button.disabled = not enabled
 
 
 ## Updates the current player label ("Player X's Turn")

@@ -158,22 +158,22 @@ func on_player_changed(player: Player) -> void:
 		_set_card_active(i, i == _active_index)
 
 
-## Fires during a turn when the active player's resources change.
-func on_active_resources_changed(amount: int) -> void:
-	if _active_index < _cards.size():
-		_cards[_active_index].resources_label.text = str(amount)
+## Fires whenever any player's resources change. Connected per-player with bound index.
+func on_resources_changed(amount: int, index: int) -> void:
+	if index < _cards.size():
+		_cards[index].resources_label.text = str(amount)
 
 
-## Fires during a turn when the active player's fervor changes.
-func on_active_fervor_changed(amount: int) -> void:
-	if _active_index < _cards.size():
-		_cards[_active_index].fervor_label.text = str(amount)
+## Fires whenever any player's fervor changes. Connected per-player with bound index.
+func on_fervor_changed(amount: int, index: int) -> void:
+	if index < _cards.size():
+		_cards[index].fervor_label.text = str(amount)
 
 
-## Fires during a turn when the active player's glory changes.
-func on_active_glory_changed(amount: int) -> void:
-	if _active_index < _cards.size():
-		_cards[_active_index].glory_label.text = str(amount)
+## Fires whenever any player's glory changes. Connected per-player with bound index.
+func on_glory_changed(amount: int, index: int) -> void:
+	if index < _cards.size():
+		_cards[index].glory_label.text = str(amount)
 
 
 func _set_card_active(index: int, is_active: bool) -> void:

@@ -151,6 +151,7 @@ func start_turn() -> void:
 ## Set actions remaining and emit signal
 func set_actions(amount: int) -> void:
 	actions_remaining = amount
+	max_actions_this_turn = amount
 	actions_changed.emit(actions_remaining)
 
 
