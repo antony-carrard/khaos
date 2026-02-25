@@ -48,6 +48,11 @@ var active_player_view: ActivePlayerView = null
 var status_header: PlayerStatusHeader = null
 var not_your_turn_overlay: NotYourTurnOverlay = null
 
+# The player whose data the UI displays.
+# Hot-seat: updated to current_player on every turn switch.
+# Network:  set once to players[local_player_index] and never changed.
+var ui_player: Player = null
+
 # Index of the player that runs on this machine.
 # 0 in hot-seat (all players are local); set from GameConfig.local_player_index in network mode.
 var local_player_index: int = 0
@@ -247,6 +252,9 @@ func _switch_to_player(index: int) -> void:
 	if not is_network:
 		# Hot-seat: rebind APV so its stat signals track the new player and seed the UI
 		active_player_view.bind(current_player)
+		ui_player = current_player
+	else:
+		ui_player = players[local_player_index]
 
 	# Always notify status header and setup_phase_ui / game UI about the active player change
 	active_player_switched.emit(current_player)
@@ -269,8 +277,8 @@ func _on_active_player_changed(player: Player) -> void:
 	# Gameplay: update main game UI
 	if ui:
 		ui.update_current_player(player)
-		if player.god:
-			ui.update_god_display(player.god, god_manager)
+		if ui_player.god:
+			ui.update_god_display(ui_player.god, god_manager)
 		ui.update_hand_display()
 
 
@@ -313,8 +321,8 @@ func setup_ui() -> void:
 	# active_player_switched already fired during _switch_to_player(0) in _complete_setup(),
 	# but ui was null at that point so _on_active_player_changed() skipped the god/player update.
 	ui.update_current_player(current_player)
-	if current_player.god:
-		ui.update_god_display(current_player.god, god_manager)
+	if ui_player.god:
+		ui.update_god_display(ui_player.god, god_manager)
 	ui.update_hand_display()
 	ui.update_turn_phase(turn_manager.current_phase)
 

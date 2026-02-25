@@ -244,7 +244,8 @@ func update_power_buttons(_unused = null) -> void:
 	if not board_manager_ref or not board_manager_ref.current_player or not god_manager_ref:
 		return
 
-	var player = board_manager_ref.current_player
+	var is_my_turn: bool = board_manager_ref.ui_player == board_manager_ref.current_player
+	var player = board_manager_ref.ui_player
 	var turn_manager = board_manager_ref.turn_manager
 
 	for button in god_power_buttons:
@@ -253,7 +254,7 @@ func update_power_buttons(_unused = null) -> void:
 			continue
 
 		# Check if power can be activated
-		var can_activate = god_manager_ref.can_activate_power(power, player, turn_manager)
+		var can_activate = is_my_turn and god_manager_ref.can_activate_power(power, player, turn_manager)
 
 		# Update button state
 		if can_activate:

@@ -49,8 +49,7 @@ func update_hand_display() -> void:
 	for child in hand_container.get_children():
 		child.queue_free()
 
-	# Get current hand from board manager
-	var hand = board_manager_ref.current_player.hand
+	var hand = board_manager_ref.ui_player.hand
 
 	# Always show HAND_SIZE slots (with placeholders for empty slots)
 	for i in range(HAND_SIZE):
@@ -127,10 +126,11 @@ func _create_hand_card(hand_index: int, tile_def) -> void:
 	var can_place = false
 	var has_actions = false
 	if board_manager_ref and board_manager_ref.current_player:
+		var is_my_turn: bool = board_manager_ref.ui_player == board_manager_ref.current_player
 		var in_actions_phase = board_manager_ref.turn_manager.is_actions_phase()
-		if in_actions_phase:
-			can_place = board_manager_ref.current_player.actions_remaining > 0
-			has_actions = board_manager_ref.current_player.actions_remaining > 0
+		if in_actions_phase and is_my_turn:
+			can_place = board_manager_ref.ui_player.actions_remaining > 0
+			has_actions = board_manager_ref.ui_player.actions_remaining > 0
 
 	var card_vbox = VBoxContainer.new()
 	card_vbox.add_theme_constant_override("separation", 5)
