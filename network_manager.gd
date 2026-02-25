@@ -57,7 +57,9 @@ func disconnect_network() -> void:
 func get_connected_peers() -> Array[int]:
 	if not multiplayer.multiplayer_peer:
 		return []
-	return multiplayer.get_peers()
+	var result: Array[int] = []
+	result.assign(multiplayer.get_peers())
+	return result
 
 
 ## Called by host to start the game on all machines simultaneously.

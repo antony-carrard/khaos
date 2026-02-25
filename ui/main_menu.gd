@@ -324,7 +324,7 @@ func _show_host_section() -> void:
 	port_edit.placeholder_text = "Port"
 	port_edit.add_theme_font_size_override("font_size", 28)
 	port_edit.custom_minimum_size = Vector2(200, 52)
-	port_edit.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	port_edit.alignment = HORIZONTAL_ALIGNMENT_CENTER
 	vbox.add_child(port_edit)
 
 	var status_lbl := Label.new()
@@ -371,7 +371,7 @@ func _show_join_section() -> void:
 	ip_edit.placeholder_text = "Server IP"
 	ip_edit.add_theme_font_size_override("font_size", 28)
 	ip_edit.custom_minimum_size = Vector2(300, 52)
-	ip_edit.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	ip_edit.alignment = HORIZONTAL_ALIGNMENT_CENTER
 	vbox.add_child(ip_edit)
 
 	var port_edit := LineEdit.new()
@@ -379,7 +379,7 @@ func _show_join_section() -> void:
 	port_edit.placeholder_text = "Port"
 	port_edit.add_theme_font_size_override("font_size", 28)
 	port_edit.custom_minimum_size = Vector2(200, 52)
-	port_edit.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	port_edit.alignment = HORIZONTAL_ALIGNMENT_CENTER
 	vbox.add_child(port_edit)
 
 	var status_lbl := Label.new()
@@ -404,13 +404,14 @@ func _show_join_section() -> void:
 			status_lbl.text = "Failed to connect (error %d)" % err
 			connect_btn.disabled = false
 			return
-		# Bind one-shot signals
-		NetworkManager.connection_succeeded.connect(func() -> void:
-			_show_waiting_section(), CONNECT_ONE_SHOT)
-		NetworkManager.connection_failed.connect(func() -> void:
+		# Bind one-shot signals (store in vars so CONNECT_ONE_SHOT can be passed cleanly)
+		var on_success := func() -> void: _show_waiting_section()
+		var on_failure := func() -> void:
 			status_lbl.add_theme_color_override("font_color", Color(1.0, 0.5, 0.3))
 			status_lbl.text = "Connection failed"
-			connect_btn.disabled = false, CONNECT_ONE_SHOT))
+			connect_btn.disabled = false
+		NetworkManager.connection_succeeded.connect(on_success, CONNECT_ONE_SHOT)
+		NetworkManager.connection_failed.connect(on_failure, CONNECT_ONE_SHOT))
 	vbox.add_child(connect_btn)
 
 	var back_btn := Button.new()
