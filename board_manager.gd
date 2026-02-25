@@ -15,6 +15,9 @@ extends Node3D
 # so this separate signal is the reliable way to track turn changes.
 signal active_player_switched(player: Player)
 
+# Internal: fires on each remote god-selection RPC receipt (network mode sequential flow)
+signal _god_choice_received
+
 # Player colors assigned in order
 const PLAYER_COLORS: Array[Color] = [
 	Color(0.2, 0.4, 1.0),  # Blue   — P1
@@ -64,6 +67,7 @@ var triggering_player: Player = null
 # Setup tracking
 var setup_round: int = 1       # 1, 2 = tile placement rounds; 3 = village placement
 var setup_players_done: int = 0
+
 
 # True when running in NETWORK mode (shorthand property)
 var _is_network: bool:
@@ -143,12 +147,10 @@ func _ready() -> void:
 	add_child(placement_controller)
 	await placement_controller.initialize(tile_manager, village_manager, camera, self)
 
-	# God selection: hot-seat shows UI per player; network auto-assigns by player index
-	if GameConfig.initialized and GameConfig.mode == GameConfig.GameMode.NETWORK:
-		var all_gods := GodManager.create_all_gods()
-		for i in range(players.size()):
-			players[i].god = all_gods[i % all_gods.size()]
-			Log.info("Player %d auto-assigned god: %s" % [i + 1, players[i].god.god_name])
+	# God selection: network shows local player's UI and waits for all choices via RPC;
+	# hot-seat shows UI per player sequentially with taken-god greying.
+	if _is_network:
+		await _select_god_networked()
 	else:
 		var selected_so_far: Array[God] = []
 		for player in players:
@@ -238,6 +240,92 @@ func show_god_selection(player: Player, taken_gods: Array[God]) -> void:
 	Log.info("%s selected: %s" % [player.player_name, selected_god.god_name])
 
 	canvas_layer.queue_free()
+
+
+## Network god selection: sequential, one player at a time (mirrors hot-seat flow).
+## On our turn we show the interactive UI; on others' turns we show a waiting overlay
+## and block until their RPC arrives.
+func _select_god_networked() -> void:
+	var taken: Array[God] = []
+	for i in range(players.size()):
+		if i == local_player_index:
+			# Our turn: interactive selection, then broadcast the choice
+			await show_god_selection(players[i], taken)
+			var all_gods := GodManager.create_all_gods()
+			var chosen_index := 0
+			for j in range(all_gods.size()):
+				if all_gods[j].god_name == players[i].god.god_name:
+					chosen_index = j
+					break
+			Log.info("Player %d selected god: %s" % [i + 1, players[i].god.god_name])
+			rpc("_rpc_god_selected", i, chosen_index)
+		else:
+			# Their turn: show god selection as read-only backdrop, block until RPC arrives
+			var waiting_canvas := _show_god_waiting_ui(players[i], taken)
+			await _god_choice_received
+			waiting_canvas.queue_free()
+		taken.append(players[i].god)
+
+
+## Shows the god selection screen as a read-only backdrop for spectating players,
+## with a transparent input-blocking overlay and a "waiting" banner at the bottom.
+## Returns the CanvasLayer so the caller can free it when the choice arrives.
+func _show_god_waiting_ui(picking_player: Player, taken: Array[God]) -> CanvasLayer:
+	var canvas := CanvasLayer.new()
+	add_child(canvas)
+
+	# Show the god selection cards so all players can see what's available
+	var god_selection_script = load("res://god_selection_ui.gd")
+	var spectator_ui = god_selection_script.new()
+	spectator_ui.set_anchors_preset(Control.PRESET_FULL_RECT)
+	spectator_ui.selecting_player_name = picking_player.player_name
+	spectator_ui.selecting_player_color = picking_player.player_color
+	spectator_ui.taken_gods = taken
+	canvas.add_child(spectator_ui)
+	# Safety: discard any click that somehow slips through the overlay
+	spectator_ui.god_selected.connect(func(_g: God) -> void: pass)
+
+	# Transparent overlay blocks all mouse input so cards can't be clicked
+	var blocker := ColorRect.new()
+	blocker.color = Color(0, 0, 0, 0.25)
+	blocker.set_anchors_preset(Control.PRESET_FULL_RECT)
+	blocker.mouse_filter = Control.MOUSE_FILTER_STOP
+	canvas.add_child(blocker)
+
+	# Centered banner floating over the cards
+	var center := CenterContainer.new()
+	center.set_anchors_preset(Control.PRESET_FULL_RECT)
+	center.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	canvas.add_child(center)
+
+	var banner := PanelContainer.new()
+	var banner_style := StyleBoxFlat.new()
+	banner_style.bg_color = Color(0.05, 0.05, 0.1, 0.88)
+	banner_style.border_color = picking_player.player_color
+	banner_style.border_width_left = 2
+	banner_style.border_width_right = 2
+	banner_style.border_width_top = 2
+	banner_style.border_width_bottom = 2
+	banner_style.set_corner_radius_all(12)
+	banner_style.content_margin_left = 48
+	banner_style.content_margin_right = 48
+	banner_style.content_margin_top = 20
+	banner_style.content_margin_bottom = 20
+	banner.add_theme_stylebox_override("panel", banner_style)
+	banner.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	center.add_child(banner)
+
+	var msg := Label.new()
+	msg.text = "%s is choosing their god…" % picking_player.player_name
+	msg.add_theme_font_size_override("font_size", 32)
+	msg.add_theme_color_override("font_color", picking_player.player_color)
+	msg.add_theme_color_override("font_outline_color", Color.BLACK)
+	msg.add_theme_constant_override("outline_size", 3)
+	msg.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	msg.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	banner.add_child(msg)
+
+	return canvas
 
 
 ## Switch the active player to the given index.
@@ -712,6 +800,14 @@ func _validate_rpc_sender() -> bool:
 
 
 # ==================== RPC HANDLERS ====================
+
+@rpc("any_peer", "call_remote", "reliable")
+func _rpc_god_selected(player_index: int, god_index: int) -> void:
+	var all_gods := GodManager.create_all_gods()
+	players[player_index].god = all_gods[god_index % all_gods.size()]
+	Log.info("Player %d selected god: %s" % [player_index + 1, players[player_index].god.god_name])
+	_god_choice_received.emit()
+
 
 @rpc("any_peer", "call_remote", "reliable")
 func _rpc_setup_tile_placed(setup_index: int, q: int, r: int) -> void:
