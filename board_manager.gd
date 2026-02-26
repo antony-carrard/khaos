@@ -944,6 +944,8 @@ func _trigger_game_end() -> void:
 	Log.info("=== GAME OVER ===")
 	if status_header:
 		status_header.visible = false
+	if not_your_turn_overlay:
+		not_your_turn_overlay.hide_overlay()
 
 	var victory_mgr = VictoryManager.new()
 	var results = []
