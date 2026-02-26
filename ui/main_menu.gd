@@ -10,12 +10,6 @@ extends Control
 # Layout constants
 const TITLE_FONT_SIZE: int = 120
 const TAGLINE_FONT_SIZE: int = 28
-const CARD_TITLE_FONT_SIZE: int = 42
-const CARD_SUBTITLE_FONT_SIZE: int = 22
-const CARD_PLAY_BTN_FONT_SIZE: int = 28
-const CARD_MIN_SIZE: Vector2 = Vector2(300, 240)
-const CARD_SEPARATION: int = 60
-const CARD_CORNER_RADIUS: int = 16
 const COUNT_BTN_SIZE: Vector2 = Vector2(100, 100)
 const COUNT_BTN_FONT_SIZE: int = 48
 const COUNT_BTN_CORNER_RADIUS: int = 10
@@ -180,62 +174,13 @@ func _build_back_button(vbox: VBoxContainer, callback: Callable) -> void:
 func _show_main_section() -> void:
 	var vbox := _make_screen_vbox()
 
-	var hbox := HBoxContainer.new()
-	hbox.alignment = BoxContainer.ALIGNMENT_CENTER
-	hbox.add_theme_constant_override("separation", CARD_SEPARATION)
-	vbox.add_child(hbox)
-
-	_build_mode_card(hbox, "Local", "Hot-seat\n1–4 players", _show_local_section)
-	_build_mode_card(hbox, "Host", "Create a server\nfor others to join", _show_host_section)
-	_build_mode_card(hbox, "Join", "Connect to\nan existing server", _show_join_section)
-
-
-func _build_mode_card(parent: Control, title: String, subtitle: String, callback: Callable) -> void:
-	var panel := PanelContainer.new()
-	panel.custom_minimum_size = CARD_MIN_SIZE
-
-	var style := StyleBoxFlat.new()
-	style.bg_color = COLOR_CARD_BG
-	style.border_color = COLOR_CARD_BORDER
-	style.border_width_left = 2
-	style.border_width_right = 2
-	style.border_width_top = 2
-	style.border_width_bottom = 2
-	style.set_corner_radius_all(CARD_CORNER_RADIUS)
-	style.content_margin_left = 24
-	style.content_margin_right = 24
-	style.content_margin_top = 24
-	style.content_margin_bottom = 24
-	panel.add_theme_stylebox_override("panel", style)
-	parent.add_child(panel)
-
-	var vbox := VBoxContainer.new()
-	vbox.alignment = BoxContainer.ALIGNMENT_CENTER
-	vbox.add_theme_constant_override("separation", 16)
-	panel.add_child(vbox)
-
-	var title_lbl := Label.new()
-	title_lbl.text = title
-	title_lbl.add_theme_font_size_override("font_size", CARD_TITLE_FONT_SIZE)
-	title_lbl.add_theme_color_override("font_color", Color.WHITE)
-	title_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title_lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	vbox.add_child(title_lbl)
-
-	var sub_lbl := Label.new()
-	sub_lbl.text = subtitle
-	sub_lbl.add_theme_font_size_override("font_size", CARD_SUBTITLE_FONT_SIZE)
-	sub_lbl.add_theme_color_override("font_color", Color(0.55, 0.55, 0.70))
-	sub_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	sub_lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	vbox.add_child(sub_lbl)
-
-	var btn := Button.new()
-	btn.text = "Play"
-	btn.add_theme_font_size_override("font_size", CARD_PLAY_BTN_FONT_SIZE)
-	btn.custom_minimum_size = Vector2(160, 52)
-	btn.pressed.connect(callback)
-	vbox.add_child(btn)
+	for pair in [["Local", _show_local_section], ["Host", _show_host_section], ["Join", _show_join_section]]:
+		var btn := Button.new()
+		btn.text = pair[0]
+		btn.add_theme_font_size_override("font_size", START_BTN_FONT_SIZE)
+		btn.custom_minimum_size = Vector2(240, 64)
+		btn.pressed.connect(pair[1])
+		vbox.add_child(btn)
 
 
 ## ─── LOCAL SECTION ──────────────────────────────────────────────────────────
@@ -388,6 +333,8 @@ func _show_join_section() -> void:
 			return
 		var on_success := func() -> void:
 			_save_name(player_name)
+			# Optimistic local update so the player sees their own name immediately
+			NetworkManager.peer_names[multiplayer.get_unique_id()] = player_name
 			NetworkManager.rpc_id(1, "register_name", player_name)
 			_show_lobby_section()
 		var on_failure := func() -> void:
@@ -419,10 +366,8 @@ func _show_lobby_section() -> void:
 		start_btn.add_theme_font_size_override("font_size", START_BTN_FONT_SIZE)
 		start_btn.custom_minimum_size = Vector2(240, 64)
 		start_btn.pressed.connect(func() -> void:
-			var all_peers: Array[int] = [1]
-			for p in NetworkManager.get_connected_peers():
-				if not all_peers.has(p):
-					all_peers.append(p)
+			var all_peers: Array[int] = NetworkManager.peer_names.keys()
+			all_peers.sort()
 			var count := all_peers.size()
 			var peer_map: Dictionary = {}
 			for i in range(count):
@@ -442,16 +387,14 @@ func _show_lobby_section() -> void:
 		NetworkManager.disconnect_network()
 		_show_main_section())
 
-	# Rebuild player list from current peer_names
+	# Rebuild player list from current peer_names (authoritative on all machines)
 	var refresh := func() -> void:
 		if not is_instance_valid(player_list):
 			return
 		for child in player_list.get_children():
 			child.queue_free()
-		var all_peers: Array[int] = [1]
-		for p in NetworkManager.get_connected_peers():
-			if not all_peers.has(p):
-				all_peers.append(p)
+		var all_peers: Array[int] = NetworkManager.peer_names.keys()
+		all_peers.sort()  # host (1) always first, then clients in join order
 		var my_id := multiplayer.get_unique_id()
 		for pid in all_peers:
 			var player_name: String = NetworkManager.peer_names.get(pid, "…")
