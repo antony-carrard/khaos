@@ -6,7 +6,8 @@ extends Node3D
 # Configuration
 @export var hex_tile_scene: PackedScene = preload("res://hex_tile.tscn")
 @export var max_stack_height: int = 3  # Maximum tiles that can be stacked
-@export var test_mode: bool = false  # Test mode: unlimited resources/actions for testing
+@export var test_mode: bool = false   # Unlimited resources/actions every turn for testing
+@export var skip_setup: bool = false  # Auto-place setup tiles and skip to gameplay immediately
 @export var player_count: int = 2    # Number of players (1–4)
 
 # Emitted whenever the active player changes (both hot-seat and network modes).
@@ -106,8 +107,7 @@ func _ready() -> void:
 		var starting_fervor = 999 if test_mode else 0
 		player.initialize("Player %d" % (i + 1), starting_resources, starting_fervor)
 		player.player_color = PLAYER_COLORS[i]
-		if test_mode:
-			player.set_actions(999)
+		player.test_mode = test_mode
 		players.append(player)
 
 	# In network mode, record which player index belongs to this machine
@@ -217,8 +217,10 @@ func _ready() -> void:
 	var is_my_turn := not _is_network or current_player_index == local_player_index
 	setup_phase_ui.update_for_player(current_player, setup_round, is_my_turn)
 
-	# Start setup phase
+	# Start setup phase (or skip it entirely in skip_setup mode)
 	turn_manager.start_setup_phase()
+	if skip_setup:
+		call_deferred("_auto_complete_setup")
 
 
 ## Show god selection screen for a specific player, greying out already-taken gods.
@@ -241,6 +243,36 @@ func show_god_selection(player: Player, taken_gods: Array[God]) -> void:
 	Log.info("%s selected: %s" % [player.player_name, selected_god.god_name])
 
 	canvas_layer.queue_free()
+
+
+## Skips the setup phase by auto-placing each player's tiles and village at spread-out
+## positions, then immediately calls _complete_setup() to begin normal gameplay.
+## Only used when skip_setup = true (editor testing convenience).
+func _auto_complete_setup() -> void:
+	Log.info("=== SETUP SKIPPED (auto-placing tiles) ===")
+	# Well-spaced starting positions for up to 4 players
+	const ORIGINS: Array[Vector2i] = [
+		Vector2i( 0, -4),
+		Vector2i(-4,  0),
+		Vector2i( 4,  0),
+		Vector2i( 0,  4),
+	]
+	for i in range(players.size()):
+		var origin := ORIGINS[i % ORIGINS.size()]
+		var player := players[i]
+		for j in range(player.setup_tiles.size()):
+			var td = player.setup_tiles[j]
+			if td == null:
+				continue
+			var pos := Vector2i(origin.x + j, origin.y)
+			tile_manager.place_tile(pos.x, pos.y, td.tile_type, td.resource_type,
+					td.yield_value, td.village_building_cost, td.sell_price)
+			player.setup_tile_positions.append(pos)
+		# Place a free village on the first tile
+		if not player.setup_tile_positions.is_empty():
+			var vpos := player.setup_tile_positions[0]
+			village_manager.place_village(vpos.x, vpos.y, player)
+	_complete_setup()
 
 
 ## Network god selection: sequential, one player at a time (mirrors hot-seat flow).

@@ -27,8 +27,9 @@ var setup_tile_positions: Array[Vector2i] = []  # Board positions placed during 
 var placed_villages: Array = []
 
 # Turn tracking
-var actions_remaining: int = 3  # For later: 3 actions per turn
+var actions_remaining: int = 3
 var max_actions_this_turn: int = 3  # Track max actions for display (includes bonuses)
+var test_mode: bool = false  # When true, start_turn() grants 999 actions instead of BASE_ACTIONS
 var next_turn_bonus_actions: int = 0  # For Bicéphallès' extra action power
 var used_powers_this_turn: Array[int] = []  # Track used powers (PowerType enums)
 var pending_power: GodPower = null  # Stores GodPower for deferred payment (selection-based powers)
@@ -137,7 +138,11 @@ func start_turn() -> void:
 	add_fervor(1)
 
 	# Apply bonus actions (e.g., Bicéphallès' power)
-	var total_actions: int = BASE_ACTIONS + next_turn_bonus_actions
+	var total_actions: int
+	if test_mode:
+		total_actions = 999
+	else:
+		total_actions = BASE_ACTIONS + next_turn_bonus_actions
 	next_turn_bonus_actions = 0  # Reset bonus for next turn
 	max_actions_this_turn = total_actions  # Track max for display
 	set_actions(total_actions)
