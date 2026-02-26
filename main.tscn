@@ -49,5 +49,4 @@ shape = SubResource("WorldBoundaryShape3D_ground")
 
 [node name="BoardManager" type="Node3D" parent="." unique_id=1661449001]
 script = ExtResource("1_k6p8v")
-test_mode = false
 player_count = 4

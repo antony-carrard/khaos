@@ -15,6 +15,7 @@ var glory: int = 0        # Victory points
 # Player's hand of tiles (fixed size array with null for empty slots)
 const HAND_SIZE: int = 3
 const BASE_ACTIONS: int = 3          # Default actions per turn (before bonuses)
+const TEST_MODE_AMOUNT: int = 999    # Unlimited amount granted in test mode (actions, resources, fervor)
 const SETUP_TILE_COUNT: int = 2       # Plains tiles dealt at game start (player chooses order of placement)
 var hand: Array = [null, null, null]  # Array of TilePool.TileDefinition or null
 
@@ -140,7 +141,7 @@ func start_turn() -> void:
 	# Apply bonus actions (e.g., Bicéphallès' power)
 	var total_actions: int
 	if test_mode:
-		total_actions = 999
+		total_actions = TEST_MODE_AMOUNT
 	else:
 		total_actions = BASE_ACTIONS + next_turn_bonus_actions
 	next_turn_bonus_actions = 0  # Reset bonus for next turn

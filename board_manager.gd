@@ -103,11 +103,14 @@ func _ready() -> void:
 	for i in range(count):
 		var player = Player.new()
 		add_child(player)
-		var starting_resources = 999 if test_mode else 0
-		var starting_fervor = 999 if test_mode else 0
+		var starting_resources = Player.TEST_MODE_AMOUNT if test_mode else 0
+		var starting_fervor = Player.TEST_MODE_AMOUNT if test_mode else 0
 		player.initialize("Player %d" % (i + 1), starting_resources, starting_fervor)
 		player.player_color = PLAYER_COLORS[i]
 		player.test_mode = test_mode
+		if test_mode:
+			player.actions_remaining = Player.TEST_MODE_AMOUNT
+			player.max_actions_this_turn = Player.TEST_MODE_AMOUNT
 		players.append(player)
 
 	# In network mode, record which player index belongs to this machine
