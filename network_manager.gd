@@ -9,6 +9,7 @@ signal connection_succeeded
 signal connection_failed
 signal peer_connected(id: int)
 signal peer_disconnected(id: int)
+signal lobby_updated  # emitted on all machines when peer_names changes
 
 const DEFAULT_PORT := 7777
 const MAX_PLAYERS := 4
@@ -16,6 +17,8 @@ const MAX_PLAYERS := 4
 var is_host: bool = false
 # peer_id → player_index (populated by start_game RPC)
 var peer_player_map: Dictionary = {}
+# peer_id → player name (host authoritative, synced to all via _sync_peer_names)
+var peer_names: Dictionary = {}
 
 
 func get_player_index(peer_id: int) -> int:
@@ -52,6 +55,7 @@ func disconnect_network() -> void:
 	multiplayer.multiplayer_peer = null
 	is_host = false
 	peer_player_map.clear()
+	peer_names.clear()
 
 
 func get_connected_peers() -> Array[int]:
@@ -60,6 +64,31 @@ func get_connected_peers() -> Array[int]:
 	var result: Array[int] = []
 	result.assign(multiplayer.get_peers())
 	return result
+
+
+## Host registers their own name (peer 1 — no RPC needed).
+func register_host_name(name: String) -> void:
+	peer_names[1] = name
+	_broadcast_lobby()
+
+
+## Client → host: registers the caller's name. Host stores it and rebroadcasts lobby.
+@rpc("any_peer", "call_remote", "reliable")
+func register_name(name: String) -> void:
+	peer_names[multiplayer.get_remote_sender_id()] = name
+	_broadcast_lobby()
+
+
+## Broadcasts current peer_names to all machines (including host via call_local).
+func _broadcast_lobby() -> void:
+	rpc("_sync_peer_names", peer_names.duplicate())
+
+
+## Received by all machines: updates local peer_names and notifies UI.
+@rpc("authority", "call_local", "reliable")
+func _sync_peer_names(names: Dictionary) -> void:
+	peer_names = names
+	lobby_updated.emit()
 
 
 ## Called by host to restart the current game on all machines simultaneously.
@@ -79,6 +108,16 @@ func start_game(player_count: int, p_peer_player_map: Dictionary, rng_seed: int)
 	GameConfig.player_count = player_count
 	GameConfig.local_player_index = peer_player_map.get(multiplayer.get_unique_id(), 0)
 	GameConfig.network_rng_seed = rng_seed
+	# Build player_names array ordered by player_index, falling back to "Player N"
+	var names: Array[String] = []
+	names.resize(player_count)
+	for i in range(player_count):
+		names[i] = "Player %d" % (i + 1)
+	for pid in peer_player_map:
+		var idx: int = peer_player_map[pid]
+		if idx < player_count and peer_names.has(pid):
+			names[idx] = peer_names[pid]
+	GameConfig.player_names = names
 	GameConfig.initialized = true
 	get_tree().change_scene_to_file("res://main.tscn")
 
@@ -93,8 +132,13 @@ func _on_connection_failed() -> void:
 
 
 func _on_peer_connected(id: int) -> void:
+	if is_host:
+		_broadcast_lobby()  # Shows "…" for new peer until they register their name
 	peer_connected.emit(id)
 
 
 func _on_peer_disconnected(id: int) -> void:
+	peer_names.erase(id)
+	if is_host:
+		_broadcast_lobby()
 	peer_disconnected.emit(id)

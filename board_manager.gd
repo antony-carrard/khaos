@@ -105,7 +105,8 @@ func _ready() -> void:
 		add_child(player)
 		var starting_resources = Player.TEST_MODE_AMOUNT if test_mode else 0
 		var starting_fervor = Player.TEST_MODE_AMOUNT if test_mode else 0
-		player.initialize("Player %d" % (i + 1), starting_resources, starting_fervor)
+		var pname := GameConfig.player_names[i] if i < GameConfig.player_names.size() else "Player %d" % (i + 1)
+		player.initialize(pname, starting_resources, starting_fervor)
 		player.player_color = PLAYER_COLORS[i]
 		player.test_mode = test_mode
 		if test_mode:
