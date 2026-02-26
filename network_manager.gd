@@ -62,6 +62,14 @@ func get_connected_peers() -> Array[int]:
 	return result
 
 
+## Called by host to restart the current game on all machines simultaneously.
+## Generates a fresh RNG seed so the rematch has a different tile order.
+@rpc("authority", "call_local", "reliable")
+func restart_game(rng_seed: int) -> void:
+	GameConfig.network_rng_seed = rng_seed
+	get_tree().reload_current_scene()
+
+
 ## Called by host to start the game on all machines simultaneously.
 ## p_peer_player_map: {peer_id (int) → player_index (int)}
 @rpc("authority", "call_local", "reliable")

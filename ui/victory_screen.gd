@@ -140,15 +140,18 @@ func _create_victory_screen(all_scores: Array) -> Control:
 	menu_button.pressed.connect(_on_return_to_menu)
 	button_hbox.add_child(menu_button)
 
-	# New game button
+	# New game button — in network mode only the host can trigger a restart
+	var is_network := GameConfig.initialized and GameConfig.mode == GameConfig.GameMode.NETWORK
+	var can_restart := not is_network or NetworkManager.is_host
 	var new_game_button = Button.new()
-	new_game_button.text = "New Game"
+	new_game_button.text = "New Game" if can_restart else "Host restarts"
 	new_game_button.custom_minimum_size = VICTORY_BUTTON_SIZE
-	var new_game_style = _create_button_style(Color(0.3, 0.7, 0.3))
+	var new_game_style = _create_button_style(Color(0.3, 0.7, 0.3) if can_restart else Color(0.25, 0.25, 0.25))
 	new_game_button.add_theme_stylebox_override("normal", new_game_style)
-	new_game_button.add_theme_stylebox_override("hover", _create_button_style(Color(0.4, 0.8, 0.4)))
-	new_game_button.add_theme_color_override("font_color", Color.WHITE)
+	new_game_button.add_theme_stylebox_override("hover", _create_button_style(Color(0.4, 0.8, 0.4) if can_restart else Color(0.25, 0.25, 0.25)))
+	new_game_button.add_theme_color_override("font_color", Color.WHITE if can_restart else Color(0.5, 0.5, 0.5))
 	new_game_button.add_theme_font_size_override("font_size", 18)
+	new_game_button.disabled = not can_restart
 	new_game_button.pressed.connect(_on_new_game)
 	button_hbox.add_child(new_game_button)
 
@@ -295,9 +298,13 @@ func _create_button_style(bg_color: Color) -> StyleBoxFlat:
 
 
 ## Called when New Game button is pressed.
-## GameConfig is left unchanged so the rematch uses the same mode, player count, and local index.
+## In network mode the host broadcasts a restart with a fresh RNG seed; all machines reload.
+## In hot-seat GameConfig is left unchanged so the rematch reuses the same settings.
 func _on_new_game() -> void:
-	get_tree().reload_current_scene()
+	if GameConfig.initialized and GameConfig.mode == GameConfig.GameMode.NETWORK:
+		NetworkManager.rpc("restart_game", randi())
+	else:
+		get_tree().reload_current_scene()
 
 
 ## Called when Return to Menu button is pressed.
