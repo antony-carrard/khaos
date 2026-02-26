@@ -51,9 +51,7 @@ func show_victory_screen(all_scores: Array) -> void:
 	var victory_overlay = _create_victory_screen(all_scores)
 
 	# Add to scene root (not parent) to avoid being hidden when tile_selector_ui becomes invisible
-	var scene_root = get_tree().root.get_child(get_tree().root.get_child_count() - 1)
-	if scene_root:
-		scene_root.add_child(victory_overlay)
+	get_tree().current_scene.add_child(victory_overlay)
 
 
 ## Creates the victory screen UI overlay.
