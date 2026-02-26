@@ -178,7 +178,27 @@ func _show_main_section() -> void:
 		var btn := Button.new()
 		btn.text = pair[0]
 		btn.add_theme_font_size_override("font_size", START_BTN_FONT_SIZE)
+		btn.add_theme_color_override("font_color", Color.WHITE)
 		btn.custom_minimum_size = Vector2(240, 64)
+		var style_normal := StyleBoxFlat.new()
+		style_normal.bg_color = COLOR_COUNT_SELECTED_BG
+		style_normal.border_color = COLOR_COUNT_SELECTED_BORDER
+		style_normal.border_width_left = 2
+		style_normal.border_width_right = 2
+		style_normal.border_width_top = 2
+		style_normal.border_width_bottom = 2
+		style_normal.set_corner_radius_all(COUNT_BTN_CORNER_RADIUS)
+		var style_hover := StyleBoxFlat.new()
+		style_hover.bg_color = COLOR_COUNT_SELECTED_BG.lightened(0.15)
+		style_hover.border_color = COLOR_COUNT_SELECTED_BORDER
+		style_hover.border_width_left = 2
+		style_hover.border_width_right = 2
+		style_hover.border_width_top = 2
+		style_hover.border_width_bottom = 2
+		style_hover.set_corner_radius_all(COUNT_BTN_CORNER_RADIUS)
+		btn.add_theme_stylebox_override("normal", style_normal)
+		btn.add_theme_stylebox_override("hover", style_hover)
+		btn.add_theme_stylebox_override("pressed", style_normal)
 		btn.pressed.connect(pair[1])
 		vbox.add_child(btn)
 
@@ -366,7 +386,8 @@ func _show_lobby_section() -> void:
 		start_btn.add_theme_font_size_override("font_size", START_BTN_FONT_SIZE)
 		start_btn.custom_minimum_size = Vector2(240, 64)
 		start_btn.pressed.connect(func() -> void:
-			var all_peers: Array[int] = NetworkManager.peer_names.keys()
+			var all_peers: Array[int] = []
+			all_peers.assign(NetworkManager.peer_names.keys())
 			all_peers.sort()
 			var count := all_peers.size()
 			var peer_map: Dictionary = {}
@@ -393,7 +414,8 @@ func _show_lobby_section() -> void:
 			return
 		for child in player_list.get_children():
 			child.queue_free()
-		var all_peers: Array[int] = NetworkManager.peer_names.keys()
+		var all_peers: Array[int] = []
+		all_peers.assign(NetworkManager.peer_names.keys())
 		all_peers.sort()  # host (1) always first, then clients in join order
 		var my_id := multiplayer.get_unique_id()
 		for pid in all_peers:
