@@ -138,7 +138,8 @@ func _build_ui() -> void:
 ## Refreshes the UI for the given player and setup round.
 ## Called from board_manager._on_active_player_changed() on every player switch.
 ## player = active player (shown in the label); ui_player = local player (god + tiles).
-func update_for_player(player: Player, setup_round: int) -> void:
+## is_my_turn = false in network mode when it is another player's turn.
+func update_for_player(player: Player, setup_round: int, is_my_turn: bool = true) -> void:
 	var ui_player: Player = _board_manager_ref.ui_player
 	if ui_player.god and _god_panel:
 		_god_panel.update_god_display(ui_player.god, _god_manager_ref, _board_manager_ref)
@@ -146,28 +147,46 @@ func update_for_player(player: Player, setup_round: int) -> void:
 	_player_label.text = player.player_name
 	_player_label.add_theme_color_override("font_color", player.player_color)
 
+	const GOLD := Color(0.90, 0.80, 0.30)
+	const DIM  := Color(0.55, 0.55, 0.55)
+
 	match setup_round:
 		1:
-			_round_label.text = "Setup Round 1 — Choose your first tile to place"
+			if is_my_turn:
+				_round_label.text = "Setup Round 1 — Choose your first tile to place"
+			else:
+				_round_label.text = "Setup Round 1 — is choosing their first tile…"
 		2:
-			_round_label.text = "Setup Round 2 — Choose your second tile to place"
+			if is_my_turn:
+				_round_label.text = "Setup Round 2 — Choose your second tile to place"
+			else:
+				_round_label.text = "Setup Round 2 — is choosing their second tile…"
 		_:
-			_round_label.text = "Setup Round 3 — Place your village"
+			if is_my_turn:
+				_round_label.text = "Setup Round 3 — Place your village"
+			else:
+				_round_label.text = "Setup Round 3 — is placing their village…"
+	_round_label.add_theme_color_override("font_color", GOLD if is_my_turn else DIM)
 
 	if setup_round <= 2:
 		_instruction_label.visible = false
-		_show_tile_cards(ui_player.setup_tiles)
+		_show_tile_cards(ui_player.setup_tiles, is_my_turn)
 	else:
 		_clear_cards()
-		_instruction_label.text = "Click on one of your placed tiles to build your village"
+		if is_my_turn:
+			_instruction_label.text = "Click on one of your placed tiles to build your village"
+			_instruction_label.add_theme_color_override("font_color", Color(0.85, 0.85, 0.85))
+		else:
+			_instruction_label.text = "Waiting for them to place their village…"
+			_instruction_label.add_theme_color_override("font_color", DIM)
 		_instruction_label.visible = true
 
 
-func _show_tile_cards(setup_tiles: Array) -> void:
+func _show_tile_cards(setup_tiles: Array, is_my_turn: bool = true) -> void:
 	_clear_cards()
 	for i in range(setup_tiles.size()):
 		if setup_tiles[i] != null:
-			_create_tile_card(i, setup_tiles[i])
+			_create_tile_card(i, setup_tiles[i], is_my_turn)
 		else:
 			_create_placed_placeholder()
 
@@ -177,8 +196,8 @@ func _clear_cards() -> void:
 		child.queue_free()
 
 
-## A clickable tile card for a remaining setup tile.
-func _create_tile_card(setup_index: int, tile_def) -> void:
+## A tile card — clickable when is_my_turn, dimmed and inert otherwise.
+func _create_tile_card(setup_index: int, tile_def, is_my_turn: bool = true) -> void:
 	var card = PanelContainer.new()
 	var style = StyleBoxFlat.new()
 	var tile_color: Color = tile_type_colors.get(tile_def.tile_type, Color.GRAY)
@@ -234,6 +253,10 @@ func _create_tile_card(setup_index: int, tile_def) -> void:
 	free_label.add_theme_font_size_override("font_size", 14)
 	free_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	vbox.add_child(free_label)
+
+	if not is_my_turn:
+		card.modulate = Color(0.55, 0.55, 0.55, 0.75)
+		return  # no click button — card is display-only
 
 	# Invisible click-catcher button over the whole card
 	var btn = Button.new()

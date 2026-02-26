@@ -214,7 +214,8 @@ func _ready() -> void:
 		active_player_view.bind(players[local_player_index])
 
 	# Manually push the first player since active_player_switched already fired before connection
-	setup_phase_ui.update_for_player(current_player, setup_round)
+	var is_my_turn := not _is_network or current_player_index == local_player_index
+	setup_phase_ui.update_for_player(current_player, setup_round, is_my_turn)
 
 	# Start setup phase
 	turn_manager.start_setup_phase()
@@ -361,7 +362,8 @@ func _switch_to_player(index: int) -> void:
 func _on_active_player_changed(player: Player) -> void:
 	if setup_phase_ui != null:
 		# During setup: delegate entirely to the dedicated setup UI
-		setup_phase_ui.update_for_player(player, setup_round)
+		var is_my_turn := not _is_network or current_player_index == local_player_index
+		setup_phase_ui.update_for_player(player, setup_round, is_my_turn)
 		return
 
 	# Gameplay: update main game UI
@@ -657,7 +659,10 @@ func _on_setup_action_done() -> void:
 
 ## Enter setup village placement mode for the current player.
 ## The setup_phase_ui already shows the round 3 prompt via _on_active_player_changed().
+## In network mode, only the local machine enters placement mode when it is their turn.
 func _start_setup_village_for_player() -> void:
+	if _is_network and current_player_index != local_player_index:
+		return
 	placement_controller.select_setup_village_mode()
 	Log.info("%s: Place your village on one of your tiles" % current_player.player_name)
 
