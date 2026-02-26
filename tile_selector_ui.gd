@@ -37,6 +37,7 @@ var buttons: Array[Button] = []
 var board_manager: Node3D = null  # Reference to get hand data
 var player_turn_label: Label = null
 var _is_my_turn: bool = true  # False during opponent turns in network mode
+var _in_harvest_phase: bool = false  # True during harvest phase; blocks action buttons
 
 # Turn system UI (still managed here)
 var actions_label: Label = null
@@ -348,6 +349,7 @@ func _on_harvest_button_pressed(resource_type: int) -> void:
 
 ## Updates UI based on current turn phase (HARVEST or ACTIONS only — setup has its own UI)
 func update_turn_phase(phase: int) -> void:
+	_in_harvest_phase = (phase == TurnManager.Phase.HARVEST)
 	match phase:
 		TurnManager.Phase.HARVEST:
 			# Show harvest buttons, hide actions label
@@ -355,14 +357,13 @@ func update_turn_phase(phase: int) -> void:
 				harvest_ui.visible = true
 			if actions_label:
 				actions_label.visible = false
-			# Disable village buttons during harvest phase
+			# Disable all action buttons during harvest phase
 			if village_place_button:
 				village_place_button.disabled = true
 			if village_remove_button:
 				village_remove_button.disabled = true
-			# Block end turn until harvest is chosen (except in test mode for quick skipping)
-			if end_turn_button and not board_manager.test_mode:
-				end_turn_button.disabled = true
+			if end_turn_button:
+				end_turn_button.disabled = not board_manager.test_mode
 			# Refresh hand display to disable tile cards and sell buttons
 			update_hand_display()
 		TurnManager.Phase.ACTIONS:
@@ -413,6 +414,8 @@ func update_actions(remaining: int) -> void:
 ## Called on every turn switch so buttons are greyed during opponent turns in network mode.
 func set_actions_interactive(enabled: bool) -> void:
 	_is_my_turn = enabled
+	if _in_harvest_phase:
+		return
 	if village_place_button:
 		village_place_button.disabled = not enabled
 	if village_remove_button:
