@@ -52,6 +52,17 @@ func join_server(ip: String, port: int = DEFAULT_PORT) -> Error:
 
 
 func disconnect_network() -> void:
+	# Disconnect all multiplayer signals before clearing the peer.
+	# These are connected in create_server() / join_server() and persist across
+	# scene changes, so without explicit disconnects they accumulate each session.
+	if multiplayer.peer_connected.is_connected(_on_peer_connected):
+		multiplayer.peer_connected.disconnect(_on_peer_connected)
+	if multiplayer.peer_disconnected.is_connected(_on_peer_disconnected):
+		multiplayer.peer_disconnected.disconnect(_on_peer_disconnected)
+	if multiplayer.connected_to_server.is_connected(_on_connected_to_server):
+		multiplayer.connected_to_server.disconnect(_on_connected_to_server)
+	if multiplayer.connection_failed.is_connected(_on_connection_failed):
+		multiplayer.connection_failed.disconnect(_on_connection_failed)
 	multiplayer.multiplayer_peer = null
 	is_host = false
 	peer_player_map.clear()
