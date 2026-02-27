@@ -18,7 +18,7 @@ const VictoryScreenScene = preload("res://ui/victory_screen.gd")
 const ResourceTypePickerScene = preload("res://ui/resource_type_picker.gd")
 const GodPanelScene = preload("res://ui/god_panel.gd")
 const ResourcePanelScene = preload("res://ui/resource_panel.gd")
-const HarvestUIScene = preload("res://ui/harvest_ui.gd")
+const HarvestPickerScene = preload("res://ui/harvest_picker.gd")
 const HandDisplayScene = preload("res://ui/hand_display.gd")
 const TooltipManagerScene = preload("res://ui/tooltip_manager.gd")
 
@@ -51,7 +51,7 @@ var victory_screen: VictoryScreen = null
 var resource_type_picker: ResourceTypePicker = null
 var god_panel: GodPanel = null
 var resource_panel: ResourcePanel = null
-var harvest_ui: HarvestUI = null
+var harvest_picker: HarvestPicker = null
 var hand_display: HandDisplay = null
 var tooltip_manager: TooltipManager = null
 
@@ -78,12 +78,16 @@ func _ready() -> void:
 	hand_display.tile_selected_from_hand.connect(_on_hand_card_pressed)
 	hand_display.tile_sold_from_hand.connect(_on_sell_button_pressed)
 
-	# Add resource_type_picker last so it appears on top when shown
 	resource_type_picker = ResourceTypePickerScene.new()
 	resource_type_picker.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	add_child(resource_type_picker)
 	resource_type_picker.resource_type_selected.connect(_on_resource_type_selected)
 	resource_type_picker.picker_cancelled.connect(_on_resource_type_picker_cancelled)
+
+	harvest_picker = HarvestPickerScene.new()
+	harvest_picker.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	add_child(harvest_picker)
+	harvest_picker.harvest_selected.connect(_on_harvest_button_pressed)
 
 func initialize(colors: Dictionary, _board_manager: Node3D = null) -> void:
 	tile_type_colors = colors
@@ -191,11 +195,6 @@ func initialize(colors: Dictionary, _board_manager: Node3D = null) -> void:
 	actions_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	actions_label.visible = false
 	turn_phase_container.add_child(actions_label)
-
-	# Harvest buttons container (shown during harvest phase)
-	harvest_ui = HarvestUIScene.new()
-	harvest_ui.harvest_selected.connect(_on_harvest_button_pressed)
-	turn_phase_container.add_child(harvest_ui)
 
 	# Village buttons
 	var village_hbox = HBoxContainer.new()
@@ -323,10 +322,8 @@ func update_hand_display() -> void:
 
 
 func show_harvest_options(available_types: Array[int]) -> void:
-	if harvest_ui and _is_my_turn:
-		harvest_ui.show_harvest_options(available_types)
-	if actions_label:
-		actions_label.visible = false
+	if harvest_picker and _is_my_turn:
+		harvest_picker.show_picker(available_types)
 
 
 func _on_hand_card_pressed(hand_index: int) -> void:
@@ -352,9 +349,6 @@ func update_turn_phase(phase: int) -> void:
 	_in_harvest_phase = (phase == TurnManager.Phase.HARVEST)
 	match phase:
 		TurnManager.Phase.HARVEST:
-			# Show harvest buttons, hide actions label
-			if harvest_ui:
-				harvest_ui.visible = true
 			if actions_label:
 				actions_label.visible = false
 			# Disable all action buttons during harvest phase
@@ -367,9 +361,6 @@ func update_turn_phase(phase: int) -> void:
 			# Refresh hand display to disable tile cards and sell buttons
 			update_hand_display()
 		TurnManager.Phase.ACTIONS:
-			# Show actions label, hide harvest buttons
-			if harvest_ui:
-				harvest_ui.visible = false
 			if actions_label:
 				actions_label.visible = true
 			# Re-enable village/end-turn buttons only if it is our turn
