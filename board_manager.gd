@@ -826,8 +826,12 @@ func _on_power_executed(power_type: int, q: int, r: int, extra: int) -> void:
 ## Called when a remote peer disconnects during a game session.
 func _on_network_peer_disconnected(_id: int) -> void:
 	Log.warn("Network: A peer disconnected — returning to main menu")
+	# Disconnect self first to prevent re-entrant calls: disconnect_network() nulls
+	# the ENet peer which can flush pending events and re-fire peer_disconnected.
+	NetworkManager.peer_disconnected.disconnect(_on_network_peer_disconnected)
 	NetworkManager.disconnect_network()
-	get_tree().change_scene_to_file("res://main_menu.tscn")
+	# Defer so the current frame finishes before the scene tree tears down this node.
+	get_tree().call_deferred("change_scene_to_file", "res://main_menu.tscn")
 
 
 ## Validates that an incoming RPC comes from the peer whose turn it currently is.
