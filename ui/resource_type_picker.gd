@@ -43,13 +43,19 @@ func show_picker(q: int, r: int, current_type: int, tile_type: int, available_ty
 	# Enable input handling on root while overlay is shown
 	mouse_filter = Control.MOUSE_FILTER_PASS
 
+	# Use a dedicated high-layer CanvasLayer so the picker renders above all other UI
+	# (status header, hand display, etc.) regardless of node tree order.
+	var picker_canvas := CanvasLayer.new()
+	picker_canvas.layer = 5
+	add_child(picker_canvas)
+
 	# Create full-screen overlay
 	overlay = ColorRect.new()
 	overlay.color = Color(0, 0, 0, 0.6)  # Semi-transparent black
 	overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	overlay.mouse_filter = Control.MOUSE_FILTER_STOP  # Block clicks from reaching 3D scene
 
-	add_child(overlay)
+	picker_canvas.add_child(overlay)
 
 	# Center container
 	var center = CenterContainer.new()
@@ -187,9 +193,6 @@ func _on_cancel_pressed() -> void:
 ## Close and cleanup the picker overlay
 func _close_picker() -> void:
 	if overlay:
-		overlay.visible = false
-		overlay.queue_free()
+		overlay.get_parent().queue_free()  # frees CanvasLayer + its whole subtree
 		overlay = null
-
-	# Disable input handling on root when no overlay
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
