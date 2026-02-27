@@ -135,6 +135,12 @@ func handle_edge_panning(delta: float) -> void:
 	if mouse_pos.x < 0 or mouse_pos.x > viewport_size.x or mouse_pos.y < 0 or mouse_pos.y > viewport_size.y:
 		return
 
+	# Don't pan when the mouse is over an interactive UI element (buttons, panels, etc.)
+	# MOUSE_FILTER_STOP means the control absorbs clicks — exactly what we want to detect.
+	var hovered := get_viewport().gui_get_hovered_control()
+	if is_instance_valid(hovered) and hovered.mouse_filter == Control.MOUSE_FILTER_STOP:
+		return
+
 	var move_direction := Vector3.ZERO
 
 	# Check if mouse is near edges
