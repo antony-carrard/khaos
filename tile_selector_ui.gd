@@ -323,7 +323,7 @@ func update_hand_display() -> void:
 
 
 func show_harvest_options(available_types: Array[int]) -> void:
-	if harvest_ui:
+	if harvest_ui and _is_my_turn:
 		harvest_ui.show_harvest_options(available_types)
 	if actions_label:
 		actions_label.visible = false
