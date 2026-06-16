@@ -65,9 +65,19 @@ func _create_tooltip() -> void:
 func show_village_sell_tooltip(visible_flag: bool, refund_amount: int = 0) -> void:
 	if not tooltip_label or not tooltip_panel:
 		return
-
-	if visible_flag and refund_amount > 0:
+	if visible_flag:
 		tooltip_label.text = "+%d Resources" % refund_amount
+		tooltip_panel.visible = true
+	else:
+		tooltip_panel.visible = false
+
+
+## Shows or hides the cost tooltip for destroying an enemy village
+func show_village_cost_tooltip(visible_flag: bool, cost_amount: int = 0) -> void:
+	if not tooltip_label or not tooltip_panel:
+		return
+	if visible_flag:
+		tooltip_label.text = "-%d Resources" % cost_amount
 		tooltip_panel.visible = true
 	else:
 		tooltip_panel.visible = false

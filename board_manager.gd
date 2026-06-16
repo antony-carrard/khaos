@@ -627,15 +627,36 @@ func on_village_placed(q: int, r: int) -> bool:
 	return true
 
 
-## Called when player attempts to remove/sell a village
+## Returns true if the current player can legally destroy the enemy village at (q, r).
+## Conditions (from rules): own village on a neighboring tile at height >= enemy tile height,
+## and current player can afford half the enemy village's build cost.
+func can_destroy_enemy_village(q: int, r: int) -> bool:
+	var enemy_village := village_manager.get_village_at(q, r)
+	if not enemy_village or enemy_village.player_owner == current_player:
+		return false
+	var enemy_tile := tile_manager.get_tile_at(q, r)
+	if not enemy_tile:
+		return false
+	var half_cost := int(enemy_village.player_owner.get_village_cost(enemy_tile.village_building_cost) / 2.0)
+	if current_player.resources < half_cost:
+		return false
+	for neighbor in HexGridUtils.get_axial_neighbors(q, r):
+		var own_village := village_manager.get_village_at(neighbor.x, neighbor.y)
+		if not own_village or own_village.player_owner != current_player:
+			continue
+		var own_tile := tile_manager.get_tile_at(neighbor.x, neighbor.y)
+		if own_tile and own_tile.height_level >= enemy_tile.height_level:
+			return true
+	return false
+
+
+## Called when player attempts to remove/sell a village.
+## Own village: free action refunding half the build cost.
+## Enemy village: costs half the enemy's build cost (paid to them), requires adjacency + height.
 func on_village_removed(q: int, r: int) -> bool:
 	var village = village_manager.get_village_at(q, r)
 	if not village:
 		Log.warn("BoardManager: No village at (%d,%d) to remove" % [q, r])
-		return false
-
-	if village.player_owner != current_player:
-		Log.warn("BoardManager: Cannot remove another player's village")
 		return false
 
 	var tile = tile_manager.get_tile_at(q, r)
@@ -643,18 +664,28 @@ func on_village_removed(q: int, r: int) -> bool:
 		Log.error("BoardManager: Village exists at (%d,%d) but no tile found" % [q, r])
 		return false
 
-	var building_cost: int = current_player.get_village_cost(tile.village_building_cost)
-	var refund: int = int(building_cost / 2.0)
-
-	if not turn_manager.consume_action("remove village"):
-		return false
-
-	var success = village_manager.remove_village(q, r)
-	if not success:
-		return false
-
-	current_player.add_resources(refund)
-	Log.info("Removed village, received %d resources refund" % refund)
+	if village.player_owner == current_player:
+		var building_cost: int = current_player.get_village_cost(tile.village_building_cost)
+		var refund: int = int(building_cost / 2.0)
+		if not turn_manager.consume_action("remove village"):
+			return false
+		if not village_manager.remove_village(q, r):
+			return false
+		current_player.add_resources(refund)
+		Log.info("Removed own village, received %d resources refund" % refund)
+	else:
+		if not can_destroy_enemy_village(q, r):
+			Log.warn("BoardManager: Cannot destroy enemy village at (%d,%d) — conditions not met" % [q, r])
+			return false
+		var enemy_player: Player = village.player_owner
+		var half_cost: int = int(enemy_player.get_village_cost(tile.village_building_cost) / 2.0)
+		if not turn_manager.consume_action("destroy enemy village"):
+			return false
+		if not village_manager.remove_village(q, r):
+			return false
+		current_player.spend_resources(half_cost)
+		enemy_player.add_resources(half_cost)
+		Log.info("Destroyed enemy village at (%d,%d), paid %d resources to %s" % [q, r, half_cost, enemy_player.player_name])
 
 	if _is_network:
 		rpc("_rpc_remove_village", q, r)
@@ -921,15 +952,23 @@ func _rpc_place_village(q: int, r: int) -> void:
 @rpc("any_peer", "call_remote", "reliable")
 func _rpc_remove_village(q: int, r: int) -> void:
 	if not _validate_rpc_sender(): return
-	var tile = tile_manager.get_tile_at(q, r)
-	if not tile:
-		push_warning("_rpc_remove_village: no tile at (%d,%d)" % [q, r])
+	var village := village_manager.get_village_at(q, r)
+	var tile := tile_manager.get_tile_at(q, r)
+	if not village or not tile:
+		push_warning("_rpc_remove_village: missing village or tile at (%d,%d)" % [q, r])
 		return
-	var building_cost := current_player.get_village_cost(tile.village_building_cost)
-	var refund := int(building_cost / 2.0)
-	village_manager.remove_village(q, r)
-	current_player.add_resources(refund)
-	turn_manager.consume_action("remove village")
+	if village.player_owner == current_player:
+		var refund := int(current_player.get_village_cost(tile.village_building_cost) / 2.0)
+		village_manager.remove_village(q, r)
+		current_player.add_resources(refund)
+		turn_manager.consume_action("remove village")
+	else:
+		var enemy_player: Player = village.player_owner
+		var half_cost := int(enemy_player.get_village_cost(tile.village_building_cost) / 2.0)
+		village_manager.remove_village(q, r)
+		current_player.spend_resources(half_cost)
+		enemy_player.add_resources(half_cost)
+		turn_manager.consume_action("destroy enemy village")
 
 
 @rpc("any_peer", "call_remote", "reliable")

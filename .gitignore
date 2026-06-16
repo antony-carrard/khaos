@@ -4,3 +4,7 @@
 
 # GdUnit4 test reports
 /reports/
+
+# Export artifacts
+/export/
+export_presets.cfg

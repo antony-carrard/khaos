@@ -211,8 +211,8 @@ func upgrade_tile(q: int, r: int) -> bool:
 
 	var res_type = current_tile.resource_type
 	var yield_val = bag_tile.yield_value
-	var village_cost = current_tile.village_building_cost
-	var sell_val = current_tile.sell_price
+	var village_cost = bag_tile.village_building_cost
+	var sell_val = bag_tile.sell_price
 	var old_tile_type = current_tile.tile_type
 
 	# Place new tile on top (stacking)
