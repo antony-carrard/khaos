@@ -75,10 +75,10 @@ Pouvoir mineur (3 ferveurs): Double récolte sur un emplacement. Récupère le r
 Pouvoir majeur (6 ferveurs): Double un de ses villages. Le village est doublé autant dans la récolte que pour le décompte du nombre de villages du plus grand groupe. Le joueur récupère le bonus de gloire comme si un nouveau village était construit. Le prix de démolition ainsi que la gloire obtenue lors de la démolition du village doublé est le même qu'un village normal.
 ### Le Bâtisseur
 Pouvoir passif : La construction de village coûte -1 matériau (1/3/5 au lieu de 2/4/6)
-Pouvoir mineur (2 ferveurs) : Peut merger des villages présents dans un même groupe selon la logique suivante :
-- 2 villages plaine -> un village colline
-- 1 village plaine + 1 village colline -> un village montagne
-(Un groupe de village est un groupe de village adjacents).
+Pouvoir mineur (2 ferveurs) : Peut fusionner des villages présents dans un même groupe de villages adjacents selon la logique suivante :
+- 2 villages plaine -> 1 village colline
+- 1 village plaine + 1 village colline -> 1 village montagne
+Le bâtisseur gagne un point de gloire par fusion.
 Pouvoir majeur (5 ferveurs): Construction divine. Construit un village sur n'importe quelle tuile vacante.
 ### Augia
 Pouvoir passif : Reçois une tuile bonus à chaque tour (4 tuiles au lieu de 3)
