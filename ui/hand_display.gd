@@ -5,13 +5,11 @@ class_name HandDisplay
 ## Setup tiles are handled by the dedicated SetupPhaseUI overlay
 
 signal tile_selected_from_hand(hand_index: int)
-signal tile_sold_from_hand(hand_index: int)
 
 const HAND_SIZE: int = 3  # Number of tiles in hand
 const CARD_SIZE: Vector2 = Vector2(100, 110)
 const CARD_MARGIN: int = 8
 const CARD_CORNER_RADIUS: int = 8
-const SELL_BUTTON_SIZE: Vector2 = Vector2(100, 25)
 
 var tile_type_colors: Dictionary = {}
 var hand_container: HBoxContainer = null
@@ -106,31 +104,16 @@ func _create_empty_card_placeholder() -> void:
 	label.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	card.add_child(label)
 
-	# Disabled sell button (for visual consistency)
-	var sell_button = Button.new()
-	sell_button.text = "Sell (-)"
-	sell_button.disabled = true
-	sell_button.focus_mode = Control.FOCUS_NONE
-	sell_button.custom_minimum_size = SELL_BUTTON_SIZE
-	var disabled_style = _create_button_style(Color(0.25, 0.25, 0.25, 0.4))
-	sell_button.add_theme_stylebox_override("normal", disabled_style)
-	sell_button.add_theme_stylebox_override("disabled", disabled_style)
-	sell_button.add_theme_color_override("font_color", Color(0.4, 0.4, 0.4))
-	sell_button.add_theme_font_size_override("font_size", 10)
-	card_vbox.add_child(sell_button)
-
 
 ## Create a visual card for a tile in the hand
 func _create_hand_card(hand_index: int, tile_def) -> void:
 	# Check action availability
 	var can_place = false
-	var has_actions = false
 	if board_manager_ref and board_manager_ref.current_player:
 		var is_my_turn: bool = board_manager_ref.ui_player == board_manager_ref.current_player
 		var in_actions_phase = board_manager_ref.turn_manager.is_actions_phase()
 		if in_actions_phase and is_my_turn:
 			can_place = board_manager_ref.ui_player.actions_remaining > 0
-			has_actions = board_manager_ref.ui_player.actions_remaining > 0
 
 	var card_vbox = VBoxContainer.new()
 	card_vbox.add_theme_constant_override("separation", 5)
@@ -219,33 +202,6 @@ func _create_hand_card(hand_index: int, tile_def) -> void:
 	button.pressed.connect(_on_hand_card_pressed.bind(hand_index))
 	card.add_child(button)
 
-	# Sell button
-	var sell_button = Button.new()
-	sell_button.custom_minimum_size = SELL_BUTTON_SIZE
-
-	if tile_def.sell_price > 0:
-		sell_button.text = "Sell (%d)" % tile_def.sell_price
-		var sell_style = _create_button_style(Color(0.3, 0.6, 0.3))
-		var sell_disabled_style = _create_button_style(Color(0.2, 0.4, 0.2))
-		sell_button.add_theme_stylebox_override("normal", sell_style)
-		sell_button.add_theme_stylebox_override("hover", _create_button_style(Color(0.4, 0.7, 0.4)))
-		sell_button.add_theme_stylebox_override("pressed", _create_button_style(Color(0.2, 0.5, 0.2)))
-		sell_button.add_theme_stylebox_override("disabled", sell_disabled_style)
-		sell_button.add_theme_color_override("font_color", Color.WHITE)
-		sell_button.disabled = not has_actions
-		sell_button.pressed.connect(_on_sell_button_pressed.bind(hand_index))
-	else:
-		sell_button.text = "Sell (-)"
-		sell_button.disabled = true
-		sell_button.focus_mode = Control.FOCUS_NONE
-		var disabled_style = _create_button_style(Color(0.3, 0.3, 0.3))
-		sell_button.add_theme_stylebox_override("normal", disabled_style)
-		sell_button.add_theme_stylebox_override("disabled", disabled_style)
-		sell_button.add_theme_color_override("font_color", Color(0.5, 0.5, 0.5))
-
-	sell_button.add_theme_font_size_override("font_size", 10)
-	card_vbox.add_child(sell_button)
-
 
 ## Create button style
 func _create_button_style(bg_color: Color) -> StyleBoxFlat:
@@ -261,8 +217,3 @@ func _create_button_style(bg_color: Color) -> StyleBoxFlat:
 ## Handle hand card press
 func _on_hand_card_pressed(hand_index: int) -> void:
 	tile_selected_from_hand.emit(hand_index)
-
-
-## Handle sell button press
-func _on_sell_button_pressed(hand_index: int) -> void:
-	tile_sold_from_hand.emit(hand_index)

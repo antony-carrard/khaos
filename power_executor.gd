@@ -252,7 +252,6 @@ func on_change_tile_type(q: int, r: int, new_resource_type: int) -> bool:
 		new_resource_type,
 		bag_tile.yield_value,
 		bag_tile.village_building_cost,
-		bag_tile.sell_price,
 		icon_path
 	)
 

@@ -28,7 +28,6 @@ const HAND_SIZE: int = 3  # Number of tiles in hand
 # Signals
 signal tile_type_selected(tile_type: int)
 signal tile_selected_from_hand(hand_index: int)
-signal tile_sold_from_hand(hand_index: int)
 signal village_place_selected()
 signal village_remove_selected()
 
@@ -76,7 +75,6 @@ func _ready() -> void:
 	hand_display = HandDisplayScene.new()
 	add_child(hand_display)
 	hand_display.tile_selected_from_hand.connect(_on_hand_card_pressed)
-	hand_display.tile_sold_from_hand.connect(_on_sell_button_pressed)
 
 	resource_type_picker = ResourceTypePickerScene.new()
 	resource_type_picker.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -330,10 +328,6 @@ func _on_hand_card_pressed(hand_index: int) -> void:
 	tile_selected_from_hand.emit(hand_index)
 
 
-func _on_sell_button_pressed(hand_index: int) -> void:
-	tile_sold_from_hand.emit(hand_index)
-
-
 func _on_end_turn_pressed() -> void:
 	if board_manager:
 		board_manager.on_end_turn_requested()
@@ -358,7 +352,6 @@ func update_turn_phase(phase: int) -> void:
 				village_remove_button.disabled = true
 			if end_turn_button:
 				end_turn_button.disabled = not board_manager.test_mode
-			# Refresh hand display to disable tile cards and sell buttons
 			update_hand_display()
 		TurnManager.Phase.ACTIONS:
 			if actions_label:
@@ -370,7 +363,6 @@ func update_turn_phase(phase: int) -> void:
 				village_remove_button.disabled = not _is_my_turn
 			if end_turn_button:
 				end_turn_button.disabled = not _is_my_turn
-			# Refresh hand display to re-enable tile cards and sell buttons
 			update_hand_display()
 
 

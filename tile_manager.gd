@@ -64,7 +64,7 @@ func initialize(tile_scene: PackedScene) -> void:
 ## Returns true if placement succeeded, false if invalid placement.
 ## Emits tile_placed signal on success.
 func place_tile(q: int, r: int, tile_type: TileType, res_type: ResourceType = ResourceType.RESOURCES,
-				yield_val: int = 1, village_cost: int = 0, sell_val: int = 0) -> bool:
+				yield_val: int = 1, village_cost: int = 0) -> bool:
 	var height = TILE_TYPE_TO_HEIGHT[tile_type]
 
 	if not is_valid_placement(q, r, tile_type):
@@ -78,7 +78,7 @@ func place_tile(q: int, r: int, tile_type: TileType, res_type: ResourceType = Re
 
 	# Set resource properties with icon
 	var icon_path = RESOURCE_TYPE_ICONS[res_type]
-	tile.set_resource_properties(res_type, yield_val, village_cost, sell_val, icon_path)
+	tile.set_resource_properties(res_type, yield_val, village_cost, icon_path)
 
 	var key = Vector3i(q, r, height)
 	placed_tiles[key] = tile
@@ -212,7 +212,6 @@ func upgrade_tile(q: int, r: int) -> bool:
 	var res_type = current_tile.resource_type
 	var yield_val = bag_tile.yield_value
 	var village_cost = bag_tile.village_building_cost
-	var sell_val = bag_tile.sell_price
 	var old_tile_type = current_tile.tile_type
 
 	# Place new tile on top (stacking)
@@ -233,7 +232,7 @@ func upgrade_tile(q: int, r: int) -> bool:
 
 	# Set resource properties with icon
 	var icon_path = RESOURCE_TYPE_ICONS[res_type]
-	tile.set_resource_properties(res_type, yield_val, village_cost, sell_val, icon_path)
+	tile.set_resource_properties(res_type, yield_val, village_cost, icon_path)
 
 	placed_tiles[new_key] = tile
 

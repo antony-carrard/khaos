@@ -270,7 +270,7 @@ func _auto_complete_setup() -> void:
 				continue
 			var pos := Vector2i(origin.x + j, origin.y)
 			tile_manager.place_tile(pos.x, pos.y, td.tile_type, td.resource_type,
-					td.yield_value, td.village_building_cost, td.sell_price)
+					td.yield_value, td.village_building_cost)
 			player.setup_tile_positions.append(pos)
 		# Place a free village on the first tile
 		if not player.setup_tile_positions.is_empty():
@@ -423,7 +423,6 @@ func setup_ui() -> void:
 	# Connect UI signals to placement controller
 	ui.tile_type_selected.connect(placement_controller.select_tile_type)
 	ui.tile_selected_from_hand.connect(_on_tile_selected_from_hand)
-	ui.tile_sold_from_hand.connect(sell_tile)
 	ui.village_place_selected.connect(placement_controller.select_village_place_mode)
 	ui.village_remove_selected.connect(placement_controller.select_village_remove_mode)
 
@@ -547,51 +546,6 @@ func on_tile_placed_from_hand(hand_index: int, q: int, r: int) -> void:
 	if _is_network:
 		rpc("_rpc_place_tile", hand_index, q, r)
 
-
-## Sell a tile from hand for resources
-func sell_tile(hand_index: int) -> void:
-	if hand_index < 0 or hand_index >= current_player.HAND_SIZE:
-		Log.error("BoardManager: Invalid hand index for selling: %d" % hand_index)
-		return
-
-	var tile = current_player.hand[hand_index]
-	if tile == null:
-		Log.warn("BoardManager: No tile in hand slot %d to sell" % hand_index)
-		return
-
-	# Check if tile can be sold (Glory tiles have sell_price = 0)
-	if tile.sell_price <= 0:
-		Log.warn("BoardManager: Cannot sell Glory tile")
-		return
-
-	# Consume 1 action (validates phase and action count)
-	if not turn_manager.consume_action("sell tile"):
-		return
-
-	match tile.resource_type:
-		TileManager.ResourceType.FERVOR:
-			current_player.add_fervor(tile.sell_price)
-		_:
-			current_player.add_resources(tile.sell_price)
-
-	Log.info("Sold %s %s tile for %d %s" % [
-		TileManager.ResourceType.keys()[tile.resource_type],
-		TileManager.TileType.keys()[tile.tile_type],
-		tile.sell_price,
-		TileManager.ResourceType.keys()[tile.resource_type].to_lower()
-	])
-
-	current_player.remove_from_hand(hand_index)
-
-	# Cancel placement mode if this tile was selected for placement
-	if placement_controller and placement_controller.selected_hand_index == hand_index:
-		placement_controller.cancel_placement()
-
-	if ui:
-		ui.update_hand_display()
-
-	if _is_network:
-		rpc("_rpc_sell_tile", hand_index)
 
 
 ## Called when player attempts to place a village
@@ -892,7 +846,7 @@ func _rpc_setup_tile_placed(setup_index: int, q: int, r: int) -> void:
 	if td == null:
 		push_warning("_rpc_setup_tile_placed: setup_tiles[%d] is null" % setup_index)
 		return
-	tile_manager.place_tile(q, r, td.tile_type, td.resource_type, td.yield_value, td.village_building_cost, td.sell_price)
+	tile_manager.place_tile(q, r, td.tile_type, td.resource_type, td.yield_value, td.village_building_cost)
 	current_player.setup_tile_positions.append(Vector2i(q, r))
 	turn_manager.on_setup_tile_placed(setup_index)
 
@@ -911,29 +865,12 @@ func _rpc_place_tile(hand_index: int, q: int, r: int) -> void:
 	if td == null:
 		push_warning("_rpc_place_tile: hand[%d] is null" % hand_index)
 		return
-	tile_manager.place_tile(q, r, td.tile_type, td.resource_type, td.yield_value, td.village_building_cost, td.sell_price)
+	tile_manager.place_tile(q, r, td.tile_type, td.resource_type, td.yield_value, td.village_building_cost)
 	current_player.remove_from_hand(hand_index)
 	turn_manager.consume_action("place tile")
 	if ui:
 		ui.update_hand_display()
 
-
-@rpc("any_peer", "call_remote", "reliable")
-func _rpc_sell_tile(hand_index: int) -> void:
-	if not _validate_rpc_sender(): return
-	var tile = current_player.hand[hand_index]
-	if tile == null:
-		push_warning("_rpc_sell_tile: hand[%d] is null" % hand_index)
-		return
-	turn_manager.consume_action("sell tile")
-	match tile.resource_type:
-		TileManager.ResourceType.FERVOR:
-			current_player.add_fervor(tile.sell_price)
-		_:
-			current_player.add_resources(tile.sell_price)
-	current_player.remove_from_hand(hand_index)
-	if ui:
-		ui.update_hand_display()
 
 
 @rpc("any_peer", "call_remote", "reliable")
