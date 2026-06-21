@@ -135,10 +135,6 @@ func activate_power(power: GodPower, player: Player, board_manager: Node3D) -> b
 		Log.warn("Not enough fervor! Need %d, have %d" % [power.fervor_cost, player.fervor])
 		return false
 
-	# Check if we're in the actions phase (most powers require this)
-	if not board_manager.turn_manager.is_actions_phase():
-		Log.warn("Can only use powers during actions phase")
-		return false
 
 	# Check if player has actions remaining (most powers consume 1 action)
 	if not _power_is_free_action(power) and player.actions_remaining <= 0:
@@ -197,7 +193,6 @@ func activate_power(power: GodPower, player: Player, board_manager: Node3D) -> b
 
 ## Check if power doesn't consume an action
 func _power_is_free_action(power: GodPower) -> bool:
-	# Second harvest doesn't consume action (it's already in harvest phase logic)
 	return power.power_type == GodPower.PowerType.SECOND_HARVEST
 
 
@@ -253,10 +248,6 @@ func can_activate_power(power: GodPower, player: Player, turn_manager: TurnManag
 
 	# Check fervor cost
 	if power.fervor_cost > 0 and player.fervor < power.fervor_cost:
-		return false
-
-	# Check phase
-	if not turn_manager.is_actions_phase():
 		return false
 
 	# Check actions

@@ -110,8 +110,7 @@ func _create_hand_card(hand_index: int, tile_def) -> void:
 	var can_place = false
 	if board_manager_ref and board_manager_ref.current_player:
 		var is_my_turn: bool = board_manager_ref.ui_player == board_manager_ref.current_player
-		var in_actions_phase = board_manager_ref.turn_manager.is_actions_phase()
-		if in_actions_phase and is_my_turn:
+		if is_my_turn:
 			can_place = board_manager_ref.ui_player.actions_remaining > 0
 
 	var card_vbox = VBoxContainer.new()

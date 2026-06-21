@@ -18,7 +18,6 @@ const VictoryScreenScene = preload("res://ui/victory_screen.gd")
 const ResourceTypePickerScene = preload("res://ui/resource_type_picker.gd")
 const GodPanelScene = preload("res://ui/god_panel.gd")
 const ResourcePanelScene = preload("res://ui/resource_panel.gd")
-const HarvestPickerScene = preload("res://ui/harvest_picker.gd")
 const HandDisplayScene = preload("res://ui/hand_display.gd")
 const TooltipManagerScene = preload("res://ui/tooltip_manager.gd")
 
@@ -36,7 +35,6 @@ var buttons: Array[Button] = []
 var board_manager: Node3D = null  # Reference to get hand data
 var player_turn_label: Label = null
 var _is_my_turn: bool = true  # False during opponent turns in network mode
-var _in_harvest_phase: bool = false  # True during harvest phase; blocks action buttons
 
 # Turn system UI (still managed here)
 var actions_label: Label = null
@@ -50,7 +48,6 @@ var victory_screen: VictoryScreen = null
 var resource_type_picker: ResourceTypePicker = null
 var god_panel: GodPanel = null
 var resource_panel: ResourcePanel = null
-var harvest_picker: HarvestPicker = null
 var hand_display: HandDisplay = null
 var tooltip_manager: TooltipManager = null
 
@@ -81,11 +78,6 @@ func _ready() -> void:
 	add_child(resource_type_picker)
 	resource_type_picker.resource_type_selected.connect(_on_resource_type_selected)
 	resource_type_picker.picker_cancelled.connect(_on_resource_type_picker_cancelled)
-
-	harvest_picker = HarvestPickerScene.new()
-	harvest_picker.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	add_child(harvest_picker)
-	harvest_picker.harvest_selected.connect(_on_harvest_button_pressed)
 
 func initialize(colors: Dictionary, _board_manager: Node3D = null) -> void:
 	tile_type_colors = colors
@@ -319,11 +311,6 @@ func update_hand_display() -> void:
 		hand_display.update_hand_display()
 
 
-func show_harvest_options(available_types: Array[int]) -> void:
-	if harvest_picker and _is_my_turn:
-		harvest_picker.show_picker(available_types)
-
-
 func _on_hand_card_pressed(hand_index: int) -> void:
 	tile_selected_from_hand.emit(hand_index)
 
@@ -331,39 +318,6 @@ func _on_hand_card_pressed(hand_index: int) -> void:
 func _on_end_turn_pressed() -> void:
 	if board_manager:
 		board_manager.on_end_turn_requested()
-
-
-func _on_harvest_button_pressed(resource_type: int) -> void:
-	if board_manager:
-		board_manager.on_harvest_selected(resource_type)
-
-
-## Updates UI based on current turn phase (HARVEST or ACTIONS only — setup has its own UI)
-func update_turn_phase(phase: int) -> void:
-	_in_harvest_phase = (phase == TurnManager.Phase.HARVEST)
-	match phase:
-		TurnManager.Phase.HARVEST:
-			if actions_label:
-				actions_label.visible = false
-			# Disable all action buttons during harvest phase
-			if village_place_button:
-				village_place_button.disabled = true
-			if village_remove_button:
-				village_remove_button.disabled = true
-			if end_turn_button:
-				end_turn_button.disabled = not board_manager.test_mode
-			update_hand_display()
-		TurnManager.Phase.ACTIONS:
-			if actions_label:
-				actions_label.visible = true
-			# Re-enable village/end-turn buttons only if it is our turn
-			if village_place_button:
-				village_place_button.disabled = not _is_my_turn
-			if village_remove_button:
-				village_remove_button.disabled = not _is_my_turn
-			if end_turn_button:
-				end_turn_button.disabled = not _is_my_turn
-			update_hand_display()
 
 
 ## Updates the actions display
@@ -397,8 +351,6 @@ func update_actions(remaining: int) -> void:
 ## Called on every turn switch so buttons are greyed during opponent turns in network mode.
 func set_actions_interactive(enabled: bool) -> void:
 	_is_my_turn = enabled
-	if _in_harvest_phase:
-		return
 	if village_place_button:
 		village_place_button.disabled = not enabled
 	if village_remove_button:

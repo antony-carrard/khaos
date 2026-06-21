@@ -115,14 +115,12 @@ func _ready() -> void:
 	# Create and initialize turn manager
 	turn_manager = TurnManager.new()
 	add_child(turn_manager)
-	turn_manager.initialize(village_manager, tile_manager, tile_pool, self)
+	turn_manager.initialize(village_manager, tile_manager, tile_pool)
 
 	# Create god manager
 	god_manager = GodManager.new()
 	add_child(god_manager)
 
-	# Connect turn manager signals
-	turn_manager.phase_changed.connect(_on_phase_changed)
 	turn_manager.turn_ended.connect(_on_turn_ended)
 
 	# Cross-reference managers (for validation)
@@ -364,9 +362,6 @@ func setup_ui() -> void:
 	active_player_view.glory_changed.connect(ui.update_glory)
 	active_player_view.actions_changed.connect(ui.update_actions)
 
-	# Set UI reference in turn_manager
-	turn_manager.set_ui(ui)
-
 	# Re-bind APV so freshly-connected UI stat signals fire immediately with current values.
 	# Network mode: always bind to local player (UI always shows local player's stats).
 	# Hot-seat: bind to current_player (active player owns the UI this turn).
@@ -381,7 +376,6 @@ func setup_ui() -> void:
 		ui.update_god_display(ui_player.god, god_manager)
 	ui.update_hand_display()
 	ui.set_actions_interactive(ui_player == current_player)
-	ui.update_turn_phase(turn_manager.current_phase)
 
 	power_executor = PowerExecutor.new()
 	add_child(power_executor)
@@ -398,11 +392,6 @@ func _on_tile_selected_from_hand(hand_index: int) -> void:
 	var tile_def = current_player.hand[hand_index]
 	if tile_def == null:
 		Log.warn("No tile in this slot!")
-		return
-
-	# Can only place tiles during actions phase
-	if not turn_manager.is_actions_phase():
-		Log.warn("Can only place tiles during actions phase!")
 		return
 
 	# Check if player has actions remaining
@@ -429,11 +418,6 @@ func on_tile_placed_from_hand(hand_index: int, q: int, r: int) -> void:
 	var placed_tile = current_player.hand[hand_index]
 	if placed_tile == null:
 		Log.warn("BoardManager: No tile in hand slot %d" % hand_index)
-		return
-
-	# Validate phase - can only place tiles during actions phase (setup uses different flow)
-	if not turn_manager.is_actions_phase():
-		Log.warn("BoardManager: Cannot place tile outside actions phase")
 		return
 
 	# Consume action
@@ -558,11 +542,6 @@ func on_village_removed(q: int, r: int) -> bool:
 
 # ==================== TURN FLOW ====================
 
-## Called when turn phase changes (e.g., HARVEST -> ACTIONS)
-func _on_phase_changed(_new_phase: int) -> void:
-	placement_controller.cancel_placement()
-
-
 ## Called when current player ends their turn.
 ## Handles final round detection, player switching, and starting the next turn.
 func _on_turn_ended() -> void:
@@ -596,13 +575,6 @@ func _on_debug_end_opponent_turn() -> void:
 	placement_controller.cancel_placement()
 	turn_manager.end_turn()
 
-
-
-## Called by tile_selector_ui when the player chooses a harvest type.
-func on_harvest_selected(resource_type: int) -> void:
-	turn_manager.harvest(resource_type)
-	if _is_network:
-		rpc("_rpc_harvest", resource_type)
 
 
 ## Called by tile_selector_ui when the player presses End Turn.
@@ -716,12 +688,6 @@ func _rpc_remove_village(q: int, r: int) -> void:
 
 
 @rpc("any_peer", "call_remote", "reliable")
-func _rpc_harvest(resource_type: int) -> void:
-	if not _validate_rpc_sender(): return
-	turn_manager.harvest(resource_type)
-
-
-@rpc("any_peer", "call_remote", "reliable")
 func _rpc_end_turn() -> void:
 	if not _validate_rpc_sender(): return
 	turn_manager.end_turn()
@@ -742,7 +708,7 @@ func _rpc_power_instant(power_type: int) -> void:
 			current_player.consume_action()
 			current_player.next_turn_bonus_actions = 1
 		GodPower.PowerType.SECOND_HARVEST:
-			pass  # Free action; actual harvest type arrives via _rpc_harvest
+			turn_manager.trigger_second_harvest()
 	current_player.mark_power_used(power_type)
 
 

@@ -145,11 +145,6 @@ func update_god_display(god: God, god_manager: GodManager, board_manager) -> voi
 		if not apv.actions_changed.is_connected(update_power_buttons):
 			apv.actions_changed.connect(update_power_buttons.bind())
 
-		# Also connect to phase changes (phase is global, not per-player)
-		if board_manager.turn_manager:
-			if not board_manager.turn_manager.phase_changed.is_connected(update_power_buttons):
-				board_manager.turn_manager.phase_changed.connect(update_power_buttons.bind())
-
 	# Initial update
 	update_power_buttons()
 

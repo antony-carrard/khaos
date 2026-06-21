@@ -203,7 +203,7 @@ func update_tile_preview() -> void:
 	if valid and selected_tile_def:
 		var player = board_manager.current_player
 		if player:
-			if board_manager.turn_manager.is_actions_phase() and player.actions_remaining <= 0:
+			if player.actions_remaining <= 0:
 				valid = false
 
 	preview_tile.set_highlight(true, valid)

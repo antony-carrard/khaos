@@ -21,9 +21,6 @@ func get_validity(controller: PlacementController, q: int, r: int) -> bool:
 	if player.resources < cost:
 		return false
 
-	if not controller.board_manager.turn_manager.is_actions_phase():
-		return false
-
 	if player.actions_remaining <= 0:
 		return false
 
