@@ -16,13 +16,7 @@ var glory: int = 0        # Victory points
 const HAND_SIZE: int = 3
 const BASE_ACTIONS: int = 3          # Default actions per turn (before bonuses)
 const TEST_MODE_AMOUNT: int = 999    # Unlimited amount granted in test mode (actions, resources, fervor)
-const SETUP_TILE_COUNT: int = 2       # Plains tiles dealt at game start (player chooses order of placement)
 var hand: Array = [null, null, null]  # Array of TilePool.TileDefinition or null
-
-# Setup phase tiles (1 PLAINS tile drawn per setup round)
-var setup_tiles: Array = []  # Array of TilePool.TileDefinition
-var setup_tiles_placed: int = 0  # Track how many setup tiles have been placed this round
-var setup_tile_positions: Array[Vector2i] = []  # Board positions placed during setup rounds 1 & 2
 
 # Placed villages (for later scoring/tracking)
 var placed_villages: Array = []
@@ -191,25 +185,3 @@ func mark_power_used(power_type: int) -> void:
 ## Get current hand
 func get_hand() -> Array:
 	return hand
-
-
-## Initialize setup tiles: one PLAINS/Resources tile and one PLAINS/Fervor tile
-## Called at the start of the setup phase
-func initialize_setup_tiles(tile_pool: TilePool) -> void:
-	setup_tiles.clear()
-	setup_tiles_placed = 0
-	# Note: setup_tile_positions is NOT cleared here — it accumulates across rounds 1 & 2
-
-	var resources_tile = tile_pool.draw_plains_tile(TileManager.ResourceType.RESOURCES)
-	if resources_tile:
-		setup_tiles.append(resources_tile)
-	else:
-		Log.error("%s: Could not draw PLAINS/Resources tile for setup!" % player_name)
-
-	var fervor_tile = tile_pool.draw_plains_tile(TileManager.ResourceType.FERVOR)
-	if fervor_tile:
-		setup_tiles.append(fervor_tile)
-	else:
-		Log.error("%s: Could not draw PLAINS/Fervor tile for setup!" % player_name)
-
-	Log.info("%s: Setup tiles initialized (%d tiles)" % [player_name, setup_tiles.size()])

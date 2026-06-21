@@ -4,7 +4,6 @@ class_name TurnManager
 
 # Turn phase management
 enum Phase {
-	SETUP,
 	HARVEST,
 	ACTIONS
 }
@@ -25,7 +24,6 @@ var ui: Control = null
 signal phase_changed(new_phase: Phase)
 signal turn_started()
 signal turn_ended()
-signal setup_action_done()   # emitted after each setup tile or village placement
 
 
 ## Initialize the turn manager with required references.
@@ -72,10 +70,6 @@ func consume_action(action_name: String = "action") -> bool:
 
 
 ## Phase query helpers
-func is_setup_phase() -> bool:
-	return current_phase == Phase.SETUP
-
-
 func is_harvest_phase() -> bool:
 	return current_phase == Phase.HARVEST
 
@@ -83,41 +77,6 @@ func is_harvest_phase() -> bool:
 func is_actions_phase() -> bool:
 	return current_phase == Phase.ACTIONS
 
-
-## Starts the setup phase of the game.
-## All players have already been dealt their setup tiles in board_manager._ready().
-## The setup_phase_ui (created by board_manager) handles display.
-func start_setup_phase() -> void:
-	current_phase = Phase.SETUP
-	phase_changed.emit(current_phase)
-	Log.info("=== SETUP PHASE ===")
-
-
-## Called when a setup tile is placed during setup phase.
-## Records are kept in tile_placement_strategy; this just signals completion.
-func on_setup_tile_placed(setup_index: int) -> void:
-	if not is_setup_phase():
-		Log.error("on_setup_tile_placed called outside of setup phase!")
-		return
-
-	# Remove the placed tile from setup tiles array
-	if setup_index >= 0 and setup_index < current_player.setup_tiles.size():
-		current_player.setup_tiles[setup_index] = null
-
-	current_player.setup_tiles_placed += 1
-	Log.info("%s: Setup tile placed" % current_player.player_name)
-
-	setup_action_done.emit()
-
-
-## Called when a setup village is placed during setup Round 3.
-func on_setup_village_placed() -> void:
-	if not is_setup_phase():
-		Log.error("on_setup_village_placed called outside of setup phase!")
-		return
-
-	Log.info("%s: Setup village placed" % current_player.player_name)
-	setup_action_done.emit()
 
 
 ## Starts harvest phase for the current player.

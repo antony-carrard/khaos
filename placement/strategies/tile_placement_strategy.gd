@@ -25,13 +25,8 @@ func on_click(controller: PlacementController, _q: int, _r: int) -> bool:
 		success = controller.tile_manager.place_tile(pos.x, pos.y, controller.current_tile_type)
 
 	if success:
-		if controller.board_manager.turn_manager.is_setup_phase():
-			# Route through board_manager so it can broadcast the RPC in network mode
-			controller.board_manager.on_setup_tile_placed(controller.selected_hand_index, pos.x, pos.y)
-			# No auto-village — village placement is a separate setup Round 3
-		else:
-			if controller.selected_hand_index >= 0 and controller.board_manager:
-				controller.board_manager.on_tile_placed_from_hand(controller.selected_hand_index, pos.x, pos.y)
+		if controller.selected_hand_index >= 0 and controller.board_manager:
+			controller.board_manager.on_tile_placed_from_hand(controller.selected_hand_index, pos.x, pos.y)
 
 		controller.preview_tile.visible = false
 		controller.selected_hand_index = -1

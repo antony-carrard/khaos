@@ -2,7 +2,6 @@ extends Control
 class_name HandDisplay
 
 ## Hand display component - displays player hand cards during gameplay
-## Setup tiles are handled by the dedicated SetupPhaseUI overlay
 
 signal tile_selected_from_hand(hand_index: int)
 

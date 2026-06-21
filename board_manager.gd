@@ -7,7 +7,6 @@ extends Node3D
 @export var hex_tile_scene: PackedScene = preload("res://hex_tile.tscn")
 @export var max_stack_height: int = 3  # Maximum tiles that can be stacked
 @export var test_mode: bool = false   # Unlimited resources/actions every turn for testing
-@export var skip_setup: bool = false  # Auto-place setup tiles and skip to gameplay immediately
 @export var player_count: int = 2    # Number of players (1–4)
 
 # Emitted whenever the active player changes (both hot-seat and network modes).
@@ -36,8 +35,7 @@ var turn_manager: TurnManager
 var god_manager: GodManager
 
 # UI
-var ui: Control = null                   # Main game UI — null during setup phase
-var setup_phase_ui: SetupPhaseUI = null  # Setup-only overlay — freed when setup completes
+var ui: Control = null
 
 # Camera reference
 var camera: Camera3D = null
@@ -64,10 +62,6 @@ var local_player_index: int = 0
 # Final round tracking
 var final_round_triggered: bool = false
 var triggering_player: Player = null
-
-# Setup tracking
-var setup_round: int = 1       # 1, 2 = tile placement rounds; 3 = village placement
-var setup_players_done: int = 0
 
 
 # True when running in NETWORK mode (shorthand property)
@@ -130,7 +124,6 @@ func _ready() -> void:
 	# Connect turn manager signals
 	turn_manager.phase_changed.connect(_on_phase_changed)
 	turn_manager.turn_ended.connect(_on_turn_ended)
-	turn_manager.setup_action_done.connect(_on_setup_action_done)
 
 	# Cross-reference managers (for validation)
 	tile_manager.village_manager = village_manager
@@ -161,23 +154,17 @@ func _ready() -> void:
 			await show_god_selection(player, selected_so_far)
 			selected_so_far.append(player.god)
 
-	# Deal both setup tiles to every player upfront (they choose which to place each round)
+	# Deal starting hands to all players
 	for player in players:
-		player.initialize_setup_tiles(tile_pool)
+		player.refresh_hand(tile_pool)
 
-	Log.info("Tile pool count after setup deal: %d" % tile_pool.get_remaining_count())
-
-	# Create persistent status header — lives through setup and gameplay phases.
-	# Must be created before _switch_to_player(0) so bind() auto-seeds it via signal.
+	# Create persistent status header
 	var header_canvas = CanvasLayer.new()
 	add_child(header_canvas)
 	status_header = PlayerStatusHeader.new()
 	status_header.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	header_canvas.add_child(status_header)
 	status_header.initialize(self)
-	# active_player_switched drives who-is-active display in the header.
-	# Each player's stat signals are connected directly (not via APV) so the header updates
-	# for all players in real-time regardless of whose turn it is or the network mode.
 	active_player_switched.connect(status_header.on_player_changed)
 	for i in range(players.size()):
 		players[i].resources_changed.connect(status_header.on_resources_changed.bind(i))
@@ -186,7 +173,7 @@ func _ready() -> void:
 
 	# Create "not your turn" lock overlay (hidden by default; shown in network mode on other players' turns)
 	var overlay_canvas := CanvasLayer.new()
-	overlay_canvas.layer = 10  # render above all other CanvasLayers
+	overlay_canvas.layer = 10
 	add_child(overlay_canvas)
 	not_your_turn_overlay = NotYourTurnOverlay.new()
 	not_your_turn_overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -197,34 +184,16 @@ func _ready() -> void:
 	# Connect network disconnect handler (no-op in hot-seat since signal never fires)
 	NetworkManager.peer_disconnected.connect(_on_network_peer_disconnected)
 
-	# Bind first player (main game UI not created yet — setup_ui() is called after setup)
 	_switch_to_player(0)
 
-	# active_player_switched drives setup_phase_ui and main game UI rebuilds on player change
 	active_player_switched.connect(_on_active_player_changed)
 
-	# Create the dedicated setup UI (replaces all setup hacks in tile_selector_ui)
-	var setup_canvas_layer = CanvasLayer.new()
-	add_child(setup_canvas_layer)
-	setup_phase_ui = SetupPhaseUI.new()
-	setup_phase_ui.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	setup_canvas_layer.add_child(setup_phase_ui)
-	setup_phase_ui.initialize(TileManager.TILE_TYPE_COLORS, god_manager, self)
-	setup_phase_ui.setup_tile_selected.connect(_on_setup_tile_selected)
-
 	# Network mode: bind APV stat signals to the local player once and permanently.
-	# Hot-seat: _switch_to_player() already called bind() on players[0].
 	if GameConfig.initialized and GameConfig.mode == GameConfig.GameMode.NETWORK:
 		active_player_view.bind(players[local_player_index])
 
-	# Manually push the first player since active_player_switched already fired before connection
-	var is_my_turn := not _is_network or current_player_index == local_player_index
-	setup_phase_ui.update_for_player(current_player, setup_round, is_my_turn)
-
-	# Start setup phase (or skip it entirely in skip_setup mode)
-	turn_manager.start_setup_phase()
-	if skip_setup:
-		call_deferred("_auto_complete_setup")
+	setup_ui()
+	turn_manager.begin_player_turn()
 
 
 ## Show god selection screen for a specific player, greying out already-taken gods.
@@ -248,35 +217,6 @@ func show_god_selection(player: Player, taken_gods: Array[God]) -> void:
 
 	canvas_layer.queue_free()
 
-
-## Skips the setup phase by auto-placing each player's tiles and village at spread-out
-## positions, then immediately calls _complete_setup() to begin normal gameplay.
-## Only used when skip_setup = true (editor testing convenience).
-func _auto_complete_setup() -> void:
-	Log.info("=== SETUP SKIPPED (auto-placing tiles) ===")
-	# Well-spaced starting positions for up to 4 players
-	const ORIGINS: Array[Vector2i] = [
-		Vector2i( 0, -4),
-		Vector2i(-4,  0),
-		Vector2i( 4,  0),
-		Vector2i( 0,  4),
-	]
-	for i in range(players.size()):
-		var origin := ORIGINS[i % ORIGINS.size()]
-		var player := players[i]
-		for j in range(player.setup_tiles.size()):
-			var td = player.setup_tiles[j]
-			if td == null:
-				continue
-			var pos := Vector2i(origin.x + j, origin.y)
-			tile_manager.place_tile(pos.x, pos.y, td.tile_type, td.resource_type,
-					td.yield_value, td.village_building_cost)
-			player.setup_tile_positions.append(pos)
-		# Place a free village on the first tile
-		if not player.setup_tile_positions.is_empty():
-			var vpos := player.setup_tile_positions[0]
-			village_manager.place_village(vpos.x, vpos.y, player)
-	_complete_setup()
 
 
 ## Network god selection: sequential, one player at a time (mirrors hot-seat flow).
@@ -383,7 +323,6 @@ func _switch_to_player(index: int) -> void:
 	else:
 		ui_player = players[local_player_index]
 
-	# Always notify status header and setup_phase_ui / game UI about the active player change
 	active_player_switched.emit(current_player)
 
 	# Show or hide the lock overlay based on whose turn it is
@@ -394,15 +333,8 @@ func _switch_to_player(index: int) -> void:
 			not_your_turn_overlay.hide_overlay()
 
 
-## Called by active_player_view.player_changed → rebuilds player-specific UI sections.
+## Called by active_player_switched → rebuilds player-specific UI sections.
 func _on_active_player_changed(player: Player) -> void:
-	if setup_phase_ui != null:
-		# During setup: delegate entirely to the dedicated setup UI
-		var is_my_turn := not _is_network or current_player_index == local_player_index
-		setup_phase_ui.update_for_player(player, setup_round, is_my_turn)
-		return
-
-	# Gameplay: update main game UI
 	if ui:
 		ui.update_current_player(player)
 		if ui_player.god:
@@ -427,7 +359,6 @@ func setup_ui() -> void:
 	ui.village_remove_selected.connect(placement_controller.select_village_remove_mode)
 
 	# Connect active_player_view signals to UI (once — never rewired on player switch)
-	# Note: player_changed is connected once in _ready() and routes to setup_phase_ui or ui
 	active_player_view.resources_changed.connect(ui.update_resources)
 	active_player_view.fervor_changed.connect(ui.update_fervor)
 	active_player_view.glory_changed.connect(ui.update_glory)
@@ -445,9 +376,6 @@ func setup_ui() -> void:
 	else:
 		active_player_view.bind(current_player)
 
-	# Seed player-specific displays.
-	# active_player_switched already fired during _switch_to_player(0) in _complete_setup(),
-	# but ui was null at that point so _on_active_player_changed() skipped the god/player update.
 	ui.update_current_player(current_player)
 	if ui_player.god:
 		ui.update_god_display(ui_player.god, god_manager)
@@ -460,26 +388,6 @@ func setup_ui() -> void:
 	power_executor.initialize(current_player, tile_manager, village_manager, god_manager, placement_controller, ui, self)
 	power_executor.power_executed.connect(_on_power_executed)
 
-
-## Handle setup tile selection during setup phase
-func _on_setup_tile_selected(setup_index: int) -> void:
-	if setup_index < 0 or setup_index >= current_player.setup_tiles.size():
-		return
-
-	var tile_def = current_player.setup_tiles[setup_index]
-	if tile_def == null:
-		Log.warn("No setup tile in this slot!")
-		return
-
-	Log.debug("Selected setup tile %d: %s %s (yield=%d, village_cost=%d)" % [
-		setup_index + 1,
-		TileManager.TileType.keys()[tile_def.tile_type],
-		TileManager.ResourceType.keys()[tile_def.resource_type],
-		tile_def.yield_value,
-		tile_def.village_building_cost
-	])
-
-	placement_controller.select_tile_from_hand(setup_index, tile_def)
 
 
 ## Handle tile selection from hand
@@ -647,63 +555,6 @@ func on_village_removed(q: int, r: int) -> bool:
 	return true
 
 
-# ==================== SETUP FLOW ====================
-
-## Called each time a setup action completes (tile placed in rounds 1/2, or village in round 3).
-## Advances to the next player or the next setup round.
-func _on_setup_action_done() -> void:
-	setup_players_done += 1
-
-	if setup_players_done >= players.size():
-		# All players done with this round — advance
-		setup_players_done = 0
-		setup_round += 1
-
-		if setup_round <= 2:
-			# Start next tile-placement round from player 0 (tiles already in hand)
-			_switch_to_player(0)
-		elif setup_round == 3:
-			# Village placement round — start from player 0
-			_switch_to_player(0)
-			_start_setup_village_for_player()
-		else:
-			# All 3 rounds done
-			_complete_setup()
-	else:
-		# More players in this round
-		var next_index = (current_player_index + 1) % players.size()
-		_switch_to_player(next_index)
-		if setup_round == 3:
-			_start_setup_village_for_player()
-		# setup_round <= 2: _on_active_player_changed() updates setup_phase_ui automatically
-
-
-## Enter setup village placement mode for the current player.
-## The setup_phase_ui already shows the round 3 prompt via _on_active_player_changed().
-## In network mode, only the local machine enters placement mode when it is their turn.
-func _start_setup_village_for_player() -> void:
-	if _is_network and current_player_index != local_player_index:
-		return
-	placement_controller.select_setup_village_mode()
-	Log.info("%s: Place your village on one of your tiles" % current_player.player_name)
-
-
-## Called when all 3 setup rounds are done. Draws starting hands and begins play.
-func _complete_setup() -> void:
-	Log.info("=== SETUP COMPLETE ===")
-
-	# Destroy the dedicated setup UI — main game UI is created next
-	if setup_phase_ui:
-		setup_phase_ui.get_parent().queue_free()  # frees CanvasLayer + SetupPhaseUI
-		setup_phase_ui = null
-
-	for player in players:
-		player.refresh_hand(tile_pool)
-
-	_switch_to_player(0)
-	setup_ui()  # Creates tile_selector_ui, connects APV → UI signals, creates power_executor
-	turn_manager.begin_player_turn()
-
 
 # ==================== TURN FLOW ====================
 
@@ -738,39 +589,13 @@ func _on_turn_ended() -> void:
 		ui.update_hand_display()
 
 
-## Debug only: skip the opponent's current action (setup or normal turn) without them doing anything.
+## Debug only: skip the opponent's current turn without them doing anything.
 ## Called by the NotYourTurnOverlay debug button for single-machine stub testing.
 func _on_debug_end_opponent_turn() -> void:
 	Log.info("Debug overlay: skipping action for %s" % current_player.player_name)
-	# Cancel any placement mode the opponent may have entered (tile selected but not placed,
-	# or village placement mode in setup round 3).  Must happen before advancing the turn so
-	# the new active player starts with a clean placement state.
 	placement_controller.cancel_placement()
-	if turn_manager.is_setup_phase():
-		# Advance past this player's setup slot without placing a tile/village.
-		# The tile stays unplaced in setup_tiles (minor board gap — acceptable for a debug stub).
-		turn_manager.setup_action_done.emit()
-	else:
-		turn_manager.end_turn()
+	turn_manager.end_turn()
 
-
-## Called by TilePlacementStrategy (setup path).
-## Records position and notifies turn_manager; broadcasts in network mode.
-func on_setup_tile_placed(setup_index: int, q: int, r: int) -> void:
-	current_player.setup_tile_positions.append(Vector2i(q, r))
-	turn_manager.on_setup_tile_placed(setup_index)
-	# turn_manager.on_setup_tile_placed already emits setup_action_done
-	if _is_network:
-		rpc("_rpc_setup_tile_placed", setup_index, q, r)
-
-
-## Called by SetupVillagePlaceStrategy (setup Round 3).
-## Notifies turn_manager; broadcasts in network mode.
-func on_setup_village_placed(q: int, r: int) -> void:
-	turn_manager.on_setup_village_placed()
-	# turn_manager.on_setup_village_placed already emits setup_action_done
-	if _is_network:
-		rpc("_rpc_setup_village_placed", q, r)
 
 
 ## Called by tile_selector_ui when the player chooses a harvest type.
@@ -838,24 +663,6 @@ func _rpc_god_selected(player_index: int, god_index: int) -> void:
 	Log.info("Player %d selected god: %s" % [player_index + 1, players[player_index].god.god_name])
 	_god_choice_received.emit()
 
-
-@rpc("any_peer", "call_remote", "reliable")
-func _rpc_setup_tile_placed(setup_index: int, q: int, r: int) -> void:
-	if not _validate_rpc_sender(): return
-	var td = current_player.setup_tiles[setup_index]
-	if td == null:
-		push_warning("_rpc_setup_tile_placed: setup_tiles[%d] is null" % setup_index)
-		return
-	tile_manager.place_tile(q, r, td.tile_type, td.resource_type, td.yield_value, td.village_building_cost)
-	current_player.setup_tile_positions.append(Vector2i(q, r))
-	turn_manager.on_setup_tile_placed(setup_index)
-
-
-@rpc("any_peer", "call_remote", "reliable")
-func _rpc_setup_village_placed(q: int, r: int) -> void:
-	if not _validate_rpc_sender(): return
-	village_manager.place_village(q, r, current_player)
-	turn_manager.on_setup_village_placed()
 
 
 @rpc("any_peer", "call_remote", "reliable")

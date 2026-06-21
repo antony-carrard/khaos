@@ -57,8 +57,7 @@ func handle_mouse_input(event: InputEvent) -> void:
 		if current_strategy == null:
 			return
 
-		# Save reference: on_click may synchronously replace current_strategy via callbacks
-		# (e.g. setup tile placed → _on_setup_action_done → select_setup_village_mode).
+		# Save reference: on_click may synchronously replace current_strategy via callbacks.
 		# Only null it out if the callback didn't install a new strategy.
 		var strategy = current_strategy
 		if strategy.uses_tile_preview:
@@ -232,10 +231,6 @@ func select_village_place_mode() -> void:
 
 func select_village_remove_mode() -> void:
 	current_strategy = VillageRemoveStrategy.new()
-
-
-func select_setup_village_mode() -> void:
-	current_strategy = SetupVillagePlaceStrategy.new()
 
 
 func select_steal_harvest_mode() -> void:

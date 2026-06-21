@@ -147,22 +147,6 @@ func is_empty() -> bool:
 	return tile_bag.is_empty()
 
 
-## Draw a specific PLAINS tile by resource type directly from the bag
-## Returns TileDefinition or null if none available
-func draw_plains_tile(resource_type: int) -> TileDefinition:
-	for i in range(tile_bag.size()):
-		var tile = tile_bag[i]
-		if tile.tile_type == TileManager.TileType.PLAINS and tile.resource_type == resource_type:
-			tile_bag.remove_at(i)
-			removed_tiles.append(tile)
-			Log.debug("TilePool: Drew PLAINS %s tile for setup. Remaining: %d" % [
-				TileManager.ResourceType.keys()[resource_type],
-				tile_bag.size()
-			])
-			return tile
-	Log.warn("TilePool: No PLAINS %s tile available!" % TileManager.ResourceType.keys()[resource_type])
-	return null
-
 
 ## Check if the bag has at least one tile of the given tile type
 func has_tile_of_type(tile_type: int) -> bool:
