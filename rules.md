@@ -11,13 +11,13 @@ Les tuiles de la réserve sont les suivantes :
 - 6x 2 ferveur
 - 2x 3 ferveur
 - 4x 2 gloire
-12 montagnes (donnent toutes +1 gloire)
-- 3x 3 matériaux
-- 1x 4 matériaux
-- 3x 3 ferveur
-- 1x 4 ferveur
-- 2x 2 matériaux 2 ferveur
+12 montagnes
+- 3x 3 matériaux + 1 gloire
+- 1x 4 matériaux + 1 gloire
+- 3x 3 ferveur + 1 gloire
+- 1x 4 ferveur + 1 gloire
 - 2x 3 gloire
+- 2x 2 matériaux + 2 ferveur + 2 gloire
 64 tuiles au total.
 ## Déroulement
 Au début de chaque tour, le joueur reçoit un matériau ainsi qu'un point de ferveur.
@@ -38,8 +38,8 @@ Durant son tour, le joueur peut construire un village sur une tuile inoccupée. 
 - Montagne : 6 matériaux
 Pour chaque village construit, le joueur gagne une récompenses de points de gloires selon le barème suivant :
 - Plaine : 1 gloire 
-- Colline : 2 gloires
-- Montagne : 3 gloires
+- Colline : 2 gloire
+- Montagne : 3 gloire
 ### Démolir un village
 Durant son tour, le joueur peut démolir un village adverse si un de ses propres villages se trouve sur une tuile adjacente. Le coût de démolition du village dépend du type de tuile sur laquelle le village adverse se trouve, ainsi que le type de tuile sur lequel le village du joueur se trouve.
 Le coût de base de démolition du village adverse en fonction de la tuile sur laquelle il se trouve est le suivant :
@@ -47,13 +47,13 @@ Le coût de base de démolition du village adverse en fonction de la tuile sur l
 - Colline : 3 matériaux
 - Montagne : 4 matériaux
 En plus du coût de base, un surcoût peut être additionné au coût de base si le village adverse à démolir se trouve en dessus du village du joueur actuel. En fonction de la différence de niveau, le surcoût est le suivant :
-- 1 niveau inférieur : + 1 matériau, + 1 action
-- 2 niveaux inférieurs : + 2 matériau, + 2 actions
+- 1 niveau inférieur : + 1 matériaux, + 1 action
+- 2 niveaux inférieurs : + 2 matériaux, + 2 actions
 Ainsi, si le joueur dont c'est le tour souhaite démolir un village situé sur une montagne depuis un village situé sur une plaine, il devra payer 4 + 2 = 6 matériaux, et devra utiliser 1 + 2 = 3 actions.
 Pour chaque village adverse démoli, le joueur gagne une récompenses de points de gloires selon le barème suivant :
 - Plaine : 1 gloire 
-- Colline : 2 gloires
-- Montagne : 3 gloires
+- Colline : 2 gloire
+- Montagne : 3 gloire
 
 Un joueur peut également démolir gratuitement un de ses propres villages. Cela ne lui rapporte pas de gloire.
 ### Pouvoirs
@@ -62,8 +62,8 @@ Chaque Dieu possède un pouvoir passif, un pouvoir mineur, ainsi qu'un pouvoir m
 La partie s'arrête lorsque toutes les tuiles de la réserve ont été placées sur le terrain, ou lorsqu'il n'est plus possible de placer des tuiles par aucun des joueurs.
 Lorsque la partie se termine, chaque joueur reçoit 2 points de gloires par village compris dans son groupe de village contigu le plus important.  Le barème est le suivant:
 - 1 village : 2 gloires
-- 2 villages : 2 x 2 = 4 gloires
-- 3 villages : 3 x 2 = 6 gloires
+- 2 villages : 2 x 2 = 4 gloire
+- 3 villages : 3 x 2 = 6 gloire
 - ... et ainsi de suite.
 Le joueur ayant cumulé le total de points de gloire le plus important remporte la partie.
 ## Dieux
@@ -82,17 +82,17 @@ Le bâtisseur gagne un point de gloire par fusion.
 Pouvoir majeur (5 ferveurs): Construction divine. Construit un village sur n'importe quelle tuile vacante.
 ### Augia
 Pouvoir passif : Reçois une tuile bonus à chaque tour (4 tuiles au lieu de 3)
-Pouvoir mineur (2 ferveurs): Peut échanger la tuile d'un de ses villages pour une tuile de sa main. Le niveau de la tuile (plaine/colline/montagne) doit être le même.
-Pouvoir majeur (4 ferveurs): Augmentation de la tuile d'un village possédé. Augia peut par exemple placer une montagne sous un de ses villages placé sur une colline. Augia reçoit un point de gloire pour chaque augmentation.
+Pouvoir mineur (2 ferveur): Peut échanger la tuile d'un de ses villages pour une tuile de sa main. Le niveau de la tuile (plaine/colline/montagne) doit être le même.
+Pouvoir majeur (4 ferveur): Augmentation de la tuile d'un village possédé. Augia peut par exemple placer une montagne sous un de ses villages placé sur une colline. Augia reçoit un point de gloire pour chaque augmentation.
 ### Rakun
 Pouvoir passif : Rakun effectue une récolte sur les villages qu'il démolit ou réduit, sur la tuile d'avant la réduction.
-Pouvoir mineur (2 ferveurs) : Vol de récolte de ressources d'un village ennemi à proximité.
-Pouvoir majeur (5 ferveurs) : Réduction d'une tuile ennemie. Rakun peut par exemple voler la tuile de type colline d'un village adverse, pour le transformer en village de type plaine. La tuile volée retourne dans la main de Rakun. Si le village réduit se trouve sur une plaine, le village est démoli (une seule récolte est faite dans ce cas). Rakun gagne un point de gloire pour chaque réduction.
+Pouvoir mineur (2 ferveur) : Vol de récolte de ressources d'un village ennemi à proximité.
+Pouvoir majeur (5 ferveur) : Réduction d'une tuile ennemie. Rakun peut par exemple voler la tuile de type colline d'un village adverse, pour le transformer en village de type plaine. La tuile volée retourne dans la main de Rakun. Si le village réduit se trouve sur une plaine, le village est démoli (une seule récolte est faite dans ce cas). Rakun gagne un point de gloire pour chaque réduction.
 ### Le Démolisseur
 Pouvoir passif : Échafaudage. La construction d'un village sur l'emplacement d'un village démoli durant le même tour est moitié prix.
-Pouvoir mineur (3 ferveurs): Sacrifice. Le démolisseur peut démolir un de ses propres villages pour en récupérer la récompense en gloire équivalente à la démolition d'un village adverse.
-Pouvoir majeur (6 ferveurs) : Peut démolir n'importe quel village ennemi.
+Pouvoir mineur (3 ferveur): Sacrifice. Le démolisseur peut démolir un de ses propres villages pour en récupérer la récompense en gloire équivalente à la démolition d'un village adverse.
+Pouvoir majeur (6 ferveur) : Peut démolir n'importe quel village ennemi.
 ### Le Nomade
 Pouvoir passif : Récolte immédiatement la ressource de la tuile sur laquelle il déplace un village. Chaque niveau gravi lors d'un déplacement rapporte un point de gloire.
-Pouvoir mineur (3 ferveurs): Peut déplacer un de ses villages sur une tuile adjacente, pouvant s’élever d'au maximum 1 niveau.
-Pouvoir majeur (5 ferveurs): Peut déplacer un de ses villages sur n'importe quelle tuile.
+Pouvoir mineur (3 ferveur): Peut déplacer un de ses villages sur une tuile adjacente, pouvant s’élever d'au maximum 1 niveau.
+Pouvoir majeur (5 ferveur): Peut déplacer un de ses villages sur n'importe quelle tuile.
