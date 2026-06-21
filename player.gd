@@ -16,7 +16,7 @@ var glory: int = 0        # Victory points
 const HAND_SIZE: int = 3
 const BASE_ACTIONS: int = 3          # Default actions per turn (before bonuses)
 const TEST_MODE_AMOUNT: int = 999    # Unlimited amount granted in test mode (actions, resources, fervor)
-var hand: Array = [null, null, null]  # Array of TilePool.TileDefinition or null
+var hand: Array = [null, null, null]  # Array of TileDefinition or null
 
 # Placed villages (for later scoring/tracking)
 var placed_villages: Array = []

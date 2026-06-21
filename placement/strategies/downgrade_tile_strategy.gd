@@ -10,4 +10,4 @@ func get_validity(controller: PlacementController, q: int, r: int) -> bool:
 	if village == null or village.player_owner == controller.board_manager.current_player:
 		return false
 	var tile = controller.tile_manager.get_tile_at(q, r)
-	return tile != null and tile.tile_type != TileManager.TileType.PLAINS
+	return tile != null and tile.tile_type != TileDefinition.TileType.PLAINS

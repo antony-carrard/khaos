@@ -58,17 +58,18 @@ func on_steal_harvest(q: int, r: int) -> bool:
 
 	god_manager.complete_deferred_power(current_player)
 
-	var harvest_value = tile.yield_value
-	match tile.resource_type:
-		TileManager.ResourceType.RESOURCES:
-			current_player.add_resources(harvest_value)
-			Log.info("Stole %d resources from enemy village" % harvest_value)
-		TileManager.ResourceType.FERVOR:
-			current_player.add_fervor(harvest_value)
-			Log.info("Stole %d fervor from enemy village" % harvest_value)
-		TileManager.ResourceType.GLORY:
-			current_player.add_glory(harvest_value)
-			Log.info("Stole %d glory from enemy village" % harvest_value)
+	for res_type in tile.yields:
+		var amount = tile.yields[res_type]
+		match res_type:
+			TileDefinition.ResourceType.MATERIALS:
+				current_player.add_resources(amount)
+				Log.info("Stole %d materials from enemy village" % amount)
+			TileDefinition.ResourceType.FERVOR:
+				current_player.add_fervor(amount)
+				Log.info("Stole %d fervor from enemy village" % amount)
+			TileDefinition.ResourceType.GLORY:
+				current_player.add_glory(amount)
+				Log.info("Stole %d glory from enemy village" % amount)
 
 	power_executed.emit(GodPower.PowerType.STEAL_HARVEST, q, r, -1)
 	return true
@@ -118,7 +119,7 @@ func on_upgrade_tile(q: int, r: int) -> bool:
 		current_player.pending_power = null
 		return false
 
-	if tile.tile_type == TileManager.TileType.MOUNTAIN:
+	if tile.tile_type == TileDefinition.TileType.MOUNTAIN:
 		Log.warn("Cannot upgrade MOUNTAIN - already at max level")
 		current_player.pending_power = null
 		return false
@@ -156,7 +157,7 @@ func on_downgrade_tile(q: int, r: int) -> bool:
 		current_player.pending_power = null
 		return false
 
-	if tile.tile_type == TileManager.TileType.PLAINS:
+	if tile.tile_type == TileDefinition.TileType.PLAINS:
 		Log.warn("Cannot downgrade PLAINS - already at min level")
 		current_player.pending_power = null
 		return false
@@ -175,7 +176,7 @@ func on_downgrade_tile(q: int, r: int) -> bool:
 
 
 ## Show resource type selection UI for CHANGE_TILE_TYPE power
-## Displays UI with 3 buttons (RESOURCES, FERVOR, GLORY) to pick new type.
+## Displays UI with 3 buttons (MATERIALS, FERVOR, GLORY) to pick new type.
 ## Buttons for types not present in the bag are shown greyed out.
 func show_resource_type_selection(q: int, r: int) -> void:
 	var village = village_manager.get_village_at(q, r)
@@ -190,12 +191,12 @@ func show_resource_type_selection(q: int, r: int) -> void:
 
 	var tile_pool = board_manager.tile_pool
 	var available_types: Array[int] = []
-	for res_type in TileManager.ResourceType.values():
+	for res_type in TileDefinition.ResourceType.values():
 		if tile_pool.has_tile_of_type_and_resource(tile.tile_type, res_type):
 			available_types.append(res_type)
 
 	if ui:
-		ui.show_resource_type_picker(q, r, tile.resource_type, tile.tile_type, available_types)
+		ui.show_resource_type_picker(q, r, tile.primary_resource_type(), tile.tile_type, available_types)
 
 
 ## Handle tile resource type change (Augia's power)
@@ -219,16 +220,16 @@ func on_change_tile_type(q: int, r: int, new_resource_type: int) -> bool:
 		placement_controller.cancel_placement()
 		return false
 
-	if tile.resource_type == new_resource_type:
-		Log.warn("Tile is already %s type!" % TileManager.ResourceType.keys()[new_resource_type])
+	if tile.yields.has(new_resource_type) and tile.yields.size() == 1:
+		Log.warn("Tile is already %s type!" % TileDefinition.ResourceType.keys()[new_resource_type])
 		current_player.pending_power = null
 		placement_controller.cancel_placement()
 		return false
 
 	if not _is_valid_resource_type_for_tile(tile.tile_type, new_resource_type):
 		Log.warn("Cannot change to %s on a %s tile!" % [
-			TileManager.ResourceType.keys()[new_resource_type],
-			TileManager.TileType.keys()[tile.tile_type]
+			TileDefinition.ResourceType.keys()[new_resource_type],
+			TileDefinition.TileType.keys()[tile.tile_type]
 		])
 		current_player.pending_power = null
 		placement_controller.cancel_placement()
@@ -236,9 +237,9 @@ func on_change_tile_type(q: int, r: int, new_resource_type: int) -> bool:
 
 	var bag_tile = board_manager.tile_pool.draw_tile_of_type_and_resource(tile.tile_type, new_resource_type)
 	if not bag_tile:
-		Log.warn("No %s %s tile in bag — transformation blocked" % [
-			TileManager.TileType.keys()[tile.tile_type],
-			TileManager.ResourceType.keys()[new_resource_type]
+		Log.warn("No %s tile with %s in bag — transformation blocked" % [
+			TileDefinition.TileType.keys()[tile.tile_type],
+			TileDefinition.ResourceType.keys()[new_resource_type]
 		])
 		current_player.pending_power = null
 		placement_controller.cancel_placement()
@@ -246,19 +247,13 @@ func on_change_tile_type(q: int, r: int, new_resource_type: int) -> bool:
 
 	god_manager.complete_deferred_power(current_player)
 
-	var old_type = tile.resource_type
-	var icon_path = TileManager.RESOURCE_TYPE_ICONS[new_resource_type]
-	tile.set_resource_properties(
-		new_resource_type,
-		bag_tile.yield_value,
-		bag_tile.village_building_cost,
-		icon_path
-	)
+	var old_yields = tile.yields.duplicate()
+	tile.set_resource_properties(bag_tile.yields, bag_tile.village_building_cost)
 
 	Log.info("Changed tile at (%d, %d) from %s to %s" % [
 		q, r,
-		TileManager.ResourceType.keys()[old_type],
-		TileManager.ResourceType.keys()[new_resource_type]
+		TileDefinition.format_yields(old_yields),
+		TileDefinition.format_yields(bag_tile.yields)
 	])
 
 	placement_controller.cancel_placement()
@@ -270,6 +265,6 @@ func on_change_tile_type(q: int, r: int, new_resource_type: int) -> bool:
 ## Check if a resource type is valid for a tile type
 ## Glory only exists on Hills and Mountains, not on Plains
 func _is_valid_resource_type_for_tile(tile_type: int, resource_type: int) -> bool:
-	if tile_type == TileManager.TileType.PLAINS and resource_type == TileManager.ResourceType.GLORY:
+	if tile_type == TileDefinition.TileType.PLAINS and resource_type == TileDefinition.ResourceType.GLORY:
 		return false
 	return true

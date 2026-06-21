@@ -2,30 +2,14 @@ extends Node
 
 class_name TilePool
 
-## Manages the bag of tiles and player hands
-## Based on rules.md material counts
+## Manages the bag of tiles and player hands.
+## Tile definitions live in TileDefinition (tile_definition.gd).
 
-# Tile definition (blueprint for creating tiles)
-class TileDefinition:
-	var tile_type: int  # TileManager.TileType
-	var resource_type: int  # TileManager.ResourceType
-	var yield_value: int
-	var village_building_cost: int  # Cost to build a village on this tile
-
-	func _init(t_type: int, r_type: int, yield_val: int, village_cost: int):
-		tile_type = t_type
-		resource_type = r_type
-		yield_value = yield_val
-		village_building_cost = village_cost
-
-# The tile bag (pool of available tiles)
 var tile_bag: Array[TileDefinition] = []
-
-# Removed tiles (drawn or used)
 var removed_tiles: Array[TileDefinition] = []
 
 
-## Initialize the tile pool with all 63 tiles from rules.md.
+## Initialize the tile pool with all 64 tiles from rules.md.
 ## Pass rng_seed >= 0 for deterministic shuffling (network mode); -1 uses random seed.
 func initialize(rng_seed: int = -1) -> void:
 	var rng := RandomNumberGenerator.new()
@@ -37,64 +21,35 @@ func initialize(rng_seed: int = -1) -> void:
 	tile_bag.clear()
 	removed_tiles.clear()
 
-	# PLAINS (28 total): 14 Resources + 14 Fervor
-	# yield=1, village_cost=2
-	for i in range(14):
-		tile_bag.append(TileDefinition.new(
-			TileManager.TileType.PLAINS,
-			TileManager.ResourceType.RESOURCES,
-			1, 2
-		))
-	for i in range(14):
-		tile_bag.append(TileDefinition.new(
-			TileManager.TileType.PLAINS,
-			TileManager.ResourceType.FERVOR,
-			1, 2
-		))
+	const M = TileDefinition.ResourceType.MATERIALS
+	const F = TileDefinition.ResourceType.FERVOR
+	const G = TileDefinition.ResourceType.GLORY
+	const PLAINS   = TileDefinition.TileType.PLAINS
+	const HILLS    = TileDefinition.TileType.HILLS
+	const MOUNTAIN = TileDefinition.TileType.MOUNTAIN
 
-	# HILLS (21 total): 9 Resources + 9 Fervor + 3 Glory
-	# yield=2, village_cost=4
-	for i in range(9):
-		tile_bag.append(TileDefinition.new(
-			TileManager.TileType.HILLS,
-			TileManager.ResourceType.RESOURCES,
-			2, 4
-		))
-	for i in range(9):
-		tile_bag.append(TileDefinition.new(
-			TileManager.TileType.HILLS,
-			TileManager.ResourceType.FERVOR,
-			2, 4
-		))
-	for i in range(3):
-		tile_bag.append(TileDefinition.new(
-			TileManager.TileType.HILLS,
-			TileManager.ResourceType.GLORY,
-			2, 4
-		))
+	# PLAINS (32 total), village_cost = 2
+	for i in 12: tile_bag.append(TileDefinition.new(PLAINS, {M: 1}, 2))
+	for i in  4: tile_bag.append(TileDefinition.new(PLAINS, {M: 2}, 2))
+	for i in 12: tile_bag.append(TileDefinition.new(PLAINS, {F: 1}, 2))
+	for i in  4: tile_bag.append(TileDefinition.new(PLAINS, {F: 2}, 2))
 
-	# MOUNTAINS (14 total): 4 Resources + 4 Fervor + 6 Glory
-	# yield=3, village_cost=6
-	for i in range(4):
-		tile_bag.append(TileDefinition.new(
-			TileManager.TileType.MOUNTAIN,
-			TileManager.ResourceType.RESOURCES,
-			3, 6
-		))
-	for i in range(4):
-		tile_bag.append(TileDefinition.new(
-			TileManager.TileType.MOUNTAIN,
-			TileManager.ResourceType.FERVOR,
-			3, 6
-		))
-	for i in range(6):
-		tile_bag.append(TileDefinition.new(
-			TileManager.TileType.MOUNTAIN,
-			TileManager.ResourceType.GLORY,
-			3, 6
-		))
+	# HILLS (20 total), village_cost = 4
+	for i in 6: tile_bag.append(TileDefinition.new(HILLS, {M: 2}, 4))
+	for i in 2: tile_bag.append(TileDefinition.new(HILLS, {M: 3}, 4))
+	for i in 6: tile_bag.append(TileDefinition.new(HILLS, {F: 2}, 4))
+	for i in 2: tile_bag.append(TileDefinition.new(HILLS, {F: 3}, 4))
+	for i in 4: tile_bag.append(TileDefinition.new(HILLS, {G: 2}, 4))
 
-	# Fisher-Yates shuffle using the seeded RNG for deterministic ordering
+	# MOUNTAINS (12 total), village_cost = 6
+	for i in 3: tile_bag.append(TileDefinition.new(MOUNTAIN, {M: 3, G: 1}, 6))
+	tile_bag.append(      TileDefinition.new(MOUNTAIN, {M: 4, G: 1}, 6))
+	for i in 3: tile_bag.append(TileDefinition.new(MOUNTAIN, {F: 3, G: 1}, 6))
+	tile_bag.append(      TileDefinition.new(MOUNTAIN, {F: 4, G: 1}, 6))
+	for i in 2: tile_bag.append(TileDefinition.new(MOUNTAIN, {G: 3}, 6))
+	for i in 2: tile_bag.append(TileDefinition.new(MOUNTAIN, {M: 2, F: 2, G: 2}, 6))
+
+	# Fisher-Yates shuffle using seeded RNG for deterministic ordering
 	for i in range(tile_bag.size() - 1, 0, -1):
 		var j := rng.randi_range(0, i)
 		var tmp = tile_bag[i]
@@ -102,11 +57,10 @@ func initialize(rng_seed: int = -1) -> void:
 		tile_bag[j] = tmp
 
 	Log.info("TilePool initialized: %d tiles in bag" % tile_bag.size())
-	assert(tile_bag.size() == 63, "TilePool: Expected 63 tiles, got %d" % tile_bag.size())
+	assert(tile_bag.size() == 64, "TilePool: Expected 64 tiles, got %d" % tile_bag.size())
 
 
-## Draw a random tile from the bag
-## Returns TileDefinition or null if bag is empty
+## Draw a random tile from the bag. Returns TileDefinition or null if bag is empty.
 func draw_tile() -> TileDefinition:
 	if tile_bag.is_empty():
 		Log.warn("TilePool: Bag is empty!")
@@ -114,18 +68,15 @@ func draw_tile() -> TileDefinition:
 
 	var tile = tile_bag.pop_back()
 	removed_tiles.append(tile)
-	Log.debug("TilePool: Drew %s %s tile (yield=%d, village_cost=%d). Remaining: %d" % [
-		TileManager.ResourceType.keys()[tile.resource_type],
-		TileManager.TileType.keys()[tile.tile_type],
-		tile.yield_value,
-		tile.village_building_cost,
+	Log.debug("TilePool: Drew %s tile (yields=%s). Remaining: %d" % [
+		TileDefinition.TileType.keys()[tile.tile_type],
+		TileDefinition.format_yields(tile.yields),
 		tile_bag.size()
 	])
 	return tile
 
 
-## Draw multiple tiles at once
-## Returns array of TileDefinitions
+## Draw multiple tiles at once. Returns array of TileDefinitions.
 func draw_tiles(count: int) -> Array[TileDefinition]:
 	var tiles: Array[TileDefinition] = []
 	for i in range(count):
@@ -137,18 +88,15 @@ func draw_tiles(count: int) -> Array[TileDefinition]:
 	return tiles
 
 
-## Get number of tiles remaining in bag
 func get_remaining_count() -> int:
 	return tile_bag.size()
 
 
-## Check if bag is empty
 func is_empty() -> bool:
 	return tile_bag.is_empty()
 
 
-
-## Check if the bag has at least one tile of the given tile type
+## Check if the bag has at least one tile of the given tile type.
 func has_tile_of_type(tile_type: int) -> bool:
 	for tile in tile_bag:
 		if tile.tile_type == tile_type:
@@ -156,67 +104,57 @@ func has_tile_of_type(tile_type: int) -> bool:
 	return false
 
 
-## Draw any tile of the given tile type from the bag
-## Returns TileDefinition or null if none available
-## NOTE: To implement full board-game fidelity (return buried tile to bag on upgrade),
-## call return_tile() with the old tile definition before calling this.
+## Draw any tile of the given tile type from the bag.
+## Returns TileDefinition or null if none available.
 func draw_tile_of_type(tile_type: int) -> TileDefinition:
 	for i in range(tile_bag.size()):
 		if tile_bag[i].tile_type == tile_type:
 			var tile = tile_bag[i]
 			tile_bag.remove_at(i)
 			removed_tiles.append(tile)
-			Log.debug("TilePool: Drew %s %s tile from bag. Remaining: %d" % [
-				TileManager.ResourceType.keys()[tile.resource_type],
-				TileManager.TileType.keys()[tile.tile_type],
+			Log.debug("TilePool: Drew %s tile from bag. Remaining: %d" % [
+				TileDefinition.TileType.keys()[tile.tile_type],
 				tile_bag.size()
 			])
 			return tile
-	Log.warn("TilePool: No %s tile available in bag!" % TileManager.TileType.keys()[tile_type])
+	Log.warn("TilePool: No %s tile available in bag!" % TileDefinition.TileType.keys()[tile_type])
 	return null
 
 
-## Check if the bag has at least one tile of the given type and resource type
+## Check if the bag has a tile of the given type whose yields include resource_type.
 func has_tile_of_type_and_resource(tile_type: int, resource_type: int) -> bool:
 	for tile in tile_bag:
-		if tile.tile_type == tile_type and tile.resource_type == resource_type:
+		if tile.tile_type == tile_type and tile.yields.has(resource_type):
 			return true
 	return false
 
 
-## Draw a tile of the given type and resource type from the bag
-## Returns TileDefinition or null if none available
-## NOTE: To return the current board tile back to the bag before drawing
-## (full board-game fidelity), create a TileDefinition from the tile's
-## current properties and call return_tile() here first.
+## Draw the first tile of the given type whose yields include resource_type.
+## Returns TileDefinition or null if none available.
 func draw_tile_of_type_and_resource(tile_type: int, resource_type: int) -> TileDefinition:
 	for i in range(tile_bag.size()):
-		if tile_bag[i].tile_type == tile_type and tile_bag[i].resource_type == resource_type:
+		if tile_bag[i].tile_type == tile_type and tile_bag[i].yields.has(resource_type):
 			var tile = tile_bag[i]
 			tile_bag.remove_at(i)
 			removed_tiles.append(tile)
-			Log.debug("TilePool: Drew %s %s tile (type change). Remaining: %d" % [
-				TileManager.ResourceType.keys()[tile.resource_type],
-				TileManager.TileType.keys()[tile.tile_type],
+			Log.debug("TilePool: Drew %s tile (resource match). Remaining: %d" % [
+				TileDefinition.TileType.keys()[tile.tile_type],
 				tile_bag.size()
 			])
 			return tile
-	Log.warn("TilePool: No %s %s tile available in bag!" % [
-		TileManager.TileType.keys()[tile_type],
-		TileManager.ResourceType.keys()[resource_type]
+	Log.warn("TilePool: No %s tile with %s in bag!" % [
+		TileDefinition.TileType.keys()[tile_type],
+		TileDefinition.ResourceType.keys()[resource_type]
 	])
 	return null
 
 
-## Return a tile to the bag and shuffle
-## Used when a tile needs to be put back (e.g., wrong type for starting tile)
+## Return a tile to the bag and shuffle.
 func return_tile(tile: TileDefinition) -> void:
-	# Remove from removed_tiles if it's there
 	var idx = removed_tiles.find(tile)
 	if idx != -1:
 		removed_tiles.remove_at(idx)
 
-	# Add back to bag and shuffle
 	tile_bag.append(tile)
 	tile_bag.shuffle()
 	Log.debug("TilePool: Returned tile to bag. Total: %d" % tile_bag.size())

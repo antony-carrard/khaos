@@ -2,43 +2,29 @@ extends Node3D
 
 class_name TileManager
 
-# Tile type definitions
-enum TileType {
-	PLAINS,    # Height 0 - ground level
-	HILLS,     # Height 1 - built on plains
-	MOUNTAIN   # Height 2 - built on hills
-}
-
-# Resource type definitions (what the tile produces)
-enum ResourceType {
-	RESOURCES,  # Building materials (wood icon)
-	FERVOR,     # Divine energy (pray icon)
-	GLORY       # Victory points (star icon)
-}
-
 # Map tile types to their required height level
 const TILE_TYPE_TO_HEIGHT = {
-	TileType.PLAINS: 0,
-	TileType.HILLS: 1,
-	TileType.MOUNTAIN: 2
+	TileDefinition.TileType.PLAINS: 0,
+	TileDefinition.TileType.HILLS: 1,
+	TileDefinition.TileType.MOUNTAIN: 2
 }
 
 # Visual colors for each tile type
 const TILE_TYPE_COLORS = {
-	TileType.PLAINS: Color(0.4, 0.7, 0.3),    # Green
-	TileType.HILLS: Color(0.6, 0.5, 0.3),     # Brown
-	TileType.MOUNTAIN: Color(0.5, 0.5, 0.5)   # Gray
+	TileDefinition.TileType.PLAINS: Color(0.4, 0.7, 0.3),
+	TileDefinition.TileType.HILLS: Color(0.6, 0.5, 0.3),
+	TileDefinition.TileType.MOUNTAIN: Color(0.5, 0.5, 0.5)
 }
 
 # Icon paths for resource types
 const RESOURCE_TYPE_ICONS = {
-	ResourceType.RESOURCES: "res://icons/wood.svg",
-	ResourceType.FERVOR: "res://icons/pray.svg",
-	ResourceType.GLORY: "res://icons/star.svg"
+	TileDefinition.ResourceType.MATERIALS: "res://icons/wood.svg",
+	TileDefinition.ResourceType.FERVOR: "res://icons/pray.svg",
+	TileDefinition.ResourceType.GLORY: "res://icons/star.svg"
 }
 
 # Signals
-signal tile_placed(q: int, r: int, height: int, tile_type: TileType)
+signal tile_placed(q: int, r: int, height: int, tile_type: int)
 
 # Configuration (set by board_manager)
 var hex_tile_scene: PackedScene
@@ -63,8 +49,8 @@ func initialize(tile_scene: PackedScene) -> void:
 ## Places a tile at the specified hex coordinates with resource properties.
 ## Returns true if placement succeeded, false if invalid placement.
 ## Emits tile_placed signal on success.
-func place_tile(q: int, r: int, tile_type: TileType, res_type: ResourceType = ResourceType.RESOURCES,
-				yield_val: int = 1, village_cost: int = 0) -> bool:
+func place_tile(q: int, r: int, tile_type: int, tile_yields: Dictionary = {},
+				village_cost: int = 0) -> bool:
 	var height = TILE_TYPE_TO_HEIGHT[tile_type]
 
 	if not is_valid_placement(q, r, tile_type):
@@ -76,15 +62,14 @@ func place_tile(q: int, r: int, tile_type: TileType, res_type: ResourceType = Re
 	tile.set_tile_type(tile_type, TILE_TYPE_COLORS[tile_type])
 	tile.global_position = HexGridUtils.axial_to_world(q, r, height)
 
-	# Set resource properties with icon
-	var icon_path = RESOURCE_TYPE_ICONS[res_type]
-	tile.set_resource_properties(res_type, yield_val, village_cost, icon_path)
+	tile.set_resource_properties(tile_yields, village_cost)
 
 	var key = Vector3i(q, r, height)
 	placed_tiles[key] = tile
 
-	Log.debug("Placed %s tile at q=%d, r=%d, height=%d (Resource: %s, Yield: %d, Village Cost: %d)" %
-		  [TileType.keys()[tile_type], q, r, height, ResourceType.keys()[res_type], yield_val, village_cost])
+	Log.debug("Placed %s tile at q=%d, r=%d, height=%d (yields=%s, village_cost=%d)" % [
+		TileDefinition.TileType.keys()[tile_type], q, r, height,
+		TileDefinition.format_yields(tile_yields), village_cost])
 	tile_placed.emit(q, r, height, tile_type)
 	return true
 
@@ -92,7 +77,7 @@ func place_tile(q: int, r: int, tile_type: TileType, res_type: ResourceType = Re
 ## Checks if a tile placement would be valid according to game rules.
 ## Does not modify game state - safe to call for preview validation.
 ## Checks: position occupied, height limits, village blocking, tile-specific rules.
-func is_valid_placement(q: int, r: int, tile_type: TileType) -> bool:
+func is_valid_placement(q: int, r: int, tile_type: int) -> bool:
 	var height = TILE_TYPE_TO_HEIGHT[tile_type]
 	var key = Vector3i(q, r, height)
 
@@ -109,7 +94,7 @@ func is_valid_placement(q: int, r: int, tile_type: TileType) -> bool:
 		return false
 
 	# PLAINS (height 0) rules
-	if tile_type == TileType.PLAINS:
+	if tile_type == TileDefinition.TileType.PLAINS:
 		# First tile can be placed anywhere
 		if placed_tiles.is_empty():
 			return true
@@ -122,24 +107,24 @@ func is_valid_placement(q: int, r: int, tile_type: TileType) -> bool:
 		return false
 
 	# HILLS (height 1) rules
-	elif tile_type == TileType.HILLS:
+	elif tile_type == TileDefinition.TileType.HILLS:
 		# Must have a PLAINS tile directly below
 		var below_key = Vector3i(q, r, 0)
 		if not placed_tiles.has(below_key):
 			return false
 		# Verify it's a PLAINS tile
 		var below_tile = placed_tiles[below_key] as HexTile
-		return below_tile.tile_type == TileType.PLAINS
+		return below_tile.tile_type == TileDefinition.TileType.PLAINS
 
 	# MOUNTAIN (height 2) rules
-	elif tile_type == TileType.MOUNTAIN:
+	elif tile_type == TileDefinition.TileType.MOUNTAIN:
 		# Must have a HILLS tile directly below
 		var below_key = Vector3i(q, r, 1)
 		if not placed_tiles.has(below_key):
 			return false
 		# Verify it's a HILLS tile
 		var below_tile = placed_tiles[below_key] as HexTile
-		return below_tile.tile_type == TileType.HILLS
+		return below_tile.tile_type == TileDefinition.TileType.HILLS
 
 	return false
 
@@ -187,13 +172,13 @@ func upgrade_tile(q: int, r: int) -> bool:
 		return false
 
 	# Determine the new tile type
-	var new_tile_type: TileType
+	var new_tile_type: int
 	match current_tile.tile_type:
-		TileType.PLAINS:
-			new_tile_type = TileType.HILLS
-		TileType.HILLS:
-			new_tile_type = TileType.MOUNTAIN
-		TileType.MOUNTAIN:
+		TileDefinition.TileType.PLAINS:
+			new_tile_type = TileDefinition.TileType.HILLS
+		TileDefinition.TileType.HILLS:
+			new_tile_type = TileDefinition.TileType.MOUNTAIN
+		TileDefinition.TileType.MOUNTAIN:
 			Log.warn("Cannot upgrade MOUNTAIN - already at max level")
 			return false
 		_:
@@ -209,9 +194,6 @@ func upgrade_tile(q: int, r: int) -> bool:
 	if not bag_tile:
 		return false  # No tile of this type in bag — upgrade blocked
 
-	var res_type = current_tile.resource_type
-	var yield_val = bag_tile.yield_value
-	var village_cost = bag_tile.village_building_cost
 	var old_tile_type = current_tile.tile_type
 
 	# Place new tile on top (stacking)
@@ -230,14 +212,12 @@ func upgrade_tile(q: int, r: int) -> bool:
 	tile.set_tile_type(new_tile_type, TILE_TYPE_COLORS[new_tile_type])
 	tile.global_position = HexGridUtils.axial_to_world(q, r, new_height)
 
-	# Set resource properties with icon
-	var icon_path = RESOURCE_TYPE_ICONS[res_type]
-	tile.set_resource_properties(res_type, yield_val, village_cost, icon_path)
+	tile.set_resource_properties(bag_tile.yields, bag_tile.village_building_cost)
 
 	placed_tiles[new_key] = tile
 
 	Log.info("Upgraded tile at (%d, %d) from %s to %s" %
-		  [q, r, TileType.keys()[old_tile_type], TileType.keys()[new_tile_type]])
+		  [q, r, TileDefinition.TileType.keys()[old_tile_type], TileDefinition.TileType.keys()[new_tile_type]])
 
 	return true
 
@@ -256,10 +236,10 @@ func downgrade_tile(q: int, r: int) -> bool:
 	# Check if can be downgraded
 	var old_tile_type = current_tile.tile_type
 	match current_tile.tile_type:
-		TileType.PLAINS:
+		TileDefinition.TileType.PLAINS:
 			Log.warn("Cannot downgrade PLAINS - already at min level")
 			return false
-		TileType.HILLS, TileType.MOUNTAIN:
+		TileDefinition.TileType.HILLS, TileDefinition.TileType.MOUNTAIN:
 			# Can downgrade
 			pass
 		_:
@@ -278,6 +258,6 @@ func downgrade_tile(q: int, r: int) -> bool:
 		return false
 
 	Log.info("Downgraded tile at (%d, %d) from %s to %s" %
-		  [q, r, TileType.keys()[old_tile_type], TileType.keys()[new_top_tile.tile_type]])
+		  [q, r, TileDefinition.TileType.keys()[old_tile_type], TileDefinition.TileType.keys()[new_top_tile.tile_type]])
 
 	return true

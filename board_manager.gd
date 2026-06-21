@@ -399,10 +399,9 @@ func _on_tile_selected_from_hand(hand_index: int) -> void:
 		Log.warn("No actions remaining to place tile!")
 		return
 
-	Log.debug("Selected tile from hand: %s %s (yield=%d, village_cost=%d)" % [
-		TileManager.TileType.keys()[tile_def.tile_type],
-		TileManager.ResourceType.keys()[tile_def.resource_type],
-		tile_def.yield_value,
+	Log.debug("Selected tile from hand: %s yields=%s (village_cost=%d)" % [
+		TileDefinition.TileType.keys()[tile_def.tile_type],
+		TileDefinition.format_yields(tile_def.yields),
 		tile_def.village_building_cost
 	])
 
@@ -425,9 +424,9 @@ func on_tile_placed_from_hand(hand_index: int, q: int, r: int) -> void:
 		Log.error("BoardManager: consume_action failed despite passing phase/action checks")
 		return
 
-	Log.info("Placed tile from hand: %s %s" % [
-		TileManager.TileType.keys()[placed_tile.tile_type],
-		TileManager.ResourceType.keys()[placed_tile.resource_type]
+	Log.info("Placed tile from hand: %s yields=%s" % [
+		TileDefinition.TileType.keys()[placed_tile.tile_type],
+		TileDefinition.format_yields(placed_tile.yields)
 	])
 
 	current_player.remove_from_hand(hand_index)
@@ -644,7 +643,7 @@ func _rpc_place_tile(hand_index: int, q: int, r: int) -> void:
 	if td == null:
 		push_warning("_rpc_place_tile: hand[%d] is null" % hand_index)
 		return
-	tile_manager.place_tile(q, r, td.tile_type, td.resource_type, td.yield_value, td.village_building_cost)
+	tile_manager.place_tile(q, r, td.tile_type, td.yields, td.village_building_cost)
 	current_player.remove_from_hand(hand_index)
 	turn_manager.consume_action("place tile")
 	if ui:

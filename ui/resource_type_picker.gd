@@ -107,7 +107,7 @@ func show_picker(q: int, r: int, current_type: int, tile_type: int, available_ty
 
 	# Subtitle showing current type
 	var subtitle = Label.new()
-	subtitle.text = "Current: %s" % TileManager.ResourceType.keys()[current_type]
+	subtitle.text = "Current: %s" % TileDefinition.ResourceType.keys()[current_type]
 	subtitle.add_theme_font_size_override("font_size", 14)
 	subtitle.add_theme_color_override("font_color", Color(0.8, 0.8, 0.8))
 	subtitle.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -122,12 +122,12 @@ func show_picker(q: int, r: int, current_type: int, tile_type: int, available_ty
 
 	# Create buttons for each valid resource type
 	# Plains can only be Resources or Fervor (no Glory on Plains!)
-	_create_resource_type_button(button_container, TileManager.ResourceType.RESOURCES, "Resources", Color(0.6, 0.4, 0.2), available_types.has(TileManager.ResourceType.RESOURCES), current_type == TileManager.ResourceType.RESOURCES)
-	_create_resource_type_button(button_container, TileManager.ResourceType.FERVOR, "Fervor", Color(0.4, 0.3, 0.6), available_types.has(TileManager.ResourceType.FERVOR), current_type == TileManager.ResourceType.FERVOR)
+	_create_resource_type_button(button_container, TileDefinition.ResourceType.MATERIALS, "Materials", Color(0.6, 0.4, 0.2), available_types.has(TileDefinition.ResourceType.MATERIALS), current_type == TileDefinition.ResourceType.MATERIALS)
+	_create_resource_type_button(button_container, TileDefinition.ResourceType.FERVOR,    "Fervor",    Color(0.4, 0.3, 0.6), available_types.has(TileDefinition.ResourceType.FERVOR),    current_type == TileDefinition.ResourceType.FERVOR)
 
 	# Glory only available on Hills and Mountains
-	if tile_type != TileManager.TileType.PLAINS:
-		_create_resource_type_button(button_container, TileManager.ResourceType.GLORY, "Glory", Color(0.7, 0.6, 0.2), available_types.has(TileManager.ResourceType.GLORY), current_type == TileManager.ResourceType.GLORY)
+	if tile_type != TileDefinition.TileType.PLAINS:
+		_create_resource_type_button(button_container, TileDefinition.ResourceType.GLORY,    "Glory",     Color(0.7, 0.6, 0.2), available_types.has(TileDefinition.ResourceType.GLORY),    current_type == TileDefinition.ResourceType.GLORY)
 
 	# Cancel button
 	var cancel_button = Button.new()

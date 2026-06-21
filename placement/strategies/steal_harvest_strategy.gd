@@ -16,6 +16,8 @@ func update_tooltip(controller: PlacementController, q: int, r: int, is_valid: b
 	if is_valid:
 		var tile = controller.tile_manager.get_tile_at(q, r)
 		if tile:
-			controller.board_manager.ui.show_village_sell_tooltip(true, tile.yield_value)
+			var total_yield = 0
+			for v in tile.yields.values(): total_yield += v
+			controller.board_manager.ui.show_village_sell_tooltip(true, total_yield)
 			return
 	controller.board_manager.ui.show_village_sell_tooltip(false)

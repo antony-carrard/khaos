@@ -14,12 +14,11 @@ const LABEL_OUTLINE_SIZE: int = 40
 var q: int = 0  # column
 var r: int = 0  # row
 var height_level: int = 0  # 0, 1, or 2 (3 levels total)
-var tile_type: int = 0  # Stores TileManager.TileType value
+var tile_type: int = 0  # TileDefinition.TileType value
 
 # Resource properties
-var resource_type: int = 0  # TileManager.ResourceType (RESOURCES/FERVOR/GLORY)
-var yield_value: int = 0    # How much this tile produces when harvested
-var village_building_cost: int = 0  # Cost in resources to build a village on this tile
+var yields: Dictionary = {}  # TileDefinition.ResourceType → amount
+var village_building_cost: int = 0
 
 # Visual feedback
 var is_highlighted: bool = false
@@ -80,39 +79,44 @@ func update_visual() -> void:
 	set_color(original_color)
 
 
+## Returns the resource type with the highest yield amount.
+func primary_resource_type() -> int:
+	var best_type = TileDefinition.ResourceType.MATERIALS
+	var best_val = 0
+	for res in yields:
+		if yields[res] > best_val:
+			best_val = yields[res]
+			best_type = res
+	return best_type
+
+
 ## Sets the resource properties of this tile and updates the visual display.
 ## Creates icon mesh and value label if they don't exist.
-func set_resource_properties(res_type: int, yield_val: int, village_cost: int, icon_path: String) -> void:
-	resource_type = res_type
-	yield_value = yield_val
+func set_resource_properties(tile_yields: Dictionary, village_cost: int) -> void:
+	yields = tile_yields
 	village_building_cost = village_cost
+
+	var icon_path = TileManager.RESOURCE_TYPE_ICONS[primary_resource_type()]
 
 	# Create icon mesh if it doesn't exist (flat quad on top of tile)
 	if not icon_mesh:
 		icon_mesh = MeshInstance3D.new()
 		add_child(icon_mesh)
 
-		# Create a flat quad mesh
 		var quad = QuadMesh.new()
 		quad.size = ICON_QUAD_SIZE
 		icon_mesh.mesh = quad
-
-		# Position it on top of the hex tile
 		icon_mesh.position = Vector3(0, ICON_HEIGHT_OFFSET, 0)
-
-		# Rotate to lay flat (face upward)
 		icon_mesh.rotation_degrees = Vector3(-90, 0, 0)
 
-		# Create material for the icon
 		var material = StandardMaterial3D.new()
-		material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA_SCISSOR  # Hard cutoff, no blend issues
+		material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA_SCISSOR
 		material.alpha_scissor_threshold = ICON_ALPHA_SCISSOR_THRESHOLD
-		material.cull_mode = BaseMaterial3D.CULL_DISABLED  # Show both sides
-		material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED  # No lighting, pure texture
-		material.depth_draw_mode = BaseMaterial3D.DEPTH_DRAW_ALWAYS  # Ensure depth is written
+		material.cull_mode = BaseMaterial3D.CULL_DISABLED
+		material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		material.depth_draw_mode = BaseMaterial3D.DEPTH_DRAW_ALWAYS
 		icon_mesh.material_override = material
 
-	# Load and set the icon texture
 	var texture = load(icon_path) as Texture2D
 	if not texture:
 		Log.error("HexTile: Failed to load icon texture: %s" % icon_path)
@@ -125,14 +129,13 @@ func set_resource_properties(res_type: int, yield_val: int, village_cost: int, i
 	if not value_label:
 		value_label = Label3D.new()
 		add_child(value_label)
-		value_label.billboard = BaseMaterial3D.BILLBOARD_DISABLED  # No billboard, lay flat
+		value_label.billboard = BaseMaterial3D.BILLBOARD_DISABLED
 		value_label.font_size = LABEL_FONT_SIZE
 		value_label.outline_size = LABEL_OUTLINE_SIZE
 		value_label.outline_modulate = Color.BLACK
 		value_label.modulate = Color.WHITE
 		value_label.position = Vector3(0, LABEL_HEIGHT_OFFSET, 0)
-		value_label.rotation_degrees = Vector3(-90, 0, 0)  # Rotate to lay flat
-		value_label.render_priority = 1  # Draw on top of icon
+		value_label.rotation_degrees = Vector3(-90, 0, 0)
+		value_label.render_priority = 1
 
-	# Set the yield value text
-	value_label.text = str(yield_value)
+	value_label.text = TileDefinition.format_yields(tile_yields)

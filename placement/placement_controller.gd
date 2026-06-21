@@ -3,9 +3,9 @@ extends Node
 class_name PlacementController
 
 # State
-var current_tile_type: int = 0  # TileManager.TileType value
+var current_tile_type: int = 0  # TileDefinition.TileType value
 var selected_hand_index: int = -1  # Index of tile selected from hand (-1 = none)
-var selected_tile_def = null  # TilePool.TileDefinition from hand
+var selected_tile_def: TileDefinition = null
 
 # Strategy — non-null means placement is active
 var current_strategy: PlacementStrategy = null
@@ -84,11 +84,11 @@ func handle_keyboard_input(event: InputEvent) -> void:
 		return
 
 	if event.keycode == KEY_1:
-		select_tile_type(TileManager.TileType.PLAINS)
+		select_tile_type(TileDefinition.TileType.PLAINS)
 	elif event.keycode == KEY_2:
-		select_tile_type(TileManager.TileType.HILLS)
+		select_tile_type(TileDefinition.TileType.HILLS)
 	elif event.keycode == KEY_3:
-		select_tile_type(TileManager.TileType.MOUNTAIN)
+		select_tile_type(TileDefinition.TileType.MOUNTAIN)
 
 
 func update_preview() -> void:

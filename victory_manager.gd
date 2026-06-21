@@ -55,9 +55,9 @@ func _calculate_village_points(player: Player, village_manager: VillageManager,
 							   tile_manager: TileManager) -> Dictionary:
 	var villages = village_manager.get_villages_for_player(player)
 	var counts = {
-		TileManager.TileType.PLAINS: 0,
-		TileManager.TileType.HILLS: 0,
-		TileManager.TileType.MOUNTAIN: 0
+		TileDefinition.TileType.PLAINS: 0,
+		TileDefinition.TileType.HILLS: 0,
+		TileDefinition.TileType.MOUNTAIN: 0
 	}
 
 	# Count villages by terrain type
@@ -67,20 +67,20 @@ func _calculate_village_points(player: Player, village_manager: VillageManager,
 			counts[tile.tile_type] += 1
 
 	# Calculate points (1 for PLAINS, 2 for HILLS, 3 for MOUNTAIN)
-	var plains_pts = counts[TileManager.TileType.PLAINS] * 1
-	var hills_pts = counts[TileManager.TileType.HILLS] * 2
-	var mountain_pts = counts[TileManager.TileType.MOUNTAIN] * 3
+	var plains_pts = counts[TileDefinition.TileType.PLAINS] * 1
+	var hills_pts = counts[TileDefinition.TileType.HILLS] * 2
+	var mountain_pts = counts[TileDefinition.TileType.MOUNTAIN] * 3
 
 	var total = plains_pts + hills_pts + mountain_pts
 
 	# Format breakdown string
 	var breakdown = ""
-	if counts[TileManager.TileType.PLAINS] > 0:
-		breakdown += "  %d on PLAINS: %d pts\n" % [counts[TileManager.TileType.PLAINS], plains_pts]
-	if counts[TileManager.TileType.HILLS] > 0:
-		breakdown += "  %d on HILLS: %d pts\n" % [counts[TileManager.TileType.HILLS], hills_pts]
-	if counts[TileManager.TileType.MOUNTAIN] > 0:
-		breakdown += "  %d on MOUNTAINS: %d pts" % [counts[TileManager.TileType.MOUNTAIN], mountain_pts]
+	if counts[TileDefinition.TileType.PLAINS] > 0:
+		breakdown += "  %d on PLAINS: %d pts\n" % [counts[TileDefinition.TileType.PLAINS], plains_pts]
+	if counts[TileDefinition.TileType.HILLS] > 0:
+		breakdown += "  %d on HILLS: %d pts\n" % [counts[TileDefinition.TileType.HILLS], hills_pts]
+	if counts[TileDefinition.TileType.MOUNTAIN] > 0:
+		breakdown += "  %d on MOUNTAINS: %d pts" % [counts[TileDefinition.TileType.MOUNTAIN], mountain_pts]
 
 	if breakdown == "":
 		breakdown = "  No villages"

@@ -49,27 +49,28 @@ func consume_action(action_name: String = "action") -> bool:
 func harvest_all() -> void:
 	var villages = village_manager.get_villages_for_player(current_player)
 	var totals: Dictionary = {
-		TileManager.ResourceType.RESOURCES: 0,
-		TileManager.ResourceType.FERVOR: 0,
-		TileManager.ResourceType.GLORY: 0
+		TileDefinition.ResourceType.MATERIALS: 0,
+		TileDefinition.ResourceType.FERVOR: 0,
+		TileDefinition.ResourceType.GLORY: 0
 	}
 
 	for village in villages:
 		var tile = tile_manager.get_tile_at(village.q, village.r)
 		if tile:
-			totals[tile.resource_type] += tile.yield_value
+			for res_type in tile.yields:
+				totals[res_type] = totals.get(res_type, 0) + tile.yields[res_type]
 
-	if totals[TileManager.ResourceType.RESOURCES] > 0:
-		current_player.add_resources(totals[TileManager.ResourceType.RESOURCES])
-	if totals[TileManager.ResourceType.FERVOR] > 0:
-		current_player.add_fervor(totals[TileManager.ResourceType.FERVOR])
-	if totals[TileManager.ResourceType.GLORY] > 0:
-		current_player.add_glory(totals[TileManager.ResourceType.GLORY])
+	if totals[TileDefinition.ResourceType.MATERIALS] > 0:
+		current_player.add_resources(totals[TileDefinition.ResourceType.MATERIALS])
+	if totals[TileDefinition.ResourceType.FERVOR] > 0:
+		current_player.add_fervor(totals[TileDefinition.ResourceType.FERVOR])
+	if totals[TileDefinition.ResourceType.GLORY] > 0:
+		current_player.add_glory(totals[TileDefinition.ResourceType.GLORY])
 
-	Log.debug("Harvested: resources=%d fervor=%d glory=%d" % [
-		totals[TileManager.ResourceType.RESOURCES],
-		totals[TileManager.ResourceType.FERVOR],
-		totals[TileManager.ResourceType.GLORY]
+	Log.debug("Harvested: materials=%d fervor=%d glory=%d" % [
+		totals[TileDefinition.ResourceType.MATERIALS],
+		totals[TileDefinition.ResourceType.FERVOR],
+		totals[TileDefinition.ResourceType.GLORY]
 	])
 
 

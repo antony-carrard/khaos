@@ -155,7 +155,7 @@ func _create_hand_card(hand_index: int, tile_def) -> void:
 
 	# Tile type label
 	var type_label = Label.new()
-	type_label.text = TileManager.TileType.keys()[tile_def.tile_type]
+	type_label.text = TileDefinition.TileType.keys()[tile_def.tile_type]
 	if can_place:
 		type_label.add_theme_color_override("font_color", Color.WHITE)
 	else:
@@ -164,13 +164,14 @@ func _create_hand_card(hand_index: int, tile_def) -> void:
 	type_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	vbox.add_child(type_label)
 
-	# Resource type icon
+	# Primary resource icon (highest-yield resource type)
+	var primary_type = tile_def.primary_resource_type()
 	var icon_texture_rect = TextureRect.new()
 	icon_texture_rect.custom_minimum_size = Vector2(32, 32)
 	icon_texture_rect.expand_mode = TextureRect.EXPAND_FIT_WIDTH_PROPORTIONAL
 	icon_texture_rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 
-	var icon_path = TileManager.RESOURCE_TYPE_ICONS[tile_def.resource_type]
+	var icon_path = TileManager.RESOURCE_TYPE_ICONS[primary_type]
 	var icon_texture = load(icon_path) as Texture2D
 	if icon_texture:
 		icon_texture_rect.texture = icon_texture
@@ -180,9 +181,9 @@ func _create_hand_card(hand_index: int, tile_def) -> void:
 
 	vbox.add_child(icon_texture_rect)
 
-	# Yield value
+	# Yield summary (e.g. "3M+1G")
 	var yield_label = Label.new()
-	yield_label.text = "Yield: %d" % tile_def.yield_value
+	yield_label.text = TileDefinition.format_yields(tile_def.yields)
 	if can_place:
 		yield_label.add_theme_color_override("font_color", Color.WHITE)
 	else:

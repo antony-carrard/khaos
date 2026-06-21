@@ -17,8 +17,7 @@ func on_click(controller: PlacementController, _q: int, _r: int) -> bool:
 		success = controller.tile_manager.place_tile(
 			pos.x, pos.y,
 			td.tile_type,
-			td.resource_type,
-			td.yield_value,
+			td.yields,
 			td.village_building_cost
 		)
 	else:
