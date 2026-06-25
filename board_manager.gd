@@ -429,6 +429,7 @@ func on_tile_placed_from_hand(hand_index: int, q: int, r: int) -> void:
 		TileDefinition.format_yields(placed_tile.yields)
 	])
 
+	_grant_placement_bounty(current_player, placed_tile.yields)
 	current_player.remove_from_hand(hand_index)
 
 	if ui:
@@ -636,6 +637,18 @@ func _rpc_god_selected(player_index: int, god_index: int) -> void:
 
 
 
+func _grant_placement_bounty(player: Player, tile_yields: Dictionary) -> void:
+	for res_type in tile_yields:
+		var amount: int = tile_yields[res_type]
+		match res_type:
+			TileDefinition.ResourceType.MATERIALS:
+				player.add_resources(amount)
+			TileDefinition.ResourceType.FERVOR:
+				player.add_fervor(amount)
+			TileDefinition.ResourceType.GLORY:
+				player.add_glory(amount)
+
+
 @rpc("any_peer", "call_remote", "reliable")
 func _rpc_place_tile(hand_index: int, q: int, r: int) -> void:
 	if not _validate_rpc_sender(): return
@@ -644,6 +657,7 @@ func _rpc_place_tile(hand_index: int, q: int, r: int) -> void:
 		push_warning("_rpc_place_tile: hand[%d] is null" % hand_index)
 		return
 	tile_manager.place_tile(q, r, td.tile_type, td.yields, td.village_building_cost)
+	_grant_placement_bounty(current_player, td.yields)
 	current_player.remove_from_hand(hand_index)
 	turn_manager.consume_action("place tile")
 	if ui:
