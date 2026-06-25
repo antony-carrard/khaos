@@ -465,7 +465,9 @@ func on_village_placed(q: int, r: int) -> bool:
 		village_manager.remove_village(q, r)
 		return false
 
-	Log.info("Built village for %d resources" % cost)
+	var glory = tile.height_level + 1
+	current_player.add_glory(glory)
+	Log.info("Built village for %d resources, gained %d glory" % [cost, glory])
 
 	if _is_network:
 		rpc("_rpc_place_village", q, r)
@@ -531,7 +533,9 @@ func on_village_removed(q: int, r: int) -> bool:
 			return false
 		current_player.spend_resources(half_cost)
 		enemy_player.add_resources(half_cost)
-		Log.info("Destroyed enemy village at (%d,%d), paid %d resources to %s" % [q, r, half_cost, enemy_player.player_name])
+		var glory = tile.height_level + 1
+		current_player.add_glory(glory)
+		Log.info("Destroyed enemy village at (%d,%d), paid %d resources, gained %d glory" % [q, r, half_cost, glory])
 
 	if _is_network:
 		rpc("_rpc_remove_village", q, r)
