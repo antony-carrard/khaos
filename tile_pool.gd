@@ -42,9 +42,11 @@ func initialize(rng_seed: int = -1) -> void:
 	for i in 4: tile_bag.append(TileDefinition.new(HILLS, {G: 2}, 4))
 
 	# MOUNTAINS (12 total), village_cost = 6
-	for i in 3: tile_bag.append(TileDefinition.new(MOUNTAIN, {M: 3, G: 1}, 6))
+	for i in 2: tile_bag.append(TileDefinition.new(MOUNTAIN, {M: 3, G: 1}, 6))
+	tile_bag.append(      TileDefinition.new(MOUNTAIN, {M: 3, G: 2}, 6))
 	tile_bag.append(      TileDefinition.new(MOUNTAIN, {M: 4, G: 1}, 6))
-	for i in 3: tile_bag.append(TileDefinition.new(MOUNTAIN, {F: 3, G: 1}, 6))
+	for i in 2: tile_bag.append(TileDefinition.new(MOUNTAIN, {F: 3, G: 1}, 6))
+	tile_bag.append(      TileDefinition.new(MOUNTAIN, {F: 3, G: 2}, 6))
 	tile_bag.append(      TileDefinition.new(MOUNTAIN, {F: 4, G: 1}, 6))
 	for i in 2: tile_bag.append(TileDefinition.new(MOUNTAIN, {G: 3}, 6))
 	for i in 2: tile_bag.append(TileDefinition.new(MOUNTAIN, {M: 2, F: 2, G: 2}, 6))

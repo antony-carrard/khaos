@@ -12,9 +12,11 @@ Les tuiles de la réserve sont les suivantes :
 - 2x 3 ferveur
 - 4x 2 gloire
 12 montagnes
-- 3x 3 matériaux + 1 gloire
+- 2x 3 matériaux + 1 gloire
+- 1x 3 matériaux + 2 gloire
 - 1x 4 matériaux + 1 gloire
-- 3x 3 ferveur + 1 gloire
+- 2x 3 ferveur + 1 gloire
+- 1x 3 ferveur + 2 gloire
 - 1x 4 ferveur + 1 gloire
 - 2x 3 gloire
 - 2x 2 matériaux + 2 ferveur + 2 gloire
