@@ -66,7 +66,7 @@ func show_village_sell_tooltip(visible_flag: bool, refund_amount: int = 0) -> vo
 	if not tooltip_label or not tooltip_panel:
 		return
 	if visible_flag:
-		tooltip_label.text = "+%d Resources" % refund_amount
+		tooltip_label.text = "Free" if refund_amount == 0 else "+%d Resources" % refund_amount
 		tooltip_panel.visible = true
 	else:
 		tooltip_panel.visible = false

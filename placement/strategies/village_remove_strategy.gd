@@ -26,10 +26,9 @@ func update_tooltip(controller: PlacementController, q: int, r: int, is_valid: b
 		controller.board_manager.ui.show_village_sell_tooltip(false)
 		return
 	if village.player_owner == controller.board_manager.current_player:
-		var player = controller.board_manager.current_player
-		var sell_refund: int = int(player.get_village_cost(tile.village_building_cost) / 2.0)
-		controller.board_manager.ui.show_village_sell_tooltip(true, sell_refund)
+		controller.board_manager.ui.show_village_sell_tooltip(true, 0)
 	else:
-		var enemy_player: Player = village.player_owner
-		var half_cost: int = int(enemy_player.get_village_cost(tile.village_building_cost) / 2.0)
-		controller.board_manager.ui.show_village_cost_tooltip(true, half_cost)
+		var bm = controller.board_manager
+		var best_own_height: int = bm.get_best_adjacent_own_height(q, r)
+		var res_cost: int = bm.get_demolition_resources_cost(tile.height_level, best_own_height)
+		controller.board_manager.ui.show_village_cost_tooltip(true, res_cost)

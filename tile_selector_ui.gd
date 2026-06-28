@@ -325,6 +325,7 @@ func update_actions(remaining: int) -> void:
 	if actions_label and board_manager and board_manager.current_player:
 		var max_actions = board_manager.ui_player.max_actions_this_turn
 		actions_label.text = "Actions: %d/%d" % [remaining, max_actions]
+		actions_label.visible = true
 
 		# Color feedback with consistent outline
 		if remaining == 0:

@@ -475,9 +475,33 @@ func on_village_placed(q: int, r: int) -> bool:
 	return true
 
 
+## Returns the highest height_level of an adjacent own village, or -1 if none.
+func get_best_adjacent_own_height(q: int, r: int) -> int:
+	var best := -1
+	for neighbor in HexGridUtils.get_axial_neighbors(q, r):
+		var own_village := village_manager.get_village_at(neighbor.x, neighbor.y)
+		if not own_village or own_village.player_owner != current_player:
+			continue
+		var own_tile := tile_manager.get_tile_at(neighbor.x, neighbor.y)
+		if own_tile and own_tile.height_level > best:
+			best = own_tile.height_level
+	return best
+
+
+## Resource cost to demolish an enemy village. Base: enemy_height+2. Surcharge if attacking from below.
+func get_demolition_resources_cost(enemy_height: int, best_own_height: int) -> int:
+	var surcharge: int = max(0, enemy_height - best_own_height)
+	return (enemy_height + 2) + surcharge
+
+
+## Action cost to demolish an enemy village. Base: 1. Surcharge if attacking from below.
+func get_demolition_action_cost(enemy_height: int, best_own_height: int) -> int:
+	var surcharge: int = max(0, enemy_height - best_own_height)
+	return 1 + surcharge
+
+
 ## Returns true if the current player can legally destroy the enemy village at (q, r).
-## Conditions (from rules): own village on a neighboring tile at height >= enemy tile height,
-## and current player can afford half the enemy village's build cost.
+## Requires an adjacent own village. Cost scales with tile height and height disadvantage.
 func can_destroy_enemy_village(q: int, r: int) -> bool:
 	var enemy_village := village_manager.get_village_at(q, r)
 	if not enemy_village or enemy_village.player_owner == current_player:
@@ -485,22 +509,21 @@ func can_destroy_enemy_village(q: int, r: int) -> bool:
 	var enemy_tile := tile_manager.get_tile_at(q, r)
 	if not enemy_tile:
 		return false
-	var half_cost := int(enemy_village.player_owner.get_village_cost(enemy_tile.village_building_cost) / 2.0)
-	if current_player.resources < half_cost:
+	var best_own_height := get_best_adjacent_own_height(q, r)
+	if best_own_height < 0:
 		return false
-	for neighbor in HexGridUtils.get_axial_neighbors(q, r):
-		var own_village := village_manager.get_village_at(neighbor.x, neighbor.y)
-		if not own_village or own_village.player_owner != current_player:
-			continue
-		var own_tile := tile_manager.get_tile_at(neighbor.x, neighbor.y)
-		if own_tile and own_tile.height_level >= enemy_tile.height_level:
-			return true
-	return false
+	var res_cost := get_demolition_resources_cost(enemy_tile.height_level, best_own_height)
+	var act_cost := get_demolition_action_cost(enemy_tile.height_level, best_own_height)
+	if current_player.resources < res_cost:
+		return false
+	if current_player.actions_remaining < act_cost:
+		return false
+	return true
 
 
 ## Called when player attempts to remove/sell a village.
-## Own village: free action refunding half the build cost.
-## Enemy village: costs half the enemy's build cost (paid to them), requires adjacency + height.
+## Own village: costs 1 action, free (no resource cost or refund).
+## Enemy village: requires adjacent own village; costs resources + actions per rules.
 func on_village_removed(q: int, r: int) -> bool:
 	var village = village_manager.get_village_at(q, r)
 	if not village:
@@ -513,29 +536,27 @@ func on_village_removed(q: int, r: int) -> bool:
 		return false
 
 	if village.player_owner == current_player:
-		var building_cost: int = current_player.get_village_cost(tile.village_building_cost)
-		var refund: int = int(building_cost / 2.0)
 		if not turn_manager.consume_action("remove village"):
 			return false
 		if not village_manager.remove_village(q, r):
 			return false
-		current_player.add_resources(refund)
-		Log.info("Removed own village, received %d resources refund" % refund)
+		Log.info("Removed own village at (%d,%d)" % [q, r])
 	else:
 		if not can_destroy_enemy_village(q, r):
 			Log.warn("BoardManager: Cannot destroy enemy village at (%d,%d) — conditions not met" % [q, r])
 			return false
-		var enemy_player: Player = village.player_owner
-		var half_cost: int = int(enemy_player.get_village_cost(tile.village_building_cost) / 2.0)
-		if not turn_manager.consume_action("destroy enemy village"):
-			return false
+		var best_own_height := get_best_adjacent_own_height(q, r)
+		var res_cost := get_demolition_resources_cost(tile.height_level, best_own_height)
+		var act_cost := get_demolition_action_cost(tile.height_level, best_own_height)
+		for i in act_cost:
+			if not turn_manager.consume_action("destroy enemy village"):
+				return false
 		if not village_manager.remove_village(q, r):
 			return false
-		current_player.spend_resources(half_cost)
-		enemy_player.add_resources(half_cost)
-		var glory = tile.height_level + 1
+		current_player.spend_resources(res_cost)
+		var glory: int = tile.height_level + 1
 		current_player.add_glory(glory)
-		Log.info("Destroyed enemy village at (%d,%d), paid %d resources, gained %d glory" % [q, r, half_cost, glory])
+		Log.info("Destroyed enemy village at (%d,%d), paid %d resources, %d actions, gained %d glory" % [q, r, res_cost, act_cost, glory])
 
 	if _is_network:
 		rpc("_rpc_remove_village", q, r)
@@ -691,17 +712,16 @@ func _rpc_remove_village(q: int, r: int) -> void:
 		push_warning("_rpc_remove_village: missing village or tile at (%d,%d)" % [q, r])
 		return
 	if village.player_owner == current_player:
-		var refund := int(current_player.get_village_cost(tile.village_building_cost) / 2.0)
 		village_manager.remove_village(q, r)
-		current_player.add_resources(refund)
 		turn_manager.consume_action("remove village")
 	else:
-		var enemy_player: Player = village.player_owner
-		var half_cost := int(enemy_player.get_village_cost(tile.village_building_cost) / 2.0)
+		var best_own_height := get_best_adjacent_own_height(q, r)
+		var res_cost := get_demolition_resources_cost(tile.height_level, best_own_height)
+		var act_cost := get_demolition_action_cost(tile.height_level, best_own_height)
 		village_manager.remove_village(q, r)
-		current_player.spend_resources(half_cost)
-		enemy_player.add_resources(half_cost)
-		turn_manager.consume_action("destroy enemy village")
+		current_player.spend_resources(res_cost)
+		for i in act_cost:
+			turn_manager.consume_action("destroy enemy village")
 
 
 @rpc("any_peer", "call_remote", "reliable")
