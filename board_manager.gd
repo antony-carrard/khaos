@@ -783,7 +783,7 @@ func _trigger_game_end() -> void:
 	for player in players:
 		results.append({
 			"player": player,
-			"scores": victory_mgr.calculate_player_score(player, village_manager, tile_manager)
+			"scores": victory_mgr.calculate_player_score(player, village_manager)
 		})
 
 	if ui:

@@ -216,16 +216,12 @@ func _create_player_breakdown(player: Player, scores: Dictionary, is_winner: boo
 	vbox.add_child(sep)
 
 	# Score breakdown
-	var breakdown_text = """Villages (by terrain):
-%s
-
-Resources: %d → %d pts (%d pairs)
+	var breakdown_text = """Resources: %d → %d pts (%d pairs)
 Fervor: %d → %d pts (%d pairs)
 Glory: %d pts
 
 Territory Bonus: %d pts
 %s""" % [
-		scores.village_breakdown,
 		player.resources, scores.resource_points, int(player.resources / 2.0),
 		player.fervor, scores.fervor_points, int(player.fervor / 2.0),
 		scores.glory_points,
