@@ -76,10 +76,10 @@ Pouvoir passif : 1 action bonus à chaque tour (4 actions au lieu de 3)
 Pouvoir mineur (3 ferveurs): Double récolte sur un emplacement. Récupère le rendement d'un village normal ou doublé sur un emplacement.
 Pouvoir majeur (6 ferveurs): Double un de ses villages. Le village est doublé autant dans la récolte que pour le décompte du nombre de villages du plus grand groupe. Le joueur récupère le bonus de gloire comme si un nouveau village était construit. Le prix de démolition ainsi que la gloire obtenue lors de la démolition du village doublé est le même qu'un village normal.
 ### Le Bâtisseur
-Pouvoir passif : La construction de village coûte -1 matériau (1/3/5 au lieu de 2/4/6)
+Pouvoir passif : La construction d'un village sur une tuile plaine coûte 1 matériau au lieu de 2.
 Pouvoir mineur (2 ferveurs) : Peut fusionner des villages présents dans un même groupe de villages adjacents selon la logique suivante :
 - 2 villages plaine -> 1 village colline
-- 1 village plaine + 1 village colline -> 1 village montagne
+- 3 villages plaine -> 1 village montagne
 Le bâtisseur gagne un point de gloire par fusion.
 Pouvoir majeur (5 ferveurs): Construction divine. Construit un village sur n'importe quelle tuile vacante.
 ### Augia
@@ -87,13 +87,13 @@ Pouvoir passif : Reçois une tuile bonus à chaque tour (4 tuiles au lieu de 3)
 Pouvoir mineur (2 ferveur): Peut échanger la tuile d'un de ses villages pour une tuile de sa main. Le niveau de la tuile (plaine/colline/montagne) doit être le même.
 Pouvoir majeur (4 ferveur): Augmentation de la tuile d'un village possédé. Augia peut par exemple placer une montagne sous un de ses villages placé sur une colline. Augia reçoit un point de gloire pour chaque augmentation.
 ### Rakun
-Pouvoir passif : Rakun effectue une récolte sur les villages qu'il démolit ou réduit, sur la tuile d'avant la réduction.
+Pouvoir passif : Rakun effectue une récolte sur les villages qu'il démolit ou réduit, sur la tuile d'avant la réduction. Rakun doit avoir un village à proximité pour que le passif fasse effet.
 Pouvoir mineur (2 ferveur) : Vol de récolte de ressources d'un village ennemi à proximité.
 Pouvoir majeur (5 ferveur) : Réduction d'une tuile ennemie. Rakun peut par exemple voler la tuile de type colline d'un village adverse, pour le transformer en village de type plaine. La tuile volée retourne dans la main de Rakun. Si le village réduit se trouve sur une plaine, le village est démoli (une seule récolte est faite dans ce cas). Rakun gagne un point de gloire pour chaque réduction.
 ### Le Démolisseur
-Pouvoir passif : Échafaudage. La construction d'un village sur l'emplacement d'un village démoli durant le même tour est moitié prix.
-Pouvoir mineur (3 ferveur): Sacrifice. Le démolisseur peut démolir un de ses propres villages pour en récupérer la récompense en gloire équivalente à la démolition d'un village adverse.
-Pouvoir majeur (6 ferveur) : Peut démolir n'importe quel village ennemi.
+Pouvoir passif : Échafaudage. La construction d'un village sur l'emplacement d'un village adverse démoli durant le même tour est moitié prix. Ce passif s'applique uniquement si le démolisseur possède un village à proximité lors de la démolition.
+Pouvoir mineur (3 ferveur): Le démolisseur peut détruire un village adverse à proximité. Il ne récolte pas de gloire pour la démolition.
+Pouvoir majeur (6 ferveur) : Peut démolir n'importe quel village adverse.
 ### Le Nomade
 Pouvoir passif : Récolte immédiatement la ressource de la tuile sur laquelle il déplace un village. Chaque niveau gravi lors d'un déplacement rapporte un point de gloire.
 Pouvoir mineur (3 ferveur): Peut déplacer un de ses villages sur une tuile adjacente, pouvant s’élever d'au maximum 1 niveau.
