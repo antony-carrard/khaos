@@ -3,185 +3,92 @@ extends Node
 class_name Player
 
 # Player identity
-var player_name: String = "Player 1"
-var god: God = null  # Selected god with powers
-var player_color: Color = Color.BLUE
+var player_name: String
+var god: God
+var color: Color
 
-# Resources (core game currencies)
-var resources: int = 0    # For building villages & buying tiles
-var fervor: int = 0       # For divine powers
-var glory: int = 0        # Victory points
+# Number of tiles and actions a player has when initialized
+var hand_size: int
+var total_actions: int
+const TEST_VALUE: int = 999
 
-# Player's hand of tiles (fixed size array with null for empty slots)
-const HAND_SIZE: int = 3
-const BASE_ACTIONS: int = 3          # Default actions per turn (before bonuses)
-const TEST_MODE_AMOUNT: int = 999    # Unlimited amount granted in test mode (actions, resources, fervor)
-var hand: Array = [null, null, null]  # Array of TileDefinition or null
+# Tiles and actions tracking
+var hand: Array[TileDefinition]
 
-# Placed villages (for later scoring/tracking)
-var placed_villages: Array = []
+# resources (core game currencies)
+var materials: int:
+	set(value):
+		assert(value >= 0, "Can't set a negative value for the materials")
+		materials_changed.emit(value)
+		Log.debug("%s: set materials value to: %d." % [player_name, value])
+		materials = value
+		
+var fervor: int:
+	set(value):
+		assert(value >= 0, "Can't set a negative value for the fervor")
+		fervor_changed.emit(value)
+		Log.debug("%s: set fervor value to: %d." % [player_name, value])
+		fervor = value
+		
+var glory: int:
+	set(value):
+		assert(value >= 0, "Can't set a negative value for the glory")
+		glory_changed.emit(value)
+		Log.debug("%s: set glory value to: %d." % [player_name, value])
+		glory = value
 
-# Turn tracking
-var actions_remaining: int = 3
-var max_actions_this_turn: int = 3  # Track max actions for display (includes bonuses)
-var test_mode: bool = false  # When true, start_turn() grants 999 actions instead of BASE_ACTIONS
-var next_turn_bonus_actions: int = 0  # For Bicéphallès' extra action power
-var used_powers_this_turn: Array[int] = []  # Track used powers (PowerType enums)
-var pending_power: GodPower = null  # Stores GodPower for deferred payment (selection-based powers)
+var actions_remaining: int:
+	set(value):
+		assert(value >= 0, "Can't set a negative value for the actions_remaining")
+		actions_changed.emit(value)
+		Log.debug("%s: set number of actions to: %d." % [player_name, value])
+		actions_remaining = value
 
 # Signals
-signal resources_changed(new_amount: int)
-signal fervor_changed(new_amount: int)
-signal glory_changed(new_amount: int)
-signal actions_changed(new_amount: int)
-signal power_used(power_type: int)  # Emitted when a power is used
+signal materials_changed(new_value: int)
+signal fervor_changed(new_value: int)
+signal glory_changed(new_value: int)
+signal actions_changed(new_value: int)
+# TODO add some signals for the tiles?
 
+## Initialize player with starting materials
+func initialize(player_name: String, color: Color):
+	self.player_name = player_name
+	self.color = color
 
-## Initialize player with starting resources
-func initialize(p_name: String = "Player 1", starting_resources: int = 0, starting_fervor: int = 0) -> void:
-	player_name = p_name
-	resources = starting_resources
-	fervor = starting_fervor
-	glory = 0
-
-
-## Check if player can place a tile (only checks actions during actions phase)
-func can_place_tile(in_actions_phase: bool) -> bool:
-	if in_actions_phase and actions_remaining <= 0:
-		return false
-	return true
-
-
-## Spend resources (returns false if can't afford)
-func spend_resources(amount: int) -> bool:
-	if resources < amount:
-		return false
-	resources -= amount
-	resources_changed.emit(resources)
-	Log.debug("%s: Spent %d resources. Remaining: %d" % [player_name, amount, resources])
-	return true
-
-
-## Add resources (from harvest, turn start, selling, etc.)
-func add_resources(amount: int) -> void:
-	resources += amount
-	resources_changed.emit(resources)
-	Log.debug("%s: Gained %d resources. Total: %d" % [player_name, amount, resources])
-
-
-## Spend fervor (for divine powers)
-func spend_fervor(amount: int) -> bool:
-	if fervor < amount:
-		return false
-	fervor -= amount
-	fervor_changed.emit(fervor)
-	Log.debug("%s: Spent %d fervor. Remaining: %d" % [player_name, amount, fervor])
-	return true
-
-
-## Add fervor (from harvest, turn start)
-func add_fervor(amount: int) -> void:
-	fervor += amount
-	fervor_changed.emit(fervor)
-	Log.debug("%s: Gained %d fervor. Total: %d" % [player_name, amount, fervor])
-
-
-## Add glory (from harvest)
-func add_glory(amount: int) -> void:
-	glory += amount
-	glory_changed.emit(glory)
-	Log.debug("%s: Gained %d glory. Total: %d" % [player_name, amount, glory])
-
-
-## Discard all tiles in hand and draw a full hand from the pool
-func refresh_hand(tile_pool: TilePool) -> void:
-	for i in range(HAND_SIZE):
-		hand[i] = null
-	draw_tiles(tile_pool, HAND_SIZE)
-
-
-## Draw tiles into hand from tile pool
-## Fills empty slots (null values) in the hand
-func draw_tiles(tile_pool: TilePool, count: int) -> void:
-	var drawn = tile_pool.draw_tiles(count)
-	var drawn_count = 0
-
-	for tile_def in drawn:
-		# Find first empty slot
-		for i in range(HAND_SIZE):
-			if hand[i] == null:
-				hand[i] = tile_def
-				drawn_count += 1
-				break
-
-	Log.debug("%s: Drew %d tiles into hand" % [player_name, drawn_count])
-
-
-## Remove tile from hand (sets slot to null instead of removing)
-func remove_from_hand(index: int) -> bool:
-	if index < 0 or index >= HAND_SIZE:
-		return false
-	if hand[index] == null:
-		return false
-	hand[index] = null
-	return true
-
-
-## Start new turn (gain passive resources/fervor)
-func start_turn() -> void:
-	add_resources(1)
-	add_fervor(1)
-
-	# Apply bonus actions (e.g., Bicéphallès' power)
-	var total_actions: int
+func initialize_game_start(god: God, test_mode: bool):
+	self.god = god
+	hand_size = god.hand_size
+	
 	if test_mode:
-		total_actions = TEST_MODE_AMOUNT
+		total_actions = TEST_VALUE
+		materials = TEST_VALUE
+		fervor = TEST_VALUE
 	else:
-		total_actions = BASE_ACTIONS + next_turn_bonus_actions
-	next_turn_bonus_actions = 0  # Reset bonus for next turn
-	max_actions_this_turn = total_actions  # Track max for display
-	set_actions(total_actions)
+		total_actions = god.total_actions
+		materials = 0
+		fervor = 0
+		
+	glory = 0
+	hand.resize(hand_size)
+	for i in range(hand_size):
+		hand[i] = null
 
-	# Reset used powers for new turn
-	used_powers_this_turn.clear()
+func start_turn():
+	actions_remaining = total_actions
 
-	Log.info("%s: Started turn. +1 resource, +1 fervor, %d actions" % [player_name, total_actions])
+func remove_from_hand(index: int):
+	assert(index >= 0 and index < hand_size, "Invalid hand index: %d" % index)
+	assert(hand[index] != null, "Slot %d is already empty" % index)
+	hand[index] = null
 
+func add_to_hand(tile: TileDefinition):
+	for i in range(hand_size):
+		if hand[i] == null:
+			hand[i] = tile
+			return
+	assert(false, "the hand is already full")
 
-## Set actions remaining and emit signal
-func set_actions(amount: int) -> void:
-	actions_remaining = amount
-	max_actions_this_turn = amount
-	actions_changed.emit(actions_remaining)
-
-
-## Consume one action and emit signal
-func consume_action() -> bool:
-	if actions_remaining <= 0:
-		return false
-	actions_remaining -= 1
-	actions_changed.emit(actions_remaining)
-	return true
-
-
-## Get the actual village building cost for a tile, accounting for god abilities
-func get_village_cost(base_cost: int) -> int:
-	return GodManager.get_village_cost(god, base_cost)
-
-
-## Check if a power has been used this turn
-func has_used_power(power_type: int) -> bool:
-	return used_powers_this_turn.has(power_type)
-
-
-## Mark a power as used this turn
-func mark_power_used(power_type: int) -> void:
-	if not used_powers_this_turn.has(power_type):
-		used_powers_this_turn.append(power_type)
-		power_used.emit(power_type)
-		Log.debug("%s: Marked power %d as used this turn" % [player_name, power_type])
-
-
-## Get current hand
-func get_hand() -> Array:
-	return hand
+func empty_hand():
+	for i in range(hand_size):
+		hand[i] = null

@@ -125,11 +125,6 @@ static func create_rakun() -> God:
 ## Attempt to activate a power
 ## Returns true if successful, false if player can't afford or action fails
 func activate_power(power: GodPower, player: Player, board_manager: Node3D) -> bool:
-	# Check if power has already been used this turn
-	if player.has_used_power(power.power_type):
-		Log.warn("Power already used this turn!")
-		return false
-
 	# Check if player can afford fervor cost
 	if power.fervor_cost > 0 and player.fervor < power.fervor_cost:
 		Log.warn("Not enough fervor! Need %d, have %d" % [power.fervor_cost, player.fervor])
@@ -149,17 +144,14 @@ func activate_power(power: GodPower, player: Player, board_manager: Node3D) -> b
 	if not deferred:
 		# Spend fervor
 		if power.fervor_cost > 0:
-			player.spend_fervor(power.fervor_cost)
+			player.fervor -= power.fervor_cost
 
 		# Consume action (unless it's a free action like SECOND_HARVEST)
 		if not _power_is_free_action(power):
-			player.consume_action()
-
-		# Mark power as used this turn
-		player.mark_power_used(power.power_type)
+			player.actions_remaining -= 1
 	else:
 		# Store pending power info for deferred payment
-		player.pending_power = power
+		board_manager.power_executor.pending_power = power
 
 	# Execute power effect
 	match power.power_type:
@@ -211,39 +203,32 @@ func _power_requires_deferred_payment(power: GodPower) -> bool:
 
 
 ## Complete a deferred power payment (called when action is executed)
-## Spends fervor, consumes action, and marks power as used
-func complete_deferred_power(player: Player) -> void:
-	if not player.pending_power:
+## Spends fervor and consumes an action
+func complete_deferred_power(player: Player, power_executor: PowerExecutor) -> void:
+	if not power_executor.pending_power:
 		return
 
-	var power = player.pending_power
+	var power = power_executor.pending_power
 
 	# Spend fervor
 	if power.fervor_cost > 0:
-		player.spend_fervor(power.fervor_cost)
+		player.fervor -= power.fervor_cost
 
 	# Consume action (unless it's a free action)
 	if not _power_is_free_action(power):
-		player.consume_action()
-
-	# Mark power as used this turn
-	player.mark_power_used(power.power_type)
+		player.actions_remaining -= 1
 
 	# Clear pending power
-	player.pending_power = null
+	power_executor.pending_power = null
 
 	Log.info("Completed deferred power payment: %s" % power.power_name)
 
 
 ## Check if a power can be activated (for UI updates)
 ## Returns true if all requirements are met
-func can_activate_power(power: GodPower, player: Player, turn_manager: TurnManager) -> bool:
+func can_activate_power(power: GodPower, player: Player) -> bool:
 	# Passive powers can't be activated
 	if power.is_passive:
-		return false
-
-	# Check if already used this turn
-	if player.has_used_power(power.power_type):
 		return false
 
 	# Check fervor cost
@@ -266,18 +251,14 @@ func _activate_destroy_village_free(_player: Player, board_manager: Node3D) -> v
 		board_manager.placement_controller.select_destroy_village_free_mode()
 		Log.info("Destroy village mode activated - click an enemy village")
 
-func _activate_extra_action(player: Player) -> void:
-	# Grant +1 action for next turn
-	player.next_turn_bonus_actions = 1
-	Log.info("Next turn will have 4 actions!")
+func _activate_extra_action(_player: Player) -> void:
+	# TODO: bonus-action effect removed pending step-2 god-power rewrite
+	pass
 
-func _activate_second_harvest(_player: Player, board_manager: Node3D) -> void:
-	# Trigger harvest UI again (doesn't consume action, costs fervor only)
-	if board_manager.turn_manager:
-		board_manager.turn_manager.trigger_second_harvest()
-		Log.info("Second harvest triggered!")
-	else:
-		Log.error("Cannot trigger second harvest: turn_manager not found")
+func _activate_second_harvest(player: Player, board_manager: Node3D) -> void:
+	# Harvest again (doesn't consume action, costs fervor only)
+	board_manager.harvest_for_player(player)
+	Log.info("Second harvest triggered!")
 
 func _activate_change_tile_type(_player: Player, board_manager: Node3D) -> void:
 	# Enter change tile type selection mode

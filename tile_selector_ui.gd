@@ -323,7 +323,7 @@ func _on_end_turn_pressed() -> void:
 ## Updates the actions display
 func update_actions(remaining: int) -> void:
 	if actions_label and board_manager and board_manager.current_player:
-		var max_actions = board_manager.ui_player.max_actions_this_turn
+		var max_actions = board_manager.ui_player.total_actions
 		actions_label.text = "Actions: %d/%d" % [remaining, max_actions]
 		actions_label.visible = true
 
@@ -364,7 +364,7 @@ func set_actions_interactive(enabled: bool) -> void:
 func update_current_player(player: Player) -> void:
 	if player_turn_label:
 		player_turn_label.text = "%s's Turn" % player.player_name
-		player_turn_label.add_theme_color_override("font_color", player.player_color)
+		player_turn_label.add_theme_color_override("font_color", player.color)
 
 
 ## Shows or hides the village sell tooltip with the refund amount

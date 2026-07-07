@@ -7,6 +7,8 @@ extends Resource
 @export var god_name: String = ""
 @export var image_path: String = ""
 @export var powers: Array[GodPower] = []
+@export var hand_size: int = 3
+@export var total_actions: int = 3
 
 func _init(p_name: String = "", p_image_path: String = ""):
 	god_name = p_name

@@ -10,7 +10,7 @@ class_name VictoryManager
 ## Returns dictionary with all scoring categories and total.
 func calculate_player_score(player: Player, village_manager: VillageManager) -> Dictionary:
 	# Resource/Fervor pairs (floor division)
-	var resource_pts: int = int(player.resources / 2.0)
+	var resource_pts: int = int(player.materials / 2.0)
 	var fervor_pts: int = int(player.fervor / 2.0)
 
 	# Glory (1:1 ratio) — includes glory earned during the game from village placement/demolition

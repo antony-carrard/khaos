@@ -17,8 +17,8 @@ func get_validity(controller: PlacementController, q: int, r: int) -> bool:
 	if not player:
 		return false
 
-	var cost = player.get_village_cost(tile.village_building_cost)
-	if player.resources < cost:
+	var cost = GodManager.get_village_cost(player.god, tile.village_building_cost)
+	if player.materials < cost:
 		return false
 
 	if player.actions_remaining <= 0:

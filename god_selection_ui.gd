@@ -19,7 +19,7 @@ var gods: Array[God] = []
 
 # Set these before add_child so _ready() can use them
 var selecting_player_name: String = ""
-var selecting_player_color: Color = Color.WHITE
+var selecting_color: Color = Color.WHITE
 var taken_gods: Array[God] = []
 
 
@@ -39,7 +39,7 @@ func _ready() -> void:
 		var player_header = Label.new()
 		player_header.text = selecting_player_name
 		player_header.add_theme_font_size_override("font_size", PLAYER_HEADER_FONT_SIZE)
-		player_header.add_theme_color_override("font_color", selecting_player_color)
+		player_header.add_theme_color_override("font_color", selecting_color)
 		player_header.add_theme_color_override("font_outline_color", Color.BLACK)
 		player_header.add_theme_constant_override("outline_size", 4)
 		player_header.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER

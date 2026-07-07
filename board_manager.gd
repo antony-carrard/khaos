@@ -19,7 +19,7 @@ signal active_player_switched(player: Player)
 signal _god_choice_received
 
 # Player colors assigned in order
-const PLAYER_COLORS: Array[Color] = [
+const COLORS: Array[Color] = [
 	Color(0.2, 0.4, 1.0),  # Blue   — P1
 	Color(1.0, 0.3, 0.2),  # Red    — P2
 	Color(0.2, 0.8, 0.3),  # Green  — P3
@@ -31,7 +31,6 @@ var tile_manager: TileManager
 var village_manager: VillageManager
 var placement_controller: PlacementController
 var tile_pool: TilePool
-var turn_manager: TurnManager
 var god_manager: GodManager
 
 # UI
@@ -97,31 +96,17 @@ func _ready() -> void:
 	for i in range(count):
 		var player = Player.new()
 		add_child(player)
-		var starting_resources = Player.TEST_MODE_AMOUNT if test_mode else 0
-		var starting_fervor = Player.TEST_MODE_AMOUNT if test_mode else 0
 		var pname := GameConfig.player_names[i] if i < GameConfig.player_names.size() else "Player %d" % (i + 1)
-		player.initialize(pname, starting_resources, starting_fervor)
-		player.player_color = PLAYER_COLORS[i]
-		player.test_mode = test_mode
-		if test_mode:
-			player.actions_remaining = Player.TEST_MODE_AMOUNT
-			player.max_actions_this_turn = Player.TEST_MODE_AMOUNT
+		player.initialize(pname, COLORS[i])
 		players.append(player)
 
 	# In network mode, record which player index belongs to this machine
 	if GameConfig.initialized and GameConfig.mode == GameConfig.GameMode.NETWORK:
 		local_player_index = clampi(GameConfig.local_player_index, 0, players.size() - 1)
 
-	# Create and initialize turn manager
-	turn_manager = TurnManager.new()
-	add_child(turn_manager)
-	turn_manager.initialize(village_manager, tile_manager, tile_pool)
-
 	# Create god manager
 	god_manager = GodManager.new()
 	add_child(god_manager)
-
-	turn_manager.turn_ended.connect(_on_turn_ended)
 
 	# Cross-reference managers (for validation)
 	tile_manager.village_manager = village_manager
@@ -154,7 +139,7 @@ func _ready() -> void:
 
 	# Deal starting hands to all players
 	for player in players:
-		player.refresh_hand(tile_pool)
+		_deal_hand(player)
 
 	# Create persistent status header
 	var header_canvas = CanvasLayer.new()
@@ -165,7 +150,7 @@ func _ready() -> void:
 	status_header.initialize(self)
 	active_player_switched.connect(status_header.on_player_changed)
 	for i in range(players.size()):
-		players[i].resources_changed.connect(status_header.on_resources_changed.bind(i))
+		players[i].materials_changed.connect(status_header.on_resources_changed.bind(i))
 		players[i].fervor_changed.connect(status_header.on_fervor_changed.bind(i))
 		players[i].glory_changed.connect(status_header.on_glory_changed.bind(i))
 
@@ -191,7 +176,7 @@ func _ready() -> void:
 		active_player_view.bind(players[local_player_index])
 
 	setup_ui()
-	turn_manager.begin_player_turn()
+	_begin_turn(current_player)
 
 
 ## Show god selection screen for a specific player, greying out already-taken gods.
@@ -205,12 +190,12 @@ func show_god_selection(player: Player, taken_gods: Array[God]) -> void:
 	god_selection_ui.set_anchors_preset(Control.PRESET_FULL_RECT)
 	# Set data before add_child so _ready() picks them up
 	god_selection_ui.selecting_player_name = player.player_name
-	god_selection_ui.selecting_player_color = player.player_color
+	god_selection_ui.selecting_color = player.color
 	god_selection_ui.taken_gods = taken_gods
 	canvas_layer.add_child(god_selection_ui)
 
 	var selected_god = await god_selection_ui.god_selected
-	player.god = selected_god
+	player.initialize_game_start(selected_god, test_mode)
 	Log.info("%s selected: %s" % [player.player_name, selected_god.god_name])
 
 	canvas_layer.queue_free()
@@ -254,7 +239,7 @@ func _show_god_waiting_ui(picking_player: Player, taken: Array[God]) -> CanvasLa
 	var spectator_ui = god_selection_script.new()
 	spectator_ui.set_anchors_preset(Control.PRESET_FULL_RECT)
 	spectator_ui.selecting_player_name = picking_player.player_name
-	spectator_ui.selecting_player_color = picking_player.player_color
+	spectator_ui.selecting_color = picking_player.color
 	spectator_ui.taken_gods = taken
 	canvas.add_child(spectator_ui)
 	# Safety: discard any click that somehow slips through the overlay
@@ -276,7 +261,7 @@ func _show_god_waiting_ui(picking_player: Player, taken: Array[God]) -> CanvasLa
 	var banner := PanelContainer.new()
 	var banner_style := StyleBoxFlat.new()
 	banner_style.bg_color = Color(0.05, 0.05, 0.1, 0.88)
-	banner_style.border_color = picking_player.player_color
+	banner_style.border_color = picking_player.color
 	banner_style.border_width_left = 2
 	banner_style.border_width_right = 2
 	banner_style.border_width_top = 2
@@ -293,7 +278,7 @@ func _show_god_waiting_ui(picking_player: Player, taken: Array[God]) -> CanvasLa
 	var msg := Label.new()
 	msg.text = "%s is choosing their god…" % picking_player.player_name
 	msg.add_theme_font_size_override("font_size", 32)
-	msg.add_theme_color_override("font_color", picking_player.player_color)
+	msg.add_theme_color_override("font_color", picking_player.color)
 	msg.add_theme_color_override("font_outline_color", Color.BLACK)
 	msg.add_theme_constant_override("outline_size", 3)
 	msg.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -304,12 +289,11 @@ func _show_god_waiting_ui(picking_player: Player, taken: Array[God]) -> CanvasLa
 
 
 ## Switch the active player to the given index.
-## Updates current_player, turn_manager, power_executor, and (in hot-seat) the APV signal bridge.
+## Updates current_player, power_executor, and (in hot-seat) the APV signal bridge.
 ## In network mode APV stays permanently bound to the local player; only active_player_switched fires.
 func _switch_to_player(index: int) -> void:
 	current_player_index = index
 	current_player = players[index]
-	turn_manager.current_player = current_player
 	if power_executor:
 		power_executor.current_player = current_player
 
@@ -386,7 +370,7 @@ func setup_ui() -> void:
 
 ## Handle tile selection from hand
 func _on_tile_selected_from_hand(hand_index: int) -> void:
-	if hand_index < 0 or hand_index >= current_player.HAND_SIZE:
+	if hand_index < 0 or hand_index >= current_player.hand_size:
 		return
 
 	var tile_def = current_player.hand[hand_index]
@@ -411,7 +395,7 @@ func _on_tile_selected_from_hand(hand_index: int) -> void:
 ## Called by TilePlacementStrategy (gameplay path) after placing a tile.
 ## q, r are the hex coords of the placement for network broadcasting.
 func on_tile_placed_from_hand(hand_index: int, q: int, r: int) -> void:
-	if hand_index < 0 or hand_index >= current_player.HAND_SIZE:
+	if hand_index < 0 or hand_index >= current_player.hand_size:
 		return
 
 	var placed_tile = current_player.hand[hand_index]
@@ -420,7 +404,7 @@ func on_tile_placed_from_hand(hand_index: int, q: int, r: int) -> void:
 		return
 
 	# Consume action
-	if not turn_manager.consume_action("place tile"):
+	if not _consume_action("place tile"):
 		Log.error("BoardManager: consume_action failed despite passing phase/action checks")
 		return
 
@@ -447,26 +431,23 @@ func on_village_placed(q: int, r: int) -> bool:
 		Log.error("BoardManager: No tile at (%d,%d) for village placement" % [q, r])
 		return false
 
-	var cost = current_player.get_village_cost(tile.village_building_cost)
+	var cost = GodManager.get_village_cost(current_player.god, tile.village_building_cost)
 
-	if current_player.resources < cost:
-		Log.warn("BoardManager: Cannot afford village — need %d, have %d" % [cost, current_player.resources])
+	if current_player.materials < cost:
+		Log.warn("BoardManager: Cannot afford village — need %d, have %d" % [cost, current_player.materials])
 		return false
 
-	if not turn_manager.consume_action("build village"):
+	if not _consume_action("build village"):
 		return false
 
 	var success = village_manager.place_village(q, r, current_player)
 	if not success:
 		return false
 
-	if not current_player.spend_resources(cost):
-		Log.error("BoardManager: spend_resources failed after affordability check passed — rolling back")
-		village_manager.remove_village(q, r)
-		return false
+	current_player.materials -= cost
 
 	var glory = tile.height_level + 1
-	current_player.add_glory(glory)
+	current_player.glory += glory
 	Log.info("Built village for %d resources, gained %d glory" % [cost, glory])
 
 	if _is_network:
@@ -514,7 +495,7 @@ func can_destroy_enemy_village(q: int, r: int) -> bool:
 		return false
 	var res_cost := get_demolition_resources_cost(enemy_tile.height_level, best_own_height)
 	var act_cost := get_demolition_action_cost(enemy_tile.height_level, best_own_height)
-	if current_player.resources < res_cost:
+	if current_player.materials < res_cost:
 		return false
 	if current_player.actions_remaining < act_cost:
 		return false
@@ -536,7 +517,7 @@ func on_village_removed(q: int, r: int) -> bool:
 		return false
 
 	if village.player_owner == current_player:
-		if not turn_manager.consume_action("remove village"):
+		if not _consume_action("remove village"):
 			return false
 		if not village_manager.remove_village(q, r):
 			return false
@@ -549,13 +530,13 @@ func on_village_removed(q: int, r: int) -> bool:
 		var res_cost := get_demolition_resources_cost(tile.height_level, best_own_height)
 		var act_cost := get_demolition_action_cost(tile.height_level, best_own_height)
 		for i in act_cost:
-			if not turn_manager.consume_action("destroy enemy village"):
+			if not _consume_action("destroy enemy village"):
 				return false
 		if not village_manager.remove_village(q, r):
 			return false
-		current_player.spend_resources(res_cost)
+		current_player.materials -= res_cost
 		var glory: int = tile.height_level + 1
-		current_player.add_glory(glory)
+		current_player.glory += glory
 		Log.info("Destroyed enemy village at (%d,%d), paid %d resources, %d actions, gained %d glory" % [q, r, res_cost, act_cost, glory])
 
 	if _is_network:
@@ -567,9 +548,55 @@ func on_village_removed(q: int, r: int) -> bool:
 
 # ==================== TURN FLOW ====================
 
-## Called when current player ends their turn.
+## Discards the player's hand and draws a fresh one from the tile pool.
+func _deal_hand(player: Player) -> void:
+	player.empty_hand()
+	for tile_def in tile_pool.draw_tiles(player.hand_size):
+		player.add_to_hand(tile_def)
+
+
+## Validates and consumes one action from the current player. Logs and returns
+## false if no actions remain.
+func _consume_action(action_name: String = "action") -> bool:
+	if current_player.actions_remaining <= 0:
+		Log.warn("No actions remaining to %s!" % action_name)
+		return false
+	current_player.actions_remaining -= 1
+	return true
+
+
+## Resets actions and applies this turn's harvest for the given player.
+func _begin_turn(player: Player) -> void:
+	player.start_turn()
+	harvest_for_player(player)
+
+
+## Sums a player's village yields and adds them to their materials/fervor/glory.
+## Public: also called by GodManager for the SECOND_HARVEST power.
+func harvest_for_player(player: Player) -> void:
+	var totals := village_manager.harvest_totals_for_player(player)
+	if totals[TileDefinition.ResourceType.MATERIALS] > 0:
+		player.materials += totals[TileDefinition.ResourceType.MATERIALS]
+	if totals[TileDefinition.ResourceType.FERVOR] > 0:
+		player.fervor += totals[TileDefinition.ResourceType.FERVOR]
+	if totals[TileDefinition.ResourceType.GLORY] > 0:
+		player.glory += totals[TileDefinition.ResourceType.GLORY]
+	Log.debug("Harvested for %s: materials=%d fervor=%d glory=%d" % [
+		player.player_name,
+		totals[TileDefinition.ResourceType.MATERIALS],
+		totals[TileDefinition.ResourceType.FERVOR],
+		totals[TileDefinition.ResourceType.GLORY]
+	])
+
+
+## Discards+redraws the current player's hand, then advances to the next player.
+func _end_turn() -> void:
+	_deal_hand(current_player)
+	_advance_to_next_player()
+
+
 ## Handles final round detection, player switching, and starting the next turn.
-func _on_turn_ended() -> void:
+func _advance_to_next_player() -> void:
 	placement_controller.cancel_placement()
 
 	# Check if tile pool just became empty — trigger final round
@@ -588,7 +615,7 @@ func _on_turn_ended() -> void:
 		return
 
 	_switch_to_player(next_index)
-	turn_manager.begin_player_turn()
+	_begin_turn(current_player)
 	if ui:
 		ui.update_hand_display()
 
@@ -597,14 +624,13 @@ func _on_turn_ended() -> void:
 ## Called by the NotYourTurnOverlay debug button for single-machine stub testing.
 func _on_debug_end_opponent_turn() -> void:
 	Log.info("Debug overlay: skipping action for %s" % current_player.player_name)
-	placement_controller.cancel_placement()
-	turn_manager.end_turn()
+	_end_turn()
 
 
 
 ## Called by tile_selector_ui when the player presses End Turn.
 func on_end_turn_requested() -> void:
-	turn_manager.end_turn()
+	_end_turn()
 	if _is_network:
 		rpc("_rpc_end_turn")
 
@@ -656,7 +682,7 @@ func _validate_rpc_sender() -> bool:
 @rpc("any_peer", "call_remote", "reliable")
 func _rpc_god_selected(player_index: int, god_index: int) -> void:
 	var all_gods := GodManager.create_all_gods()
-	players[player_index].god = all_gods[god_index % all_gods.size()]
+	players[player_index].initialize_game_start(all_gods[god_index % all_gods.size()], test_mode)
 	Log.info("Player %d selected god: %s" % [player_index + 1, players[player_index].god.god_name])
 	_god_choice_received.emit()
 
@@ -667,11 +693,11 @@ func _grant_placement_bounty(player: Player, tile_yields: Dictionary) -> void:
 		var amount: int = tile_yields[res_type]
 		match res_type:
 			TileDefinition.ResourceType.MATERIALS:
-				player.add_resources(amount)
+				player.materials += amount
 			TileDefinition.ResourceType.FERVOR:
-				player.add_fervor(amount)
+				player.fervor += amount
 			TileDefinition.ResourceType.GLORY:
-				player.add_glory(amount)
+				player.glory += amount
 
 
 @rpc("any_peer", "call_remote", "reliable")
@@ -684,7 +710,7 @@ func _rpc_place_tile(hand_index: int, q: int, r: int) -> void:
 	tile_manager.place_tile(q, r, td.tile_type, td.yields, td.village_building_cost)
 	_grant_placement_bounty(current_player, td.yields)
 	current_player.remove_from_hand(hand_index)
-	turn_manager.consume_action("place tile")
+	_consume_action("place tile")
 	if ui:
 		ui.update_hand_display()
 
@@ -697,10 +723,10 @@ func _rpc_place_village(q: int, r: int) -> void:
 	if not tile:
 		push_warning("_rpc_place_village: no tile at (%d,%d)" % [q, r])
 		return
-	var cost := current_player.get_village_cost(tile.village_building_cost)
+	var cost := GodManager.get_village_cost(current_player.god, tile.village_building_cost)
 	village_manager.place_village(q, r, current_player)
-	current_player.spend_resources(cost)
-	turn_manager.consume_action("build village")
+	current_player.materials -= cost
+	_consume_action("build village")
 
 
 @rpc("any_peer", "call_remote", "reliable")
@@ -713,21 +739,21 @@ func _rpc_remove_village(q: int, r: int) -> void:
 		return
 	if village.player_owner == current_player:
 		village_manager.remove_village(q, r)
-		turn_manager.consume_action("remove village")
+		_consume_action("remove village")
 	else:
 		var best_own_height := get_best_adjacent_own_height(q, r)
 		var res_cost := get_demolition_resources_cost(tile.height_level, best_own_height)
 		var act_cost := get_demolition_action_cost(tile.height_level, best_own_height)
 		village_manager.remove_village(q, r)
-		current_player.spend_resources(res_cost)
+		current_player.materials -= res_cost
 		for i in act_cost:
-			turn_manager.consume_action("destroy enemy village")
+			_consume_action("destroy enemy village")
 
 
 @rpc("any_peer", "call_remote", "reliable")
 func _rpc_end_turn() -> void:
 	if not _validate_rpc_sender(): return
-	turn_manager.end_turn()
+	_end_turn()
 
 
 @rpc("any_peer", "call_remote", "reliable")
@@ -739,21 +765,20 @@ func _rpc_power_instant(power_type: int) -> void:
 		return
 	# Apply bookkeeping without UI side effects
 	if power.fervor_cost > 0:
-		current_player.spend_fervor(power.fervor_cost)
+		current_player.fervor -= power.fervor_cost
 	match power_type:
 		GodPower.PowerType.EXTRA_ACTION:
-			current_player.consume_action()
-			current_player.next_turn_bonus_actions = 1
+			current_player.actions_remaining -= 1
+			# TODO: bonus-action effect removed pending step-2 god-power rewrite
 		GodPower.PowerType.SECOND_HARVEST:
-			turn_manager.trigger_second_harvest()
-	current_player.mark_power_used(power_type)
+			harvest_for_player(current_player)
 
 
 @rpc("any_peer", "call_remote", "reliable")
 func _rpc_power_target(power_type: int, q: int, r: int, extra: int) -> void:
 	if not _validate_rpc_sender(): return
 	# Set pending_power so power_executor.complete_deferred_power() can finalize it
-	current_player.pending_power = god_manager.get_power_by_type(current_player, power_type)
+	power_executor.pending_power = god_manager.get_power_by_type(current_player, power_type)
 	match power_type:
 		GodPower.PowerType.UPGRADE_TILE_KEEP_VILLAGE:
 			power_executor.on_upgrade_tile(q, r)
@@ -767,7 +792,7 @@ func _rpc_power_target(power_type: int, q: int, r: int, extra: int) -> void:
 			power_executor.on_change_tile_type(q, r, extra)
 		_:
 			push_warning("_rpc_power_target: unknown power type %d" % power_type)
-			current_player.pending_power = null
+			power_executor.pending_power = null
 
 
 ## Calculates scores for all players and shows the victory screen.

@@ -17,6 +17,11 @@ var placement_controller: PlacementController = null
 var ui: Control = null
 var board_manager: Node3D = null
 
+# Deferred (selection-based) power waiting for a target click. Set by
+# GodManager.activate_power()/board_manager._rpc_power_target(), cleared here
+# once resolved or cancelled.
+var pending_power: GodPower = null
+
 
 func initialize(
 	_player: Player,
@@ -42,33 +47,33 @@ func on_steal_harvest(q: int, r: int) -> bool:
 	var village = village_manager.get_village_at(q, r)
 	if not village:
 		Log.warn("No village at position (%d, %d)" % [q, r])
-		current_player.pending_power = null
+		pending_power = null
 		return false
 
 	if village.player_owner == current_player:
 		Log.warn("Cannot steal from your own village!")
-		current_player.pending_power = null
+		pending_power = null
 		return false
 
 	var tile = tile_manager.get_tile_at(q, r)
 	if not tile:
 		Log.error("PowerExecutor: Village at (%d,%d) has no tile" % [q, r])
-		current_player.pending_power = null
+		pending_power = null
 		return false
 
-	god_manager.complete_deferred_power(current_player)
+	god_manager.complete_deferred_power(current_player, self)
 
 	for res_type in tile.yields:
 		var amount = tile.yields[res_type]
 		match res_type:
 			TileDefinition.ResourceType.MATERIALS:
-				current_player.add_resources(amount)
+				current_player.materials += amount
 				Log.info("Stole %d materials from enemy village" % amount)
 			TileDefinition.ResourceType.FERVOR:
-				current_player.add_fervor(amount)
+				current_player.fervor += amount
 				Log.info("Stole %d fervor from enemy village" % amount)
 			TileDefinition.ResourceType.GLORY:
-				current_player.add_glory(amount)
+				current_player.glory += amount
 				Log.info("Stole %d glory from enemy village" % amount)
 
 	power_executed.emit(GodPower.PowerType.STEAL_HARVEST, q, r, -1)
@@ -81,15 +86,15 @@ func on_destroy_village_free(q: int, r: int) -> bool:
 	var village = village_manager.get_village_at(q, r)
 	if not village:
 		Log.warn("No village at position (%d, %d)" % [q, r])
-		current_player.pending_power = null
+		pending_power = null
 		return false
 
 	if village.player_owner == current_player:
 		Log.warn("Cannot destroy your own village with this power!")
-		current_player.pending_power = null
+		pending_power = null
 		return false
 
-	god_manager.complete_deferred_power(current_player)
+	god_manager.complete_deferred_power(current_player, self)
 
 	var success = village_manager.remove_village(q, r)
 	if success:
@@ -105,26 +110,26 @@ func on_upgrade_tile(q: int, r: int) -> bool:
 	var village = village_manager.get_village_at(q, r)
 	if not village:
 		Log.warn("No village at position (%d, %d)" % [q, r])
-		current_player.pending_power = null
+		pending_power = null
 		return false
 
 	if village.player_owner != current_player:
 		Log.warn("Can only upgrade your own villages!")
-		current_player.pending_power = null
+		pending_power = null
 		return false
 
 	var tile = tile_manager.get_tile_at(q, r)
 	if not tile:
 		Log.error("PowerExecutor: Village at (%d,%d) has no tile" % [q, r])
-		current_player.pending_power = null
+		pending_power = null
 		return false
 
 	if tile.tile_type == TileDefinition.TileType.MOUNTAIN:
 		Log.warn("Cannot upgrade MOUNTAIN - already at max level")
-		current_player.pending_power = null
+		pending_power = null
 		return false
 
-	god_manager.complete_deferred_power(current_player)
+	god_manager.complete_deferred_power(current_player, self)
 
 	var success = tile_manager.upgrade_tile(q, r)
 	if success:
@@ -143,26 +148,26 @@ func on_downgrade_tile(q: int, r: int) -> bool:
 	var village = village_manager.get_village_at(q, r)
 	if not village:
 		Log.warn("No village at position (%d, %d)" % [q, r])
-		current_player.pending_power = null
+		pending_power = null
 		return false
 
 	if village.player_owner == current_player:
 		Log.warn("Cannot downgrade your own villages!")
-		current_player.pending_power = null
+		pending_power = null
 		return false
 
 	var tile = tile_manager.get_tile_at(q, r)
 	if not tile:
 		Log.error("PowerExecutor: Village at (%d,%d) has no tile" % [q, r])
-		current_player.pending_power = null
+		pending_power = null
 		return false
 
 	if tile.tile_type == TileDefinition.TileType.PLAINS:
 		Log.warn("Cannot downgrade PLAINS - already at min level")
-		current_player.pending_power = null
+		pending_power = null
 		return false
 
-	god_manager.complete_deferred_power(current_player)
+	god_manager.complete_deferred_power(current_player, self)
 
 	var success = tile_manager.downgrade_tile(q, r)
 	if success:
@@ -209,20 +214,20 @@ func on_change_tile_type(q: int, r: int, new_resource_type: int) -> bool:
 	var village = village_manager.get_village_at(q, r)
 	if not village or village.player_owner != current_player:
 		Log.warn("Can only change tile type on your own villages!")
-		current_player.pending_power = null
+		pending_power = null
 		placement_controller.cancel_placement()
 		return false
 
 	var tile = tile_manager.get_tile_at(q, r)
 	if not tile:
 		Log.error("PowerExecutor: Village at (%d,%d) has no tile" % [q, r])
-		current_player.pending_power = null
+		pending_power = null
 		placement_controller.cancel_placement()
 		return false
 
 	if tile.yields.has(new_resource_type) and tile.yields.size() == 1:
 		Log.warn("Tile is already %s type!" % TileDefinition.ResourceType.keys()[new_resource_type])
-		current_player.pending_power = null
+		pending_power = null
 		placement_controller.cancel_placement()
 		return false
 
@@ -231,7 +236,7 @@ func on_change_tile_type(q: int, r: int, new_resource_type: int) -> bool:
 			TileDefinition.ResourceType.keys()[new_resource_type],
 			TileDefinition.TileType.keys()[tile.tile_type]
 		])
-		current_player.pending_power = null
+		pending_power = null
 		placement_controller.cancel_placement()
 		return false
 
@@ -241,11 +246,11 @@ func on_change_tile_type(q: int, r: int, new_resource_type: int) -> bool:
 			TileDefinition.TileType.keys()[tile.tile_type],
 			TileDefinition.ResourceType.keys()[new_resource_type]
 		])
-		current_player.pending_power = null
+		pending_power = null
 		placement_controller.cancel_placement()
 		return false
 
-	god_manager.complete_deferred_power(current_player)
+	god_manager.complete_deferred_power(current_player, self)
 
 	var old_yields = tile.yields.duplicate()
 	tile.set_resource_properties(bag_tile.yields, bag_tile.village_building_cost)

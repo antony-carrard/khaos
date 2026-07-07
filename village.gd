@@ -28,7 +28,7 @@ func set_grid_position(new_q: int, new_r: int) -> void:
 func set_player_owner(player: Player) -> void:
 	player_owner = player
 	# Could tint mesh to player color in the future
-	# update_player_color()
+	# update_color()
 
 
 ## Gets the position as Vector2i for easy comparison.

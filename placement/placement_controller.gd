@@ -265,7 +265,7 @@ func get_axial_at_mouse() -> Vector2i:
 ## Cancels any active placement mode and clears the player's pending power.
 func cancel_placement() -> void:
 	_deactivate()
-	board_manager.current_player.pending_power = null
+	board_manager.power_executor.pending_power = null
 
 
 func _deactivate() -> void:

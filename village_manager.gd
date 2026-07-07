@@ -10,7 +10,9 @@ signal village_removed(q: int, r: int)
 @export var village_scene: PackedScene = preload("res://village.tscn")
 
 # Village storage: Dictionary with Vector2i(q, r) as key
-var placed_villages: Dictionary = {}
+var placed_villages: Dictionary[Vector2i, Village] = {}
+# Per-player index: Player -> Array[Village]
+var player_villages: Dictionary[Player,  Array] = {}
 
 # Reference to tile manager (for validation)
 var tile_manager: TileManager = null
@@ -43,14 +45,17 @@ func place_village(q: int, r: int, village_owner: Player) -> bool:
 	add_child(village)
 
 	# Apply player color so villages are visually distinct per player
-	if village_owner and village_owner.player_color != Color.WHITE:
-		_apply_player_color(village, village_owner.player_color)
+	if village_owner and village_owner.color != Color.WHITE:
+		_apply_color(village, village_owner.color)
 
 	# Position it on top of the highest tile
 	var world_pos = HexGridUtils.axial_to_world(q, r, top_height)
 	village.global_position = world_pos + Vector3(0, HexGridUtils.TILE_HEIGHT / 2, 0)
 
 	placed_villages[pos_key] = village
+	if not player_villages.has(village_owner):
+		player_villages[village_owner] = [] as Array[Village]
+	player_villages[village_owner].append(village)
 	Log.info("Placed village at q=%d, r=%d (Owner: %s)" % [q, r, village_owner.player_name])
 	village_placed.emit(q, r)
 	return true
@@ -68,8 +73,11 @@ func remove_village(q: int, r: int) -> bool:
 
 	# Remove the village node
 	var village = placed_villages[pos_key]
+	var owner = village.player_owner
 	village.queue_free()
 	placed_villages.erase(pos_key)
+	if player_villages.has(owner):
+		player_villages[owner].erase(village)
 
 	Log.info("Removed village at q=%d, r=%d" % [q, r])
 	village_removed.emit(q, r)
@@ -85,11 +93,24 @@ func has_village_at(q: int, r: int) -> bool:
 ## Gets all villages owned by a specific player.
 ## Returns an array of Village objects.
 func get_villages_for_player(player: Player) -> Array[Village]:
-	var player_villages: Array[Village] = []
-	for village in placed_villages.values():
-		if village.player_owner == player:
-			player_villages.append(village)
-	return player_villages
+	return player_villages.get(player, [] as Array[Village])
+
+
+## Sums tile yields across all of a player's villages, grouped by resource type.
+func harvest_totals_for_player(player: Player) -> Dictionary:
+	var totals: Dictionary = {
+		TileDefinition.ResourceType.MATERIALS: 0,
+		TileDefinition.ResourceType.FERVOR: 0,
+		TileDefinition.ResourceType.GLORY: 0
+	}
+
+	for village in get_villages_for_player(player):
+		var tile = tile_manager.get_tile_at(village.q, village.r)
+		if tile:
+			for res_type in tile.yields:
+				totals[res_type] = totals.get(res_type, 0) + tile.yields[res_type]
+
+	return totals
 
 
 ## Gets the village at a specific position, or null if none exists.
@@ -157,20 +178,20 @@ func _set_color_recursive(node: Node, color: Color) -> void:
 
 ## Material name (set in Blender) that receives the full player color.
 ## All other surfaces are left untouched.
-const PLAYER_COLOR_MATERIAL: String = "village_walls"
+const COLOR_MATERIAL: String = "village_walls"
 
 ## Applies the player color to surfaces using the village_walls material.
 ## Creates per-instance material duplicates so villages don't share materials.
-func _apply_player_color(node: Node, color: Color) -> void:
+func _apply_color(node: Node, color: Color) -> void:
 	if node is MeshInstance3D:
 		var mi := node as MeshInstance3D
 		for i in range(mi.get_surface_override_material_count()):
 			var mat = mi.get_surface_override_material(i)
 			if mat == null and mi.mesh:
 				mat = mi.mesh.surface_get_material(i)
-			if mat and mat is StandardMaterial3D and mat.resource_name == PLAYER_COLOR_MATERIAL:
+			if mat and mat is StandardMaterial3D and mat.resource_name == COLOR_MATERIAL:
 				var colored := mat.duplicate() as StandardMaterial3D
 				colored.albedo_color = colored.albedo_color.lerp(color, 0.6)
 				mi.set_surface_override_material(i, colored)
 	for child in node.get_children():
-		_apply_player_color(child, color)
+		_apply_color(child, color)

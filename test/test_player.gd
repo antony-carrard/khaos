@@ -1,5 +1,6 @@
 extends GdUnitTestSuite
 
+# Player is a pure-data holder — validated setters + hand array ops.
 # Player extends Node with no physics — auto_free() works perfectly.
 
 var player: Player
@@ -7,105 +8,107 @@ var player: Player
 
 func before_test() -> void:
 	player = auto_free(Player.new())
-	player.initialize("Test Player", 0, 0)
+	player.initialize("Test Player", Color.BLUE)
 
 
-# --- Resources ---
+# --- initialize() ---
 
-func test_initial_resources_zero() -> void:
-	assert_int(player.resources).is_equal(0)
-
-
-func test_add_resources() -> void:
-	player.add_resources(5)
-	assert_int(player.resources).is_equal(5)
+func test_initialize_sets_name_and_color() -> void:
+	assert_str(player.player_name).is_equal("Test Player")
+	assert_that(player.color).is_equal(Color.BLUE)
 
 
-func test_add_resources_cumulative() -> void:
-	player.add_resources(3)
-	player.add_resources(4)
-	assert_int(player.resources).is_equal(7)
+# --- Resource setters (materials/fervor/glory) ---
 
-
-func test_spend_resources_success() -> void:
-	player.add_resources(10)
-	assert_bool(player.spend_resources(4)).is_true()
-	assert_int(player.resources).is_equal(6)
-
-
-func test_spend_resources_exact_balance() -> void:
-	player.add_resources(5)
-	assert_bool(player.spend_resources(5)).is_true()
-	assert_int(player.resources).is_equal(0)
-
-
-func test_spend_resources_insufficient_fails() -> void:
-	assert_bool(player.spend_resources(1)).is_false()
-	assert_int(player.resources).is_equal(0)
-
-
-# --- Fervor ---
-
-func test_initial_fervor_zero() -> void:
+func test_initial_stats_zero() -> void:
+	assert_int(player.materials).is_equal(0)
 	assert_int(player.fervor).is_equal(0)
-
-
-func test_add_fervor() -> void:
-	player.add_fervor(3)
-	assert_int(player.fervor).is_equal(3)
-
-
-func test_spend_fervor_success() -> void:
-	player.add_fervor(6)
-	assert_bool(player.spend_fervor(2)).is_true()
-	assert_int(player.fervor).is_equal(4)
-
-
-func test_spend_fervor_insufficient_fails() -> void:
-	assert_bool(player.spend_fervor(1)).is_false()
-
-
-# --- Glory ---
-
-func test_initial_glory_zero() -> void:
 	assert_int(player.glory).is_equal(0)
 
 
-func test_add_glory() -> void:
-	player.add_glory(2)
+func test_set_materials_updates_value() -> void:
+	player.materials = 5
+	assert_int(player.materials).is_equal(5)
+
+
+func test_set_materials_emits_signal() -> void:
+	# Array as a mutable box — GDScript lambdas capture plain locals by value,
+	# so a plain int wouldn't observe the mutation from inside the callback.
+	var received := [-1]
+	player.materials_changed.connect(func(amount: int) -> void: received[0] = amount)
+	player.materials = 7
+	assert_int(received[0]).is_equal(7)
+
+
+func test_set_fervor_updates_value() -> void:
+	player.fervor = 3
+	assert_int(player.fervor).is_equal(3)
+
+
+func test_set_glory_updates_value() -> void:
+	player.glory = 2
 	assert_int(player.glory).is_equal(2)
 
 
-# --- Actions ---
+# --- initialize_game_start() ---
 
-func test_consume_action_decrements() -> void:
-	player.set_actions(3)
-	player.consume_action()
-	assert_int(player.actions_remaining).is_equal(2)
-
-
-func test_consume_action_at_zero_fails() -> void:
-	player.set_actions(0)
-	assert_bool(player.consume_action()).is_false()
-	assert_int(player.actions_remaining).is_equal(0)
+func test_initialize_game_start_sets_hand_and_actions() -> void:
+	var god := God.new("Test God")
+	player.initialize_game_start(god, false)
+	assert_int(player.hand_size).is_equal(god.hand_size)
+	assert_int(player.total_actions).is_equal(god.total_actions)
+	assert_int(player.hand.size()).is_equal(god.hand_size)
+	assert_int(player.glory).is_equal(0)
 
 
-func test_can_place_tile_with_actions() -> void:
-	player.set_actions(1)
-	assert_bool(player.can_place_tile(true)).is_true()
+func test_initialize_game_start_test_mode_grants_test_value() -> void:
+	var god := God.new("Test God")
+	player.initialize_game_start(god, true)
+	assert_int(player.materials).is_equal(Player.TEST_VALUE)
+	assert_int(player.fervor).is_equal(Player.TEST_VALUE)
+	assert_int(player.total_actions).is_equal(Player.TEST_VALUE)
 
 
-func test_cannot_place_tile_without_actions() -> void:
-	player.set_actions(0)
-	assert_bool(player.can_place_tile(true)).is_false()
+# --- start_turn() ---
+
+func test_start_turn_resets_actions_to_total() -> void:
+	var god := God.new("Test God")
+	player.initialize_game_start(god, false)
+	player.actions_remaining = 0
+	player.start_turn()
+	assert_int(player.actions_remaining).is_equal(player.total_actions)
 
 
-# --- Hand ---
+# --- Hand management ---
 
-func test_initial_hand_is_empty() -> void:
+func test_hand_starts_empty_after_game_start() -> void:
+	var god := God.new("Test God")
+	player.initialize_game_start(god, false)
 	for slot in player.hand:
 		assert_object(slot).is_null()
 
 
-func test_hand_size_is_three() -> void:
-	assert_int(player.hand.size()).is_equal(Player.HAND_SIZE)
+func test_add_to_hand_fills_first_empty_slot() -> void:
+	var god := God.new("Test God")
+	player.initialize_game_start(god, false)
+	var tile := TileDefinition.new(TileDefinition.TileType.PLAINS, {}, 2)
+	player.add_to_hand(tile)
+	assert_object(player.hand[0]).is_same(tile)
+
+
+func test_remove_from_hand_clears_slot() -> void:
+	var god := God.new("Test God")
+	player.initialize_game_start(god, false)
+	var tile := TileDefinition.new(TileDefinition.TileType.PLAINS, {}, 2)
+	player.add_to_hand(tile)
+	player.remove_from_hand(0)
+	assert_object(player.hand[0]).is_null()
+
+
+func test_empty_hand_clears_all_slots() -> void:
+	var god := God.new("Test God")
+	player.initialize_game_start(god, false)
+	player.add_to_hand(TileDefinition.new(TileDefinition.TileType.PLAINS, {}, 2))
+	player.empty_hand()
+	for slot in player.hand:
+		assert_object(slot).is_null()

@@ -51,7 +51,7 @@ func _create_player_card(player: Player, index: int, parent: HBoxContainer) -> v
 	var panel = PanelContainer.new()
 	panel.custom_minimum_size = Vector2(CARD_MIN_WIDTH, CARD_HEIGHT)
 	panel.mouse_filter = Control.MOUSE_FILTER_PASS
-	_apply_card_style(panel, false, player.player_color)
+	_apply_card_style(panel, false, player.color)
 	parent.add_child(panel)
 
 	var margin = MarginContainer.new()
@@ -97,7 +97,7 @@ func _create_player_card(player: Player, index: int, parent: HBoxContainer) -> v
 	var name_label = Label.new()
 	name_label.text = player.player_name
 	name_label.add_theme_font_size_override("font_size", 16)
-	name_label.add_theme_color_override("font_color", player.player_color.lightened(0.25))
+	name_label.add_theme_color_override("font_color", player.color.lightened(0.25))
 	name_row.add_child(name_label)
 
 	var stats_hbox = HBoxContainer.new()
@@ -105,7 +105,7 @@ func _create_player_card(player: Player, index: int, parent: HBoxContainer) -> v
 	vbox.add_child(stats_hbox)
 
 	var glory_label = _create_stat_label(stats_hbox, "res://icons/star.svg", str(player.glory))
-	var resources_label = _create_stat_label(stats_hbox, "res://icons/wood.svg", str(player.resources))
+	var resources_label = _create_stat_label(stats_hbox, "res://icons/wood.svg", str(player.materials))
 	var fervor_label = _create_stat_label(stats_hbox, "res://icons/pray.svg", str(player.fervor))
 
 	_cards.append({
@@ -116,7 +116,7 @@ func _create_player_card(player: Player, index: int, parent: HBoxContainer) -> v
 		"resources_label": resources_label,
 		"fervor_label": fervor_label,
 		"portrait": portrait,
-		"player_color": player.player_color,
+		"color": player.color,
 	})
 
 
@@ -150,7 +150,7 @@ func on_player_changed(player: Player) -> void:
 	for i in range(_cards.size()):
 		var p: Player = _board_manager.players[i]
 		var card: Dictionary = _cards[i]
-		card.resources_label.text = str(p.resources)
+		card.resources_label.text = str(p.materials)
 		card.fervor_label.text = str(p.fervor)
 		card.glory_label.text = str(p.glory)
 		if p.god and ResourceLoader.exists(p.god.image_path):
@@ -181,13 +181,13 @@ func _set_card_active(index: int, is_active: bool) -> void:
 		return
 	var card: Dictionary = _cards[index]
 	(card.triangle_label as Label).visible = is_active
-	var name_color := Color.WHITE if is_active else (card.player_color as Color).lightened(0.25)
+	var name_color := Color.WHITE if is_active else (card.color as Color).lightened(0.25)
 	(card.name_label as Label).add_theme_color_override("font_color", name_color)
-	_apply_card_style(card.panel as PanelContainer, is_active, card.player_color)
+	_apply_card_style(card.panel as PanelContainer, is_active, card.color)
 
 
-func _apply_card_style(panel: PanelContainer, is_active: bool, player_color: Color) -> void:
-	var pc := player_color
+func _apply_card_style(panel: PanelContainer, is_active: bool, color: Color) -> void:
+	var pc := color
 	var style = StyleBoxFlat.new()
 	if is_active:
 		# Player color floods in — saturated but slightly darkened for text readability

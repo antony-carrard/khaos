@@ -140,8 +140,6 @@ func update_god_display(god: God, god_manager: GodManager, board_manager) -> voi
 		var apv = board_manager.active_player_view
 		if not apv.fervor_changed.is_connected(update_power_buttons):
 			apv.fervor_changed.connect(update_power_buttons.bind())
-		if not apv.power_used.is_connected(update_power_buttons):
-			apv.power_used.connect(update_power_buttons.bind())
 		if not apv.actions_changed.is_connected(update_power_buttons):
 			apv.actions_changed.connect(update_power_buttons.bind())
 
@@ -241,7 +239,6 @@ func update_power_buttons(_unused = null) -> void:
 
 	var is_my_turn: bool = board_manager_ref.ui_player == board_manager_ref.current_player
 	var player = board_manager_ref.ui_player
-	var turn_manager = board_manager_ref.turn_manager
 
 	for button in god_power_buttons:
 		var power: GodPower = god_power_mapping.get(button)
@@ -249,7 +246,7 @@ func update_power_buttons(_unused = null) -> void:
 			continue
 
 		# Check if power can be activated
-		var can_activate = is_my_turn and god_manager_ref.can_activate_power(power, player, turn_manager)
+		var can_activate = is_my_turn and god_manager_ref.can_activate_power(power, player)
 
 		# Update button state
 		if can_activate:
