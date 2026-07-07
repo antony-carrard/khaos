@@ -14,13 +14,12 @@ const POWER_BUTTON_SIZE: Vector2 = Vector2(220, 40)
 const POWER_BUTTON_CORNER_RADIUS: int = 6
 const FERVOR_ICON_SIZE: Vector2 = Vector2(14, 14)
 
-signal power_activated(power: GodPower, god_manager: GodManager)
+signal power_activated(power: GodPower)
 
 var god_portrait: TextureRect = null
 var god_name_label: Label = null
 var god_power_buttons: Array[Button] = []
 var god_power_mapping: Dictionary = {}  # Maps Button -> GodPower
-var god_manager_ref: GodManager = null
 var board_manager_ref = null  # Reference to board manager for signals
 
 
@@ -92,12 +91,11 @@ func _create_panel() -> void:
 
 
 ## Update god display when player selects a god
-func update_god_display(god: God, god_manager: GodManager, board_manager) -> void:
+func update_god_display(god: God, board_manager) -> void:
 	if not god:
 		return
 
-	# Store references
-	god_manager_ref = god_manager
+	# Store reference
 	board_manager_ref = board_manager
 
 	# Update portrait
@@ -130,7 +128,7 @@ func update_god_display(god: God, god_manager: GodManager, board_manager) -> voi
 
 	# Add power buttons for all powers (active and passive)
 	for power in god.powers:
-		var button = _create_power_button(power, god_manager)
+		var button = _create_power_button(power)
 		powers_container.add_child(button)
 		god_power_buttons.append(button)
 		god_power_mapping[button] = power
@@ -150,7 +148,7 @@ func update_god_display(god: God, god_manager: GodManager, board_manager) -> voi
 
 
 ## Create a power button with icon and styling
-func _create_power_button(power: GodPower, god_manager: GodManager) -> Button:
+func _create_power_button(power: GodPower) -> Button:
 	var button = Button.new()
 	button.custom_minimum_size = POWER_BUTTON_SIZE
 	button.mouse_filter = Control.MOUSE_FILTER_STOP
@@ -164,7 +162,7 @@ func _create_power_button(power: GodPower, god_manager: GodManager) -> Button:
 	else:
 		# Active - purple
 		style.bg_color = Color(0.3, 0.2, 0.5, 0.9)
-		button.pressed.connect(_on_power_button_pressed.bind(power, god_manager))
+		button.pressed.connect(_on_power_button_pressed.bind(power))
 
 	style.corner_radius_top_left = POWER_BUTTON_CORNER_RADIUS
 	style.corner_radius_top_right = POWER_BUTTON_CORNER_RADIUS
@@ -234,7 +232,7 @@ func _create_power_button(power: GodPower, god_manager: GodManager) -> Button:
 
 ## Update power button states based on current player resources/usage
 func update_power_buttons(_unused = null) -> void:
-	if not board_manager_ref or not board_manager_ref.current_player or not god_manager_ref:
+	if not board_manager_ref or not board_manager_ref.current_player:
 		return
 
 	var is_my_turn: bool = board_manager_ref.ui_player == board_manager_ref.current_player
@@ -246,7 +244,7 @@ func update_power_buttons(_unused = null) -> void:
 			continue
 
 		# Check if power can be activated
-		var can_activate = is_my_turn and god_manager_ref.can_activate_power(power, player)
+		var can_activate = is_my_turn and power.can_afford(player)
 
 		# Update button state
 		if can_activate:
@@ -273,11 +271,11 @@ func update_power_buttons(_unused = null) -> void:
 
 
 ## Handle power button press
-func _on_power_button_pressed(power: GodPower, god_manager: GodManager) -> void:
+func _on_power_button_pressed(power: GodPower) -> void:
 	Log.debug("Attempting to activate power: %s" % power.power_name)
 
 	# Emit signal for parent to handle
-	power_activated.emit(power, god_manager)
+	power_activated.emit(power)
 
 	# Update button states immediately
 	update_power_buttons()

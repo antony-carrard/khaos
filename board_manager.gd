@@ -31,7 +31,6 @@ var tile_manager: TileManager
 var village_manager: VillageManager
 var placement_controller: PlacementController
 var tile_pool: TilePool
-var god_manager: GodManager
 
 # UI
 var ui: Control = null
@@ -44,7 +43,6 @@ var players: Array[Player] = []
 var current_player_index: int = 0
 var current_player: Player = null   # always == players[current_player_index]
 
-var power_executor: PowerExecutor = null
 var active_player_view: ActivePlayerView = null
 var status_header: PlayerStatusHeader = null
 var not_your_turn_overlay: NotYourTurnOverlay = null
@@ -103,10 +101,6 @@ func _ready() -> void:
 	# In network mode, record which player index belongs to this machine
 	if GameConfig.initialized and GameConfig.mode == GameConfig.GameMode.NETWORK:
 		local_player_index = clampi(GameConfig.local_player_index, 0, players.size() - 1)
-
-	# Create god manager
-	god_manager = GodManager.new()
-	add_child(god_manager)
 
 	# Cross-reference managers (for validation)
 	tile_manager.village_manager = village_manager
@@ -211,7 +205,7 @@ func _select_god_networked() -> void:
 		if i == local_player_index:
 			# Our turn: interactive selection, then broadcast the choice
 			await show_god_selection(players[i], taken)
-			var all_gods := GodManager.create_all_gods()
+			var all_gods := God.create_all()
 			var chosen_index := 0
 			for j in range(all_gods.size()):
 				if all_gods[j].god_name == players[i].god.god_name:
@@ -289,13 +283,11 @@ func _show_god_waiting_ui(picking_player: Player, taken: Array[God]) -> CanvasLa
 
 
 ## Switch the active player to the given index.
-## Updates current_player, power_executor, and (in hot-seat) the APV signal bridge.
+## Updates current_player and (in hot-seat) the APV signal bridge.
 ## In network mode APV stays permanently bound to the local player; only active_player_switched fires.
 func _switch_to_player(index: int) -> void:
 	current_player_index = index
 	current_player = players[index]
-	if power_executor:
-		power_executor.current_player = current_player
 
 	var is_network: bool = GameConfig.initialized and GameConfig.mode == GameConfig.GameMode.NETWORK
 	if not is_network:
@@ -320,7 +312,7 @@ func _on_active_player_changed(player: Player) -> void:
 	if ui:
 		ui.update_current_player(player)
 		if ui_player.god:
-			ui.update_god_display(ui_player.god, god_manager)
+			ui.update_god_display(ui_player.god)
 		ui.update_hand_display()
 		ui.set_actions_interactive(ui_player == current_player)
 
@@ -357,14 +349,9 @@ func setup_ui() -> void:
 
 	ui.update_current_player(current_player)
 	if ui_player.god:
-		ui.update_god_display(ui_player.god, god_manager)
+		ui.update_god_display(ui_player.god)
 	ui.update_hand_display()
 	ui.set_actions_interactive(ui_player == current_player)
-
-	power_executor = PowerExecutor.new()
-	add_child(power_executor)
-	power_executor.initialize(current_player, tile_manager, village_manager, god_manager, placement_controller, ui, self)
-	power_executor.power_executed.connect(_on_power_executed)
 
 
 
@@ -431,7 +418,7 @@ func on_village_placed(q: int, r: int) -> bool:
 		Log.error("BoardManager: No tile at (%d,%d) for village placement" % [q, r])
 		return false
 
-	var cost = GodManager.get_village_cost(current_player.god, tile.village_building_cost)
+	var cost = current_player.god.get_village_cost(tile.village_building_cost)
 
 	if current_player.materials < cost:
 		Log.warn("BoardManager: Cannot afford village — need %d, have %d" % [cost, current_player.materials])
@@ -572,7 +559,7 @@ func _begin_turn(player: Player) -> void:
 
 
 ## Sums a player's village yields and adds them to their materials/fervor/glory.
-## Public: also called by GodManager for the SECOND_HARVEST power.
+## Public: also called by SecondHarvestPower.apply().
 func harvest_for_player(player: Player) -> void:
 	var totals := village_manager.harvest_totals_for_player(player)
 	if totals[TileDefinition.ResourceType.MATERIALS] > 0:
@@ -636,24 +623,33 @@ func on_end_turn_requested() -> void:
 
 
 ## Called by tile_selector_ui._on_power_activated.
-## Executes the power locally and broadcasts instant powers to remote peers.
+## Instant powers apply immediately and broadcast here. Targeted powers just
+## enter target-selection mode — they resolve (and broadcast) later via
+## _resolve_power_target once a valid target is clicked.
 func on_power_activated(power: GodPower, player: Player) -> void:
-	var success := god_manager.activate_power(power, player, self)
-	if not success:
-		return
-	# Targeted (deferred) powers broadcast via power_executor.power_executed signal.
-	# Instant powers (no target selection) broadcast here.
-	if _is_network:
-		match power.power_type:
-			GodPower.PowerType.EXTRA_ACTION, GodPower.PowerType.SECOND_HARVEST:
-				rpc("_rpc_power_instant", power.power_type)
+	if power is InstantGodPower:
+		var success: bool = power.activate(self)
+		if success and _is_network:
+			rpc("_rpc_power_activate", player.god.get_active_powers().find(power))
+	elif power is TargetedGodPower:
+		if not power.can_afford(player):
+			Log.warn("Cannot afford power: %s" % power.power_name)
+			return
+		placement_controller.select_power_target_mode(power)
 
 
-## Connected to power_executor.power_executed — broadcasts targeted power results to remotes.
-func _on_power_executed(power_type: int, q: int, r: int, extra: int) -> void:
-	# Only broadcast if this is the local player's turn (prevents re-broadcast on remotes)
-	if _is_network and current_player_index == local_player_index:
-		rpc("_rpc_power_target", power_type, q, r, extra)
+## Called by PowerTargetStrategy.on_click() (and directly by the resource-type
+## picker for change-tile-type) once a target has been validated. This is only
+## ever reached via a real local click, so broadcasting unconditionally here
+## can't cause a re-broadcast loop on remotes (they replay via _rpc_power_resolve
+## directly, never through this method).
+func _resolve_power_target(power: TargetedGodPower, q: int, r: int, extra: int) -> bool:
+	var success: bool = power.resolve(self, q, r, extra)
+	if success:
+		placement_controller.cancel_placement()
+		if _is_network:
+			rpc("_rpc_power_resolve", current_player.god.get_active_powers().find(power), q, r, extra)
+	return success
 
 
 ## Called when a remote peer disconnects during a game session.
@@ -681,7 +677,7 @@ func _validate_rpc_sender() -> bool:
 
 @rpc("any_peer", "call_remote", "reliable")
 func _rpc_god_selected(player_index: int, god_index: int) -> void:
-	var all_gods := GodManager.create_all_gods()
+	var all_gods := God.create_all()
 	players[player_index].initialize_game_start(all_gods[god_index % all_gods.size()], test_mode)
 	Log.info("Player %d selected god: %s" % [player_index + 1, players[player_index].god.god_name])
 	_god_choice_received.emit()
@@ -723,7 +719,7 @@ func _rpc_place_village(q: int, r: int) -> void:
 	if not tile:
 		push_warning("_rpc_place_village: no tile at (%d,%d)" % [q, r])
 		return
-	var cost := GodManager.get_village_cost(current_player.god, tile.village_building_cost)
+	var cost := current_player.god.get_village_cost(tile.village_building_cost)
 	village_manager.place_village(q, r, current_player)
 	current_player.materials -= cost
 	_consume_action("build village")
@@ -757,42 +753,23 @@ func _rpc_end_turn() -> void:
 
 
 @rpc("any_peer", "call_remote", "reliable")
-func _rpc_power_instant(power_type: int) -> void:
+func _rpc_power_activate(slot: int) -> void:
 	if not _validate_rpc_sender(): return
-	var power := god_manager.get_power_by_type(current_player, power_type)
-	if not power:
-		push_warning("_rpc_power_instant: power type %d not found for player" % power_type)
+	var powers := current_player.god.get_active_powers()
+	if slot < 0 or slot >= powers.size():
+		push_warning("_rpc_power_activate: slot %d not found for player's god" % slot)
 		return
-	# Apply bookkeeping without UI side effects
-	if power.fervor_cost > 0:
-		current_player.fervor -= power.fervor_cost
-	match power_type:
-		GodPower.PowerType.EXTRA_ACTION:
-			current_player.actions_remaining -= 1
-			# TODO: bonus-action effect removed pending step-2 god-power rewrite
-		GodPower.PowerType.SECOND_HARVEST:
-			harvest_for_player(current_player)
+	(powers[slot] as InstantGodPower).activate(self)
 
 
 @rpc("any_peer", "call_remote", "reliable")
-func _rpc_power_target(power_type: int, q: int, r: int, extra: int) -> void:
+func _rpc_power_resolve(slot: int, q: int, r: int, extra: int) -> void:
 	if not _validate_rpc_sender(): return
-	# Set pending_power so power_executor.complete_deferred_power() can finalize it
-	power_executor.pending_power = god_manager.get_power_by_type(current_player, power_type)
-	match power_type:
-		GodPower.PowerType.UPGRADE_TILE_KEEP_VILLAGE:
-			power_executor.on_upgrade_tile(q, r)
-		GodPower.PowerType.DOWNGRADE_TILE_KEEP_VILLAGE:
-			power_executor.on_downgrade_tile(q, r)
-		GodPower.PowerType.STEAL_HARVEST:
-			power_executor.on_steal_harvest(q, r)
-		GodPower.PowerType.DESTROY_VILLAGE_FREE:
-			power_executor.on_destroy_village_free(q, r)
-		GodPower.PowerType.CHANGE_TILE_TYPE:
-			power_executor.on_change_tile_type(q, r, extra)
-		_:
-			push_warning("_rpc_power_target: unknown power type %d" % power_type)
-			power_executor.pending_power = null
+	var powers := current_player.god.get_active_powers()
+	if slot < 0 or slot >= powers.size():
+		push_warning("_rpc_power_resolve: slot %d not found for player's god" % slot)
+		return
+	(powers[slot] as TargetedGodPower).resolve(self, q, r, extra)
 
 
 ## Calculates scores for all players and shows the victory screen.

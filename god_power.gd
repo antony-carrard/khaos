@@ -1,33 +1,37 @@
 class_name GodPower
 extends Resource
 
-## Data-driven power definition
-## Powers are just data - implementation logic is in GodManager
-
-enum PowerType {
-	# Active powers
-	DESTROY_VILLAGE_FREE,       # Le Bâtisseur - destroy enemy village without paying
-	EXTRA_ACTION,               # Bicéphallès - 4 actions next turn
-	SECOND_HARVEST,             # Bicéphallès - harvest again this turn
-	CHANGE_TILE_TYPE,           # Augia - change resource type of own tiles
-	UPGRADE_TILE_KEEP_VILLAGE,  # Augia - upgrade tile without destroying village
-	STEAL_HARVEST,              # Rakun - harvest from enemy village
-	DOWNGRADE_TILE_KEEP_VILLAGE, # Rakun - downgrade tile without destroying village
-
-	# Passive abilities
-	FLAT_VILLAGE_COST           # Le Bâtisseur - all villages cost 4 resources
-}
+## Base god-power definition: shared cost data + the one place cost logic lives.
+## Concrete behavior lives on InstantGodPower/TargetedGodPower subclasses.
 
 @export var power_name: String = ""
 @export var description: String = ""
 @export var fervor_cost: int = 0
 @export var is_passive: bool = false
-@export var power_type: PowerType = PowerType.EXTRA_ACTION
+@export var consumes_action: bool = true
 
 func _init(p_name: String = "", p_description: String = "", p_cost: int = 0,
-		   p_type: PowerType = PowerType.EXTRA_ACTION, p_passive: bool = false):
+		   p_passive: bool = false, p_consumes_action: bool = true):
 	power_name = p_name
 	description = p_description
 	fervor_cost = p_cost
-	power_type = p_type
 	is_passive = p_passive
+	consumes_action = p_consumes_action
+
+
+## True if the player can currently pay this power's cost.
+func can_afford(player: Player) -> bool:
+	if fervor_cost > 0 and player.fervor < fervor_cost:
+		return false
+	if consumes_action and player.actions_remaining <= 0:
+		return false
+	return true
+
+
+## Deducts the power's cost from the player. Caller must have already
+## checked can_afford() — this does not re-validate.
+func pay_cost(player: Player) -> void:
+	if fervor_cost > 0:
+		player.fervor -= fervor_cost
+	if consumes_action:
+		player.actions_remaining -= 1

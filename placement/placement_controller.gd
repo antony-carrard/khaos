@@ -233,24 +233,8 @@ func select_village_remove_mode() -> void:
 	current_strategy = VillageRemoveStrategy.new()
 
 
-func select_steal_harvest_mode() -> void:
-	current_strategy = StealHarvestStrategy.new()
-
-
-func select_destroy_village_free_mode() -> void:
-	current_strategy = DestroyVillageFreeStrategy.new()
-
-
-func select_change_tile_type_mode() -> void:
-	current_strategy = ChangeTileTypeStrategy.new()
-
-
-func select_upgrade_tile_mode() -> void:
-	current_strategy = UpgradeTileStrategy.new()
-
-
-func select_downgrade_tile_mode() -> void:
-	current_strategy = DowngradeTileStrategy.new()
+func select_power_target_mode(power: TargetedGodPower) -> void:
+	current_strategy = PowerTargetStrategy.new(power)
 
 
 ## Returns HexGridUtils.NO_HIT if no valid position found.
@@ -262,10 +246,9 @@ func get_axial_at_mouse() -> Vector2i:
 	return HexGridUtils.get_axial_at_mouse(mouse_pos, camera, board_manager.get_world_3d())
 
 
-## Cancels any active placement mode and clears the player's pending power.
+## Cancels any active placement mode.
 func cancel_placement() -> void:
 	_deactivate()
-	board_manager.power_executor.pending_power = null
 
 
 func _deactivate() -> void:

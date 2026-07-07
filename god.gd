@@ -15,6 +15,26 @@ func _init(p_name: String = "", p_image_path: String = ""):
 	image_path = p_image_path
 	powers = []
 
+
+## Catalog of every god type, for the selection screen only. Rebuilt fresh
+## each time it's needed (picker render, network index lookup) — the
+## instance a player picks becomes their own, never shared with this catalog.
+static func create_all() -> Array[God]:
+	var all: Array[God] = [
+		LeBatisseurGod.new(),
+		BicephallesGod.new(),
+		AugiaGod.new(),
+		RakunGod.new(),
+	]
+	return all
+
+
+## Building cost for this god's players, accounting for passive abilities.
+## Overridden by gods with a flat/modified cost (e.g. Le Bâtisseur).
+func get_village_cost(base_cost: int) -> int:
+	return base_cost
+
+
 ## Get all active powers (can be activated with fervor)
 func get_active_powers() -> Array[GodPower]:
 	var active: Array[GodPower] = []
@@ -30,10 +50,3 @@ func get_passive_powers() -> Array[GodPower]:
 		if power.is_passive:
 			passive.append(power)
 	return passive
-
-## Check if god has a specific power type
-func has_power_type(power_type: GodPower.PowerType) -> bool:
-	for power in powers:
-		if power.power_type == power_type:
-			return true
-	return false

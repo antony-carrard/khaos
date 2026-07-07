@@ -402,14 +402,14 @@ func show_victory_screen(all_scores: Array) -> void:
 
 
 ## Update god display when player selects a god
-func update_god_display(god: God, god_manager: GodManager) -> void:
+func update_god_display(god: God) -> void:
 	if god_panel:
-		god_panel.update_god_display(god, god_manager, board_manager)
+		god_panel.update_god_display(god, board_manager)
 		if not god_panel.power_activated.is_connected(_on_power_activated):
 			god_panel.power_activated.connect(_on_power_activated)
 
 
-func _on_power_activated(power: GodPower, _god_manager: GodManager) -> void:
+func _on_power_activated(power: GodPower) -> void:
 	if board_manager and board_manager.current_player:
 		board_manager.on_power_activated(power, board_manager.current_player)
 
@@ -423,9 +423,14 @@ func show_resource_type_picker(q: int, r: int, current_type: int, tile_type: int
 
 ## Handle resource type selection from picker
 func _on_resource_type_selected(q: int, r: int, resource_type: int) -> void:
-	# Trigger the tile type change
-	if board_manager:
-		board_manager.power_executor.on_change_tile_type(q, r, resource_type)
+	# The pending power is whichever TargetedGodPower the placement controller
+	# is currently targeting with (set by ChangeTileTypePower.on_target_selected).
+	if not board_manager:
+		return
+	var strategy := board_manager.placement_controller.current_strategy as PowerTargetStrategy
+	if not strategy:
+		return
+	board_manager._resolve_power_target(strategy.power, q, r, resource_type)
 
 
 ## Handle picker cancellation

@@ -25,7 +25,7 @@ var taken_gods: Array[God] = []
 
 func _ready() -> void:
 	# Load all gods
-	gods = GodManager.create_all_gods()
+	gods = God.create_all()
 
 	# Create full-screen dark overlay
 	var overlay = ColorRect.new()
