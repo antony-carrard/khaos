@@ -46,12 +46,12 @@ Pour chaque village construit, le joueur gagne une récompenses de points de glo
 Durant son tour, le joueur peut démolir un village adverse si un de ses propres villages se trouve sur une tuile adjacente. Le coût de démolition du village dépend du type de tuile sur laquelle le village adverse se trouve, ainsi que le type de tuile sur lequel le village du joueur se trouve.
 Le coût de base de démolition du village adverse en fonction de la tuile sur laquelle il se trouve est le suivant :
 - Plaine : 2 matériaux 
-- Colline : 3 matériaux
-- Montagne : 4 matériaux
+- Colline : 4 matériaux
+- Montagne : 6 matériaux
 En plus du coût de base, un surcoût peut être additionné au coût de base si le village adverse à démolir se trouve en dessus du village du joueur actuel. En fonction de la différence de niveau, le surcoût est le suivant :
-- 1 niveau inférieur : + 1 matériaux, + 1 action
-- 2 niveaux inférieurs : + 2 matériaux, + 2 actions
-Ainsi, si le joueur dont c'est le tour souhaite démolir un village situé sur une montagne depuis un village situé sur une plaine, il devra payer 4 + 2 = 6 matériaux, et devra utiliser 1 + 2 = 3 actions.
+- 1 niveau inférieur : + 2 matériaux, + 1 action
+- 2 niveaux inférieurs : + 4 matériaux, + 2 actions
+Ainsi, si le joueur dont c'est le tour souhaite démolir un village situé sur une montagne depuis un village situé sur une plaine, il devra payer 6 + 4 = 10 matériaux, et devra utiliser 1 + 2 = 3 actions.
 Pour chaque village adverse démoli, le joueur gagne une récompenses de points de gloires selon le barème suivant :
 - Plaine : 1 gloire 
 - Colline : 2 gloire
@@ -62,6 +62,7 @@ Un joueur peut également démolir gratuitement un de ses propres villages. Cela
 Chaque Dieu possède un pouvoir passif, un pouvoir mineur, ainsi qu'un pouvoir majeur. L'utilisation d'un pouvoir mineur ou majeur se fait au coût d'une action. En principe, les pouvoirs mineurs peuvent s'effectuer en possédant un village adjacent à un autre village, et les pouvoirs majeurs sont globaux.
 ### Fin de la partie
 La partie s'arrête lorsque toutes les tuiles de la réserve ont été placées sur le terrain, ou lorsqu'il n'est plus possible de placer des tuiles par aucun des joueurs.
+La partie se termine par le joueur jouant en dernier, de sorte que chaque joueur puisse jouer le même nombre de tours.
 Lorsque la partie se termine, chaque joueur reçoit 2 points de gloires par village compris dans son groupe de village contigu le plus important.  Le barème est le suivant:
 - 1 village : 2 gloires
 - 2 villages : 2 x 2 = 4 gloire
@@ -73,15 +74,15 @@ Chaque joueur incarne un Dieu durant la partie. Chacun des dieux possède un pou
 Les Dieux pouvant être joués sont les suivants :
 ### Bicéphallès
 Pouvoir passif : 1 action bonus à chaque tour (4 actions au lieu de 3)
-Pouvoir mineur (3 ferveurs): Double récolte sur un emplacement. Récupère le rendement d'un village normal ou doublé sur un emplacement.
-Pouvoir majeur (6 ferveurs): Double un de ses villages. Le village est doublé autant dans la récolte que pour le décompte du nombre de villages du plus grand groupe. Le joueur récupère le bonus de gloire comme si un nouveau village était construit. Le prix de démolition ainsi que la gloire obtenue lors de la démolition du village doublé est le même qu'un village normal.
+Pouvoir mineur (3 ferveurs): Récolte bonus sur un emplacement. Récupère le rendement d'un village normal ou doublé sur un emplacement.
+Pouvoir majeur (6 ferveurs): Double un de ses villages. Le village est doublé autant dans la récolte que pour le décompte du nombre de villages du plus grand groupe. Le joueur récupère le bonus de gloire comme si un nouveau village était construit. Le prix de démolition ainsi que la gloire obtenue lors de la démolition du village doublé sont les mêmes que pour village normal.
 ### Le Bâtisseur
 Pouvoir passif : La construction d'un village sur une tuile plaine coûte 1 matériau au lieu de 2.
-Pouvoir mineur (2 ferveurs) : Peut fusionner des villages présents dans un même groupe de villages adjacents selon la logique suivante :
+Pouvoir mineur (2 ferveurs) : Peut fusionner des villages situés sur des tuiles plaine à proximité d'une tuile vacante accueillant le nouveau village selon la logique suivante :
 - 2 villages plaine -> 1 village colline
 - 3 villages plaine -> 1 village montagne
 Le bâtisseur gagne un point de gloire par fusion.
-Pouvoir majeur (5 ferveurs): Construction divine. Construit un village sur n'importe quelle tuile vacante.
+Pouvoir majeur (6 ferveurs): Construction divine. Construit un village sur n'importe quelle tuile vacante.
 ### Augia
 Pouvoir passif : Reçois une tuile bonus à chaque tour (4 tuiles au lieu de 3)
 Pouvoir mineur (2 ferveur): Peut échanger la tuile d'un de ses villages pour une tuile de sa main. Le niveau de la tuile (plaine/colline/montagne) doit être le même.
