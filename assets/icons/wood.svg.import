@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://hitwukpfqjkt"
-path="res://.godot/imported/pray.svg-852bc4f85c2a26c850eb77a74d915db5.ctex"
+uid="uid://c0unqv133luo5"
+path="res://.godot/imported/wood.svg-c83d0983945891d776f85d31747556df.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://icons/pray.svg"
-dest_files=["res://.godot/imported/pray.svg-852bc4f85c2a26c850eb77a74d915db5.ctex"]
+source_file="res://assets/icons/wood.svg"
+dest_files=["res://.godot/imported/wood.svg-c83d0983945891d776f85d31747556df.ctex"]
 
 [params]
 

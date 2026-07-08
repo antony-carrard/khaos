@@ -18,9 +18,9 @@ const TILE_TYPE_COLORS = {
 
 # Icon paths for resource types
 const RESOURCE_TYPE_ICONS = {
-	TileDefinition.ResourceType.MATERIALS: "res://icons/wood.svg",
-	TileDefinition.ResourceType.FERVOR: "res://icons/pray.svg",
-	TileDefinition.ResourceType.GLORY: "res://icons/star.svg"
+	TileDefinition.ResourceType.MATERIALS: "res://assets/icons/wood.svg",
+	TileDefinition.ResourceType.FERVOR: "res://assets/icons/pray.svg",
+	TileDefinition.ResourceType.GLORY: "res://assets/icons/star.svg"
 }
 
 # Signals

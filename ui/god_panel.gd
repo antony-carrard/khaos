@@ -214,7 +214,7 @@ func _create_power_button(power: GodPower) -> Button:
 		icon.expand_mode = TextureRect.EXPAND_FIT_WIDTH_PROPORTIONAL
 		icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 		icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		var texture = load("res://icons/pray.svg") as Texture2D
+		var texture = load(TileManager.RESOURCE_TYPE_ICONS[TileDefinition.ResourceType.FERVOR]) as Texture2D
 		if texture:
 			icon.texture = texture
 		cost_hbox.add_child(icon)

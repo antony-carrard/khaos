@@ -104,9 +104,9 @@ func _create_player_card(player: Player, index: int, parent: HBoxContainer) -> v
 	stats_hbox.add_theme_constant_override("separation", 5)
 	vbox.add_child(stats_hbox)
 
-	var glory_label = _create_stat_label(stats_hbox, "res://icons/star.svg", str(player.glory))
-	var resources_label = _create_stat_label(stats_hbox, "res://icons/wood.svg", str(player.materials))
-	var fervor_label = _create_stat_label(stats_hbox, "res://icons/pray.svg", str(player.fervor))
+	var glory_label = _create_stat_label(stats_hbox, TileManager.RESOURCE_TYPE_ICONS[TileDefinition.ResourceType.GLORY], str(player.glory))
+	var resources_label = _create_stat_label(stats_hbox, TileManager.RESOURCE_TYPE_ICONS[TileDefinition.ResourceType.MATERIALS], str(player.materials))
+	var fervor_label = _create_stat_label(stats_hbox, TileManager.RESOURCE_TYPE_ICONS[TileDefinition.ResourceType.FERVOR], str(player.fervor))
 
 	_cards.append({
 		"panel": panel,

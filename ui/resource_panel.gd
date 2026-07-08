@@ -44,13 +44,13 @@ func _create_panel() -> void:
 	margin.add_child(vbox)
 
 	# Resources row
-	resource_label = _create_resource_row(vbox, "res://icons/wood.svg", "0")
+	resource_label = _create_resource_row(vbox, TileManager.RESOURCE_TYPE_ICONS[TileDefinition.ResourceType.MATERIALS], "0")
 
 	# Fervor row
-	fervor_label = _create_resource_row(vbox, "res://icons/pray.svg", "0")
+	fervor_label = _create_resource_row(vbox, TileManager.RESOURCE_TYPE_ICONS[TileDefinition.ResourceType.FERVOR], "0")
 
 	# Glory row
-	glory_label = _create_resource_row(vbox, "res://icons/star.svg", "0")
+	glory_label = _create_resource_row(vbox, TileManager.RESOURCE_TYPE_ICONS[TileDefinition.ResourceType.GLORY], "0")
 
 
 ## Create a row with icon + label
