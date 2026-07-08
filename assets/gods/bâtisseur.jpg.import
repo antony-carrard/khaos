@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://drmre2iuw1xty"
-path="res://.godot/imported/bicéphallès.jpg-a31c54577e8bcd8e9fd62d7f252db021.ctex"
+uid="uid://bg6rnsdtx3201"
+path="res://.godot/imported/bâtisseur.jpg-08ed18520e1041e9b5de6b59e82c5410.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://gods/bicéphallès.jpg"
-dest_files=["res://.godot/imported/bicéphallès.jpg-a31c54577e8bcd8e9fd62d7f252db021.ctex"]
+source_file="res://assets/gods/bâtisseur.jpg"
+dest_files=["res://.godot/imported/bâtisseur.jpg-08ed18520e1041e9b5de6b59e82c5410.ctex"]
 
 [params]
 

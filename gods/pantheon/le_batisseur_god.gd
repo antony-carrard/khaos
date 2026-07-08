@@ -4,7 +4,7 @@ extends God
 const FLAT_VILLAGE_COST: int = 4  # Rules.md passive: all villages cost 4
 
 func _init():
-	super("Le Bâtisseur", "res://gods/bâtisseur.jpg")
+	super("Le Bâtisseur", "res://assets/gods/bâtisseur.jpg")
 
 	powers.append(DestroyVillageFreePower.new())
 

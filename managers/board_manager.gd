@@ -179,7 +179,7 @@ func show_god_selection(player: Player, taken_gods: Array[God]) -> void:
 	var canvas_layer = CanvasLayer.new()
 	add_child(canvas_layer)
 
-	var god_selection_script = load("res://god_selection_ui.gd")
+	var god_selection_script = load("res://ui/god_selection_ui.gd")
 	var god_selection_ui = god_selection_script.new()
 	god_selection_ui.set_anchors_preset(Control.PRESET_FULL_RECT)
 	# Set data before add_child so _ready() picks them up
@@ -229,7 +229,7 @@ func _show_god_waiting_ui(picking_player: Player, taken: Array[God]) -> CanvasLa
 	add_child(canvas)
 
 	# Show the god selection cards so all players can see what's available
-	var god_selection_script = load("res://god_selection_ui.gd")
+	var god_selection_script = load("res://ui/god_selection_ui.gd")
 	var spectator_ui = god_selection_script.new()
 	spectator_ui.set_anchors_preset(Control.PRESET_FULL_RECT)
 	spectator_ui.selecting_player_name = picking_player.player_name
@@ -321,7 +321,7 @@ func setup_ui() -> void:
 	var canvas_layer = CanvasLayer.new()
 	add_child(canvas_layer)
 
-	var ui_script = load("res://tile_selector_ui.gd")
+	var ui_script = load("res://ui/tile_selector_ui.gd")
 	ui = ui_script.new()
 	canvas_layer.add_child(ui)
 	ui.initialize(TileManager.TILE_TYPE_COLORS, self)

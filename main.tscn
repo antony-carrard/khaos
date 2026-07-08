@@ -1,6 +1,6 @@
 [gd_scene format=3 uid="uid://dptnwxm0fajqn"]
 
-[ext_resource type="Script" uid="uid://cotpp4piwgi8l" path="res://board_manager.gd" id="1_k6p8v"]
+[ext_resource type="Script" uid="uid://cotpp4piwgi8l" path="res://managers/board_manager.gd" id="1_k6p8v"]
 [ext_resource type="Script" uid="uid://r28arun7gawq" path="res://camera_controller.gd" id="2_camera"]
 
 [sub_resource type="Environment" id="Environment_rkqxd"]

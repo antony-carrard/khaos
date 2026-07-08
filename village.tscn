@@ -1,6 +1,6 @@
 [gd_scene load_steps=3 format=3 uid="uid://c7nmgis2thry0"]
 
-[ext_resource type="Script" uid="uid://b3uudusb3td66" path="res://village.gd" id="1_q5e70"]
+[ext_resource type="Script" uid="uid://b3uudusb3td66" path="res://entities/village.gd" id="1_q5e70"]
 [ext_resource type="PackedScene" uid="uid://cvnwoedfk3rar" path="res://assets/village.glb" id="2_pxdql"]
 
 [node name="Village" type="Node3D"]

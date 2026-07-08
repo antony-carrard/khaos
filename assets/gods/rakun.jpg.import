@@ -3,15 +3,15 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://b3bnph0xdqa1"
-path="res://.godot/imported/rakun.jpg-1cc884441df444f88b6d821c617b766d.ctex"
+path="res://.godot/imported/rakun.jpg-46be7007b4f17f7cd7b0e509e74bf6bf.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://gods/rakun.jpg"
-dest_files=["res://.godot/imported/rakun.jpg-1cc884441df444f88b6d821c617b766d.ctex"]
+source_file="res://assets/gods/rakun.jpg"
+dest_files=["res://.godot/imported/rakun.jpg-46be7007b4f17f7cd7b0e509e74bf6bf.ctex"]
 
 [params]
 
