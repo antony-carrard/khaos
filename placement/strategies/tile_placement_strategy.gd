@@ -21,7 +21,14 @@ func on_click(controller: PlacementController, _q: int, _r: int) -> bool:
 			td.village_building_cost
 		)
 	else:
-		success = controller.tile_manager.place_tile(pos.x, pos.y, controller.current_tile_type)
+		# Debug-only path (1/2/3 keyboard shortcuts, see PlacementController.select_tile_type):
+		# no hand TileDefinition exists, so supply the rules.md base village cost directly.
+		success = controller.tile_manager.place_tile(
+			pos.x, pos.y,
+			controller.current_tile_type,
+			{},
+			TileDefinition.VILLAGE_COST_BY_TYPE[controller.current_tile_type]
+		)
 
 	if success:
 		if controller.selected_hand_index >= 0 and controller.board_manager:

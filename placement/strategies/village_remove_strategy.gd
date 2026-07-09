@@ -30,5 +30,5 @@ func update_tooltip(controller: PlacementController, q: int, r: int, is_valid: b
 	else:
 		var bm = controller.board_manager
 		var best_own_height: int = bm.get_best_adjacent_own_height(q, r)
-		var res_cost: int = bm.get_demolition_resources_cost(tile.height_level, best_own_height)
+		var res_cost: int = bm.get_demolition_resources_cost(tile, best_own_height)
 		controller.board_manager.ui.show_village_cost_tooltip(true, res_cost)

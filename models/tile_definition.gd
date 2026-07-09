@@ -12,6 +12,13 @@ enum ResourceType {
 	GLORY
 }
 
+## Base village build/demolition cost by tile type (rules.md: 2/4/6 for plains/hills/mountain).
+const VILLAGE_COST_BY_TYPE = {
+	TileType.PLAINS: 2,
+	TileType.HILLS: 4,
+	TileType.MOUNTAIN: 6,
+}
+
 var tile_type: int               # TileType
 var yields: Dictionary           # ResourceType → amount, e.g. {MATERIALS: 3, GLORY: 1}
 var village_building_cost: int

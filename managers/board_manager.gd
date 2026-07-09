@@ -453,15 +453,17 @@ func get_best_adjacent_own_height(q: int, r: int) -> int:
 	return best
 
 
-## Resource cost to demolish an enemy village. Base: enemy_height+2. Surcharge if attacking from below.
-func get_demolition_resources_cost(enemy_height: int, best_own_height: int) -> int:
-	var surcharge: int = max(0, enemy_height - best_own_height)
-	return (enemy_height + 2) + surcharge
+## Resource cost to demolish an enemy village. Base cost equals the tile's village build cost
+## (2/4/6 for plains/hills/mountain). Surcharge: +2 materials per level attacking from below.
+func get_demolition_resources_cost(enemy_tile: HexTile, best_own_height: int) -> int:
+	var surcharge: int = 2 * max(0, enemy_tile.height_level - best_own_height)
+	Log.info("enemy village cost: %d" % enemy_tile.village_building_cost)
+	return enemy_tile.village_building_cost + surcharge
 
 
-## Action cost to demolish an enemy village. Base: 1. Surcharge if attacking from below.
-func get_demolition_action_cost(enemy_height: int, best_own_height: int) -> int:
-	var surcharge: int = max(0, enemy_height - best_own_height)
+## Action cost to demolish an enemy village. Base: 1. Surcharge: +1 action per level attacking from below.
+func get_demolition_action_cost(enemy_tile: HexTile, best_own_height: int) -> int:
+	var surcharge: int = max(0, enemy_tile.height_level - best_own_height)
 	return 1 + surcharge
 
 
@@ -477,8 +479,8 @@ func can_destroy_enemy_village(q: int, r: int) -> bool:
 	var best_own_height := get_best_adjacent_own_height(q, r)
 	if best_own_height < 0:
 		return false
-	var res_cost := get_demolition_resources_cost(enemy_tile.height_level, best_own_height)
-	var act_cost := get_demolition_action_cost(enemy_tile.height_level, best_own_height)
+	var res_cost := get_demolition_resources_cost(enemy_tile, best_own_height)
+	var act_cost := get_demolition_action_cost(enemy_tile, best_own_height)
 	if current_player.materials < res_cost:
 		return false
 	if current_player.actions_remaining < act_cost:
@@ -511,8 +513,8 @@ func on_village_removed(q: int, r: int) -> bool:
 			Log.warn("BoardManager: Cannot destroy enemy village at (%d,%d) — conditions not met" % [q, r])
 			return false
 		var best_own_height := get_best_adjacent_own_height(q, r)
-		var res_cost := get_demolition_resources_cost(tile.height_level, best_own_height)
-		var act_cost := get_demolition_action_cost(tile.height_level, best_own_height)
+		var res_cost := get_demolition_resources_cost(tile, best_own_height)
+		var act_cost := get_demolition_action_cost(tile, best_own_height)
 		for i in act_cost:
 			if not _consume_action("destroy enemy village"):
 				return false
@@ -749,8 +751,8 @@ func _rpc_remove_village(q: int, r: int) -> void:
 		_consume_action("remove village")
 	else:
 		var best_own_height := get_best_adjacent_own_height(q, r)
-		var res_cost := get_demolition_resources_cost(tile.height_level, best_own_height)
-		var act_cost := get_demolition_action_cost(tile.height_level, best_own_height)
+		var res_cost := get_demolition_resources_cost(tile, best_own_height)
+		var act_cost := get_demolition_action_cost(tile, best_own_height)
 		village_manager.remove_village(q, r)
 		for i in act_cost:
 			_consume_action("destroy enemy village")
