@@ -19,30 +19,30 @@ var hand: Array[TileDefinition]
 var materials: int:
 	set(value):
 		assert(value >= 0, "Can't set a negative value for the materials")
-		materials_changed.emit(value)
-		Log.debug("%s: set materials value to: %d." % [player_name, value])
 		materials = value
-		
+		Log.debug("%s: set materials value to: %d." % [player_name, value])
+		materials_changed.emit(value)
+
 var fervor: int:
 	set(value):
 		assert(value >= 0, "Can't set a negative value for the fervor")
-		fervor_changed.emit(value)
-		Log.debug("%s: set fervor value to: %d." % [player_name, value])
 		fervor = value
-		
+		Log.debug("%s: set fervor value to: %d." % [player_name, value])
+		fervor_changed.emit(value)
+
 var glory: int:
 	set(value):
 		assert(value >= 0, "Can't set a negative value for the glory")
-		glory_changed.emit(value)
-		Log.debug("%s: set glory value to: %d." % [player_name, value])
 		glory = value
+		Log.debug("%s: set glory value to: %d." % [player_name, value])
+		glory_changed.emit(value)
 
 var actions_remaining: int:
 	set(value):
 		assert(value >= 0, "Can't set a negative value for the actions_remaining")
-		actions_changed.emit(value)
-		Log.debug("%s: set number of actions to: %d." % [player_name, value])
 		actions_remaining = value
+		Log.debug("%s: set number of actions to: %d." % [player_name, value])
+		actions_changed.emit(value)
 
 # Signals
 signal materials_changed(new_value: int)
