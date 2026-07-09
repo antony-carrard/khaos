@@ -22,26 +22,6 @@ func before_test() -> void:
 	player.initialize("Test Player", Color.WHITE)
 
 
-# --- Resource/fervor pair tests ---
-
-func test_resources_score_floor_division() -> void:
-	player.materials = 7  # floor(7/2) = 3
-	var score = victory_manager.calculate_player_score(player, village_manager)
-	assert_int(score.resource_points).is_equal(3)
-
-
-func test_odd_resources_floor_rounds_down() -> void:
-	player.materials = 5  # floor(5/2) = 2
-	var score = victory_manager.calculate_player_score(player, village_manager)
-	assert_int(score.resource_points).is_equal(2)
-
-
-func test_fervor_score_floor_division() -> void:
-	player.fervor = 6  # floor(6/2) = 3
-	var score = victory_manager.calculate_player_score(player, village_manager)
-	assert_int(score.fervor_points).is_equal(3)
-
-
 func test_glory_scores_one_to_one() -> void:
 	player.glory = 5
 	var score = victory_manager.calculate_player_score(player, village_manager)
@@ -55,11 +35,6 @@ func test_no_villages_scores_0() -> void:
 
 
 func test_total_equals_sum_of_categories() -> void:
-	player.materials = 4
-	player.fervor = 2
 	player.glory = 1
 	var score = victory_manager.calculate_player_score(player, village_manager)
-	assert_int(score.total).is_equal(
-		score.resource_points + score.fervor_points +
-		score.glory_points + score.territory_points
-	)
+	assert_int(score.total).is_equal(score.glory_points + score.territory_points)
