@@ -5,6 +5,8 @@ class_name VictoryManager
 ## Victory point calculation and endgame scoring system.
 ## Implements territory calculation using flood-fill algorithm.
 
+const TERRITORY_CEILING = 5
+
 
 ## Calculate complete score breakdown for a player.
 ## Returns dictionary with all scoring categories and total.
@@ -43,7 +45,8 @@ func _calculate_territory_points(player: Player, village_manager: VillageManager
 		var largest_size = groups[0].size()
 		total_points = _calculate_territory_score(largest_size)
 
-		breakdown = "  Largest cluster: %d villages = %d pts" % [largest_size, total_points]
+		var formula = _format_territory_formula(largest_size)
+		breakdown = "  Largest cluster: %d villages\n  %s = %d pts" % [largest_size, formula, total_points]
 
 		# Debug: Print all groups to console for balancing
 		if groups.size() > 1:
@@ -115,8 +118,29 @@ func _flood_fill_group(start_pos: Vector2i, player: Player,
 
 # The subsequent bonus glory is equal to the capped ceiling
 func _calculate_territory_score(nb_villages: int) -> int:
-	const CEILING = 5
-	var n = min(nb_villages, CEILING)
+	var n = min(nb_villages, TERRITORY_CEILING)
 	var base = n * (n + 1) / 2      # 1, 3, 6, 10, 15
-	var bonus = max(0, nb_villages - CEILING) * CEILING		# Then + 5 for each bonus village
+	var bonus = max(0, nb_villages - TERRITORY_CEILING) * TERRITORY_CEILING		# Then + 5 for each bonus village
 	return base + bonus
+
+
+## Builds a human-readable formula matching _calculate_territory_score, e.g.
+## 7 villages -> "1 + 2 + 3 + 4 + (3 × 5)". Villages beyond the ceiling all
+## score a flat TERRITORY_CEILING each, so they collapse into one term —
+## the string never grows past TERRITORY_CEILING terms no matter the village count.
+func _format_territory_formula(nb_villages: int) -> String:
+	if nb_villages <= 0:
+		return ""
+
+	var terms: Array[String] = []
+	var individual_count = min(nb_villages, TERRITORY_CEILING - 1)
+	for i in range(1, individual_count + 1):
+		terms.append(str(i))
+
+	var remaining = nb_villages - individual_count
+	if remaining == 1:
+		terms.append(str(TERRITORY_CEILING))
+	elif remaining > 1:
+		terms.append("(%d × %d)" % [remaining, TERRITORY_CEILING])
+
+	return " + ".join(terms)
