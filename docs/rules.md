@@ -63,12 +63,14 @@ Chaque Dieu possède un pouvoir passif, un pouvoir mineur, ainsi qu'un pouvoir m
 ### Fin de la partie
 La partie s'arrête lorsque toutes les tuiles de la réserve ont été placées sur le terrain, ou lorsqu'il n'est plus possible de placer des tuiles par aucun des joueurs.
 La partie se termine par le joueur jouant en dernier, de sorte que chaque joueur puisse jouer le même nombre de tours.
-Lorsque la partie se termine, chaque joueur reçoit 2 points de gloires par village compris dans son groupe de village contigu le plus important.  Le barème est le suivant:
-- 1 village : 2 gloires
-- 2 villages : 2 x 2 = 4 gloire
-- 3 villages : 3 x 2 = 6 gloire
-- ... et ainsi de suite.
-Le joueur ayant cumulé le total de points de gloire le plus important remporte la partie.
+Lorsque la partie se termine, chaque joueur reçoit des points de gloires bonus en fonction du nombre de villages contenus dans son groupe de villages contigus le plus important. Le barème est le suivant:
+- 1 village : 1 gloire
+- 2 villages : 1 + 2 = 3 gloire
+- 3 villages : 1 + 2 + 3 = 6 gloire
+- 4 villages : 1 + 2 + 3 + 4 = 10 gloire
+- 5 villages : 1 + 2 + 3 + 4 + 5 = 15 gloire
+- ... puis chaque village supplémentaire rapporte 5 points de gloire additionnel.
+Le joueur ayant accumulé le total de points de gloire le plus important remporte la partie.
 ## Dieux
 Chaque joueur incarne un Dieu durant la partie. Chacun des dieux possède un pouvoir passif, un pouvoir mineur, ainsi qu'un pouvoir majeur. Le joueur dont c'est le tour peut utiliser ses pouvoirs mineur ou majeur pour une action et son coût respectif en ferveur. En principe, les pouvoirs mineurs peuvent s'effectuer en possédant un village adjacent à un autre village, et les pouvoirs majeurs n'ont pas de limite de portée.
 Les Dieux pouvant être joués sont les suivants :
