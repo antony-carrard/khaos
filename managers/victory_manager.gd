@@ -12,7 +12,7 @@ func calculate_player_score(player: Player, village_manager: VillageManager) -> 
 	# Glory (1:1 ratio) — includes glory earned during the game from village placement/demolition
 	var glory_pts = player.glory
 
-	# Territory bonus using flood-fill (2 pts per village in largest cluster)
+	# Territory bonus using flood-fill (bonus glory points per villages in largest cluster)
 	var territory_data = _calculate_territory_points(player, village_manager)
 
 	# Calculate total
@@ -43,7 +43,7 @@ func _calculate_territory_points(player: Player, village_manager: VillageManager
 		var largest_size = groups[0].size()
 		total_points = _calculate_territory_score(largest_size)
 
-		breakdown = "  Largest cluster: %d villages × 2 = %d pts" % [largest_size, total_points]
+		breakdown = "  Largest cluster: %d villages = %d pts" % [largest_size, total_points]
 
 		# Debug: Print all groups to console for balancing
 		if groups.size() > 1:
@@ -113,6 +113,10 @@ func _flood_fill_group(start_pos: Vector2i, player: Player,
 
 	return group
 
-
-func _calculate_territory_score(group_size: int) -> int:
-	return group_size * 2
+# The subsequent bonus glory is equal to the capped ceiling
+func _calculate_territory_score(nb_villages: int) -> int:
+	const CEILING = 5
+	var n = min(nb_villages, CEILING)
+	var base = n * (n + 1) / 2      # 1, 3, 6, 10, 15
+	var bonus = max(0, nb_villages - CEILING) * CEILING		# Then + 5 for each bonus village
+	return base + bonus
