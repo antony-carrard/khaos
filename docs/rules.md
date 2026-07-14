@@ -77,22 +77,21 @@ Les Dieux pouvant être joués sont les suivants :
 ### Bicéphallès
 Pouvoir passif : 1 action bonus à chaque tour (4 actions au lieu de 3)
 Pouvoir mineur (3 ferveurs): Récolte bonus sur un emplacement. Récupère le rendement d'un village normal ou doublé sur un emplacement.
-Pouvoir majeur (6 ferveurs): Double un de ses villages. Le village est doublé autant dans la récolte que pour le décompte du nombre de villages du plus grand groupe. Le joueur récupère le bonus de gloire comme si un nouveau village était construit. Le prix de démolition ainsi que la gloire obtenue lors de la démolition du village doublé sont les mêmes que pour village normal.
+Pouvoir majeur (6 ferveurs): Double un de ses villages. Le village est doublé autant dans la récolte que pour le décompte du nombre de villages du plus grand groupe. Le joueur récupère le bonus de gloire comme si un nouveau village était construit. Le prix de démolition ainsi que la gloire obtenue lors de la démolition du village doublé sont les mêmes que pour un village normal.
 ### Le Bâtisseur
 Pouvoir passif : La construction d'un village sur une tuile plaine coûte 1 matériau au lieu de 2.
 Pouvoir mineur (2 ferveurs) : Peut fusionner des villages situés sur des tuiles plaine à proximité d'une tuile vacante accueillant le nouveau village selon la logique suivante :
 - 2 villages plaine -> 1 village colline
 - 3 villages plaine -> 1 village montagne
-Le bâtisseur gagne un point de gloire par fusion.
 Pouvoir majeur (6 ferveurs): Construction divine. Construit un village sur n'importe quelle tuile vacante.
 ### Augia
 Pouvoir passif : Reçois une tuile bonus à chaque tour (4 tuiles au lieu de 3)
 Pouvoir mineur (2 ferveur): Peut échanger la tuile d'un de ses villages pour une tuile de sa main. Le niveau de la tuile (plaine/colline/montagne) doit être le même.
 Pouvoir majeur (4 ferveur): Augmentation de la tuile d'un village possédé. Augia peut par exemple placer une montagne sous un de ses villages placé sur une colline. Augia reçoit un point de gloire pour chaque augmentation.
 ### Rakun
-Pouvoir passif : Rakun effectue une récolte sur les villages qu'il démolit ou réduit, sur la tuile d'avant la réduction. Rakun doit avoir un village à proximité pour que le passif fasse effet.
+Pouvoir passif : Rakun effectue un vol de récolte sur les villages qu'il démolit.
 Pouvoir mineur (2 ferveur) : Vol de récolte de ressources d'un village ennemi à proximité.
-Pouvoir majeur (5 ferveur) : Réduction d'une tuile ennemie. Rakun peut par exemple voler la tuile de type colline d'un village adverse, pour le transformer en village de type plaine. La tuile volée retourne dans la main de Rakun. Si le village réduit se trouve sur une plaine, le village est démoli (une seule récolte est faite dans ce cas). Rakun gagne un point de gloire pour chaque réduction.
+Pouvoir majeur (5 ferveur) : Réduction d'une tuile ennemie. Rakun peut par exemple voler la tuile de type colline d'un village adverse, pour le transformer en village de type plaine. La tuile volée retourne dans la main de Rakun. Si le village réduit se trouve sur une plaine, le village est démoli, activant son passif. Rakun gagne un point de gloire pour chaque réduction.
 ### Le Démolisseur
 Pouvoir passif : Échafaudage. La construction d'un village sur l'emplacement d'un village adverse démoli durant le même tour est moitié prix. Ce passif s'applique uniquement si le démolisseur possède un village à proximité lors de la démolition.
 Pouvoir mineur (3 ferveur): Le démolisseur peut détruire un village adverse à proximité. Il ne récolte pas de gloire pour la démolition.
