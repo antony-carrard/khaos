@@ -1,5 +1,5 @@
 class_name DestroyVillageFreePower
-extends TargetedGodPower
+extends GodPower
 
 ## Le Bâtisseur major power — destroy an enemy village without compensation.
 
@@ -12,7 +12,7 @@ func is_valid_target(board_manager: Node3D, q: int, r: int) -> bool:
 	return village != null and village.player_owner != board_manager.current_player
 
 
-func resolve_effect(board_manager: Node3D, q: int, r: int, _extra: int) -> bool:
+func apply_effect(board_manager: Node3D, q: int, r: int) -> bool:
 	var success: bool = board_manager.village_manager.remove_village(q, r)
 	if success:
 		Log.info("Destroyed enemy village at (%d, %d) with DestroyVillageFreePower" % [q, r])

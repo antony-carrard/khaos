@@ -1,19 +1,36 @@
 class_name God
 extends Resource
 
-## Data-driven god definition
-## Each god has a name, portrait, and a list of powers (usually 2-3)
+## Data-driven god definition. Per rules.md every god has exactly three
+## abilities — a passive, a minor power and a major power — so they are named
+## slots rather than a list to be filtered at runtime.
+##
+## The passive is display text plus behaviour hooks overridden below: gods and
+## passives are 1:1 forever, so a passive needs no type of its own.
+
+enum PowerSlot { MINOR, MAJOR }
 
 @export var god_name: String = ""
 @export var image_path: String = ""
-@export var powers: Array[GodPower] = []
+
+@export var passive_name: String = ""
+@export var passive_description: String = ""
+
+## Active powers. Null means "no power in this slot yet" — the UI renders an
+## inert placeholder rather than a button.
+@export var minor: GodPower = null
+@export var major: GodPower = null
+
 @export var hand_size: int = 3
 @export var total_actions: int = 3
 
-func _init(p_name: String = "", p_image_path: String = ""):
+
+func _init(p_name: String = "", p_image_path: String = "",
+		p_passive_name: String = "", p_passive_description: String = ""):
 	god_name = p_name
 	image_path = p_image_path
-	powers = []
+	passive_name = p_passive_name
+	passive_description = p_passive_description
 
 
 ## Catalog of every god type, for the selection screen only. Rebuilt fresh
@@ -29,24 +46,29 @@ static func create_all() -> Array[God]:
 	return all
 
 
-## Building cost for this god's players, accounting for passive abilities.
-## Overridden by gods with a flat/modified cost (e.g. Le Bâtisseur).
-func get_village_cost(base_cost: int) -> int:
+## The power occupying `slot`, or null if this god has none there.
+func get_power(slot: int) -> GodPower:
+	match slot:
+		PowerSlot.MINOR: return minor
+		PowerSlot.MAJOR: return major
+	return null
+
+
+## Which slot `power` occupies, or -1 if it isn't one of this god's powers.
+## Used to put a power on the wire in network mode — the slot is a stable
+## identifier, unlike a position in a list.
+func find_slot(power: GodPower) -> int:
+	if power != null and power == minor:
+		return PowerSlot.MINOR
+	if power != null and power == major:
+		return PowerSlot.MAJOR
+	return -1
+
+
+# --- Passive hooks. Defaults are no-ops; each god overrides what it needs. ---
+
+## Materials cost for this god to build a village on `tile` — the placed board
+## tile, so passives can key off its type (rules.md: Le Bâtisseur's discount
+## applies to plains only).
+func modify_village_cost(base_cost: int, _tile: HexTile) -> int:
 	return base_cost
-
-
-## Get all active powers (can be activated with fervor)
-func get_active_powers() -> Array[GodPower]:
-	var active: Array[GodPower] = []
-	for power in powers:
-		if not power.is_passive:
-			active.append(power)
-	return active
-
-## Get all passive powers (always active)
-func get_passive_powers() -> Array[GodPower]:
-	var passive: Array[GodPower] = []
-	for power in powers:
-		if power.is_passive:
-			passive.append(power)
-	return passive

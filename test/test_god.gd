@@ -1,6 +1,26 @@
 extends GdUnitTestSuite
 
-# God.create_all() catalog + virtual get_village_cost() override.
+# God.create_all() catalog, the minor/major power slots, and the passive hooks.
+
+var _bare_tiles: Array[HexTile] = []
+
+
+func after_test() -> void:
+	# HexTile is a StaticBody3D — free()ing it on GdUnit's worker thread aborts.
+	for tile in _bare_tiles:
+		tile.call_deferred("free")
+	_bare_tiles.clear()
+
+
+## A real placed board tile — modify_village_cost() takes the HexTile node, not
+## a TileDefinition, and passing null here would hide that.
+func _board_tile(tile_type: int = TileDefinition.TileType.PLAINS) -> HexTile:
+	var tile := HexTile.new()
+	tile.tile_type = tile_type
+	tile.village_building_cost = 2
+	_bare_tiles.append(tile)
+	return tile
+
 
 
 func test_create_all_returns_the_four_gods() -> void:
@@ -19,33 +39,84 @@ func test_create_all_returns_fresh_instances_each_call() -> void:
 
 func test_base_god_village_cost_is_unchanged() -> void:
 	var god := God.new("Test God")
-	assert_int(god.get_village_cost(10)).is_equal(10)
+	assert_int(god.modify_village_cost(10, _board_tile())).is_equal(10)
 
 
 func test_le_batisseur_flat_village_cost_overrides_base() -> void:
 	var god := LeBatisseurGod.new()
-	assert_int(god.get_village_cost(10)).is_equal(LeBatisseurGod.FLAT_VILLAGE_COST)
+	assert_int(god.modify_village_cost(10, _board_tile())).is_equal(LeBatisseurGod.FLAT_VILLAGE_COST)
 
 
-func test_le_batisseur_has_one_active_and_one_passive_power() -> void:
+# --- Power slots ---
+
+func test_le_batisseur_has_a_major_and_no_minor() -> void:
 	var god := LeBatisseurGod.new()
-	assert_int(god.get_active_powers().size()).is_equal(1)
-	assert_int(god.get_passive_powers().size()).is_equal(1)
+	assert_object(god.minor).is_null()
+	assert_bool(god.major is DestroyVillageFreePower).is_true()
 
 
-func test_bicephalles_has_two_active_powers() -> void:
+func test_bicephalles_has_no_powers_yet() -> void:
+	# Both slots intentionally empty pending the rules.md content pass
+	# (see gods/pantheon/bicephalles_god.gd).
 	var god := BicephallesGod.new()
-	assert_int(god.get_active_powers().size()).is_equal(2)
-	assert_int(god.get_passive_powers().size()).is_equal(0)
+	assert_object(god.minor).is_null()
+	assert_object(god.major).is_null()
 
 
 func test_augia_powers_are_change_tile_type_and_upgrade() -> void:
 	var god := AugiaGod.new()
-	assert_bool(god.powers[0] is ChangeTileTypePower).is_true()
-	assert_bool(god.powers[1] is UpgradeTileKeepVillagePower).is_true()
+	assert_bool(god.minor is ChangeTileTypePower).is_true()
+	assert_bool(god.major is UpgradeTileKeepVillagePower).is_true()
 
 
 func test_rakun_powers_are_steal_harvest_and_downgrade() -> void:
 	var god := RakunGod.new()
-	assert_bool(god.powers[0] is StealHarvestPower).is_true()
-	assert_bool(god.powers[1] is DowngradeTileKeepVillagePower).is_true()
+	assert_bool(god.minor is StealHarvestPower).is_true()
+	assert_bool(god.major is DowngradeTileKeepVillagePower).is_true()
+
+
+# --- Slot lookup, the network wire identifier ---
+
+func test_get_power_returns_the_slot_occupant() -> void:
+	var god := AugiaGod.new()
+	assert_object(god.get_power(God.PowerSlot.MINOR)).is_same(god.minor)
+	assert_object(god.get_power(God.PowerSlot.MAJOR)).is_same(god.major)
+
+
+func test_get_power_returns_null_for_an_empty_slot() -> void:
+	var god := BicephallesGod.new()
+	assert_object(god.get_power(God.PowerSlot.MINOR)).is_null()
+
+
+func test_find_slot_round_trips_through_get_power() -> void:
+	var god := RakunGod.new()
+	var slot := god.find_slot(god.major)
+	assert_int(slot).is_equal(God.PowerSlot.MAJOR)
+	assert_object(god.get_power(slot)).is_same(god.major)
+
+
+func test_find_slot_returns_minus_one_for_a_foreign_power() -> void:
+	var god := RakunGod.new()
+	assert_int(god.find_slot(GodPower.new("Foreign", "not this god's", 1))).is_equal(-1)
+
+
+func test_find_slot_returns_minus_one_for_null() -> void:
+	# Bicéphallès has two null slots — a null lookup must not match them.
+	var god := BicephallesGod.new()
+	assert_int(god.find_slot(null)).is_equal(-1)
+
+
+# --- Passives that are plain stat changes ---
+
+func test_bicephalles_passive_grants_a_fourth_action() -> void:
+	assert_int(BicephallesGod.new().total_actions).is_equal(4)
+
+
+func test_augia_passive_grants_a_fourth_hand_tile() -> void:
+	assert_int(AugiaGod.new().hand_size).is_equal(4)
+
+
+func test_gods_without_a_stat_passive_use_the_defaults() -> void:
+	var god := RakunGod.new()
+	assert_int(god.total_actions).is_equal(3)
+	assert_int(god.hand_size).is_equal(3)

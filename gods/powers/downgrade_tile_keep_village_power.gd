@@ -1,5 +1,5 @@
 class_name DowngradeTileKeepVillagePower
-extends TargetedGodPower
+extends GodPower
 
 ## Rakun major power — downgrade an enemy tile a level without destroying its village.
 
@@ -15,7 +15,7 @@ func is_valid_target(board_manager: Node3D, q: int, r: int) -> bool:
 	return tile != null and tile.tile_type != TileDefinition.TileType.PLAINS
 
 
-func resolve_effect(board_manager: Node3D, q: int, r: int, _extra: int) -> bool:
+func apply_effect(board_manager: Node3D, q: int, r: int) -> bool:
 	var success: bool = board_manager.tile_manager.downgrade_tile(q, r)
 	if success:
 		var new_height = board_manager.tile_manager.get_top_height(q, r)

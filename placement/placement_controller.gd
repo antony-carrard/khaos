@@ -233,7 +233,7 @@ func select_village_remove_mode() -> void:
 	current_strategy = VillageRemoveStrategy.new()
 
 
-func select_power_target_mode(power: TargetedGodPower) -> void:
+func select_power_target_mode(power: GodPower) -> void:
 	current_strategy = PowerTargetStrategy.new(power)
 
 
@@ -256,3 +256,5 @@ func _deactivate() -> void:
 	preview_tile.visible = false
 	if preview_village:
 		preview_village.visible = false
+	if board_manager:
+		board_manager.cancel_pending_hand_power()

@@ -160,35 +160,40 @@ func create_god_card(god: God, is_taken: bool = false) -> Control:
 		powers_label.add_theme_color_override("font_color", Color(0.4, 0.4, 0.4))
 	vbox.add_child(powers_label)
 
-	# List each power
-	for power in god.powers:
-		var power_label = Label.new()
-		var power_text = power.power_name
+	# Passive, then the two active slots — every god has exactly these three.
+	_add_power_entry(vbox, "%s [Passif]" % god.passive_name, god.passive_description, is_taken)
+	for power: GodPower in [god.minor, god.major]:
+		if power == null:
+			continue
+		var title: String = power.power_name
 		if power.fervor_cost > 0:
-			power_text += " (%d ferveur)" % power.fervor_cost
-		if power.is_passive:
-			power_text += " [Passif]"
-		power_label.text = "• " + power_text
-		power_label.add_theme_font_size_override("font_size", 16)
-		power_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		power_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		if is_taken:
-			power_label.add_theme_color_override("font_color", Color(0.4, 0.4, 0.4))
-		vbox.add_child(power_label)
-
-		# Power description
-		var desc_label = Label.new()
-		desc_label.text = "  " + power.description
-		desc_label.add_theme_font_size_override("font_size", 14)
-		if is_taken:
-			desc_label.add_theme_color_override("font_color", Color(0.35, 0.35, 0.35))
-		else:
-			desc_label.add_theme_color_override("font_color", Color(0.7, 0.7, 0.7))
-		desc_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		desc_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		vbox.add_child(desc_label)
+			title += " (%d ferveur)" % power.fervor_cost
+		_add_power_entry(vbox, title, power.description, is_taken)
 
 	return card
+
+
+## One "• Name" line plus its indented description, appended to `vbox`.
+func _add_power_entry(vbox: VBoxContainer, title: String, description: String, is_taken: bool) -> void:
+	var title_label = Label.new()
+	title_label.text = "• " + title
+	title_label.add_theme_font_size_override("font_size", 16)
+	title_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	title_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	if is_taken:
+		title_label.add_theme_color_override("font_color", Color(0.4, 0.4, 0.4))
+	vbox.add_child(title_label)
+
+	var desc_label = Label.new()
+	desc_label.text = "  " + description
+	desc_label.add_theme_font_size_override("font_size", 14)
+	if is_taken:
+		desc_label.add_theme_color_override("font_color", Color(0.35, 0.35, 0.35))
+	else:
+		desc_label.add_theme_color_override("font_color", Color(0.7, 0.7, 0.7))
+	desc_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	desc_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	vbox.add_child(desc_label)
 
 
 ## Handle god card click

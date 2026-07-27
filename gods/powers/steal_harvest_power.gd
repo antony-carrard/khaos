@@ -1,5 +1,5 @@
 class_name StealHarvestPower
-extends TargetedGodPower
+extends GodPower
 
 ## Rakun minor power — harvest an enemy village's tile yield directly.
 
@@ -12,7 +12,7 @@ func is_valid_target(board_manager: Node3D, q: int, r: int) -> bool:
 	return village != null and village.player_owner != board_manager.current_player
 
 
-func resolve_effect(board_manager: Node3D, q: int, r: int, _extra: int) -> bool:
+func apply_effect(board_manager: Node3D, q: int, r: int) -> bool:
 	var tile = board_manager.tile_manager.get_tile_at(q, r)
 	if not tile:
 		Log.error("StealHarvestPower: village at (%d,%d) has no tile" % [q, r])

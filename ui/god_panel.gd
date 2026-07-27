@@ -18,8 +18,10 @@ signal power_activated(power: GodPower)
 
 var god_portrait: TextureRect = null
 var god_name_label: Label = null
-var god_power_buttons: Array[Button] = []
-var god_power_mapping: Dictionary = {}  # Maps Button -> GodPower
+var passive_label: Label = null
+var minor_button: Button = null
+var major_button: Button = null
+var displayed_god: God = null
 var board_manager_ref = null  # Reference to board manager for signals
 
 
@@ -120,18 +122,20 @@ func update_god_display(god: God, board_manager) -> void:
 		Log.error("PowersContainer not found in god panel")
 		return
 
-	# Clear existing power buttons and mappings
-	for button in god_power_buttons:
-		button.queue_free()
-	god_power_buttons.clear()
-	god_power_mapping.clear()
+	# Rebuild: one passive line plus exactly two power buttons — the god's
+	# slots are fixed, so there's nothing to discover here.
+	displayed_god = god
+	for child in powers_container.get_children():
+		child.queue_free()
 
-	# Add power buttons for all powers (active and passive)
-	for power in god.powers:
-		var button = _create_power_button(power)
-		powers_container.add_child(button)
-		god_power_buttons.append(button)
-		god_power_mapping[button] = power
+	passive_label = _create_passive_label(god)
+	powers_container.add_child(passive_label)
+
+	minor_button = _create_power_button(god.minor)
+	powers_container.add_child(minor_button)
+
+	major_button = _create_power_button(god.major)
+	powers_container.add_child(major_button)
 
 	# Connect to active_player_view signals for dynamic updates (connect once — never rewire)
 	if board_manager and board_manager.active_player_view:
@@ -147,20 +151,31 @@ func update_god_display(god: God, board_manager) -> void:
 	Log.debug("God display updated: %s" % god.god_name)
 
 
-## Create a power button with icon and styling
+## The passive is display-only here — its behaviour lives in God's hooks.
+func _create_passive_label(god: God) -> Label:
+	var label = Label.new()
+	label.text = ("%s (passif)" % god.passive_name) if god.passive_name != "" else "—"
+	label.tooltip_text = god.passive_description
+	label.add_theme_font_size_override("font_size", 11)
+	label.add_theme_color_override("font_color", Color(0.7, 0.7, 0.7))
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	return label
+
+
+## Create a power button with icon and styling. A null power means the god has
+## no power in that slot yet — render an inert placeholder so the panel keeps
+## its shape.
 func _create_power_button(power: GodPower) -> Button:
 	var button = Button.new()
 	button.custom_minimum_size = POWER_BUTTON_SIZE
 	button.mouse_filter = Control.MOUSE_FILTER_STOP
 
-	# Style based on power type
 	var style = StyleBoxFlat.new()
-	if power.is_passive:
-		# Passive - gray, disabled
+	if power == null:
 		style.bg_color = Color(0.3, 0.3, 0.3, 0.8)
 		button.disabled = true
 	else:
-		# Active - purple
 		style.bg_color = Color(0.3, 0.2, 0.5, 0.9)
 		button.pressed.connect(_on_power_button_pressed.bind(power))
 
@@ -193,15 +208,15 @@ func _create_power_button(power: GodPower) -> Button:
 
 	# Power name
 	var name_label = Label.new()
-	name_label.text = power.power_name
+	name_label.text = power.power_name if power else "—"
 	name_label.add_theme_font_size_override("font_size", 11)
 	name_label.add_theme_color_override("font_color", Color.WHITE)
 	name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	name_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	content_vbox.add_child(name_label)
 
-	# Cost row (icon + number) if not passive
-	if power.fervor_cost > 0:
+	# Cost row (icon + number)
+	if power and power.fervor_cost > 0:
 		var cost_hbox = HBoxContainer.new()
 		cost_hbox.alignment = BoxContainer.ALIGNMENT_CENTER
 		cost_hbox.add_theme_constant_override("separation", 4)
@@ -232,42 +247,36 @@ func _create_power_button(power: GodPower) -> Button:
 
 ## Update power button states based on current player resources/usage
 func update_power_buttons(_unused = null) -> void:
-	if not board_manager_ref or not board_manager_ref.current_player:
+	if not board_manager_ref or not board_manager_ref.current_player or not displayed_god:
 		return
 
 	var is_my_turn: bool = board_manager_ref.ui_player == board_manager_ref.current_player
 	var player = board_manager_ref.ui_player
 
-	for button in god_power_buttons:
-		var power: GodPower = god_power_mapping.get(button)
-		if not power or power.is_passive:
-			continue
+	_apply_button_state(minor_button, displayed_god.minor, is_my_turn, player)
+	_apply_button_state(major_button, displayed_god.major, is_my_turn, player)
 
-		# Check if power can be activated
-		var can_activate = is_my_turn and power.can_afford(player)
 
-		# Update button state
-		if can_activate:
-			# Enabled - bright purple
-			button.disabled = false
-			var style = StyleBoxFlat.new()
-			style.bg_color = Color(0.4, 0.25, 0.6, 0.95)  # Brighter purple
-			style.corner_radius_top_left = 6
-			style.corner_radius_top_right = 6
-			style.corner_radius_bottom_left = 6
-			style.corner_radius_bottom_right = 6
-			button.add_theme_stylebox_override("normal", style)
-		else:
-			# Disabled - dark gray
-			button.disabled = true
-			var style = StyleBoxFlat.new()
-			style.bg_color = Color(0.2, 0.2, 0.2, 0.7)  # Dark gray
-			style.corner_radius_top_left = 6
-			style.corner_radius_top_right = 6
-			style.corner_radius_bottom_left = 6
-			style.corner_radius_bottom_right = 6
-			button.add_theme_stylebox_override("normal", style)
-			button.add_theme_stylebox_override("disabled", style)
+func _apply_button_state(button: Button, power: GodPower, is_my_turn: bool, player) -> void:
+	if button == null:
+		return
+
+	var can_activate: bool = power != null and is_my_turn and power.can_afford(player)
+
+	var style = StyleBoxFlat.new()
+	if can_activate:
+		button.disabled = false
+		style.bg_color = Color(0.4, 0.25, 0.6, 0.95)  # Brighter purple
+	else:
+		button.disabled = true
+		style.bg_color = Color(0.2, 0.2, 0.2, 0.7)  # Dark gray
+	style.corner_radius_top_left = POWER_BUTTON_CORNER_RADIUS
+	style.corner_radius_top_right = POWER_BUTTON_CORNER_RADIUS
+	style.corner_radius_bottom_left = POWER_BUTTON_CORNER_RADIUS
+	style.corner_radius_bottom_right = POWER_BUTTON_CORNER_RADIUS
+	button.add_theme_stylebox_override("normal", style)
+	if not can_activate:
+		button.add_theme_stylebox_override("disabled", style)
 
 
 ## Handle power button press

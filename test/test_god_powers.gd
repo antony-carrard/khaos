@@ -1,16 +1,14 @@
 extends GdUnitTestSuite
 
-# Concrete TargetedGodPower subclasses: is_valid_target + resolve_effect,
-# migrated verbatim from the old PlacementStrategy.get_validity() /
-# PowerExecutor.on_*() methods. Tiles/villages are injected directly into
-# the managers' internal dictionaries (established repo test pattern) rather
-# than placed through the full placement flow.
+# Concrete GodPower subclasses: their is_valid_target()/apply_effect() overrides.
+# Tiles/villages are injected directly into the managers' internal dictionaries
+# (established repo test pattern) rather than placed through the full placement flow.
 #
 # NOTE: upgrade_tile()/downgrade_tile() themselves instantiate a real
 # hex_tile_scene (StaticBody3D) — per repo policy (see test_victory_scoring.gd)
-# those scene-dependent effects aren't re-verified here; only is_valid_target
-# is tested for the two tile-height powers. resolve_effect for those is
-# covered by the Stage 2 manual playtest.
+# those scene-dependent effects aren't re-verified here; only validity is
+# tested for the two tile-height powers. The effect for those is covered by
+# the Stage 2 manual playtest.
 
 class FakePlacementController extends Node:
 	func cancel_placement() -> void:
@@ -24,6 +22,15 @@ class FakeBoardManager extends Node3D:
 	var tile_pool: TilePool
 	var placement_controller: Node = null
 	var ui: Node = null
+
+	# Activation context — stands in for the real board_manager's, which is
+	# where a power reads the hand tile the player picked for it.
+	var power_hand_index: int = -1
+
+	func get_picked_hand_tile() -> TileDefinition:
+		if power_hand_index < 0 or power_hand_index >= current_player.hand_size:
+			return null
+		return current_player.hand[power_hand_index]
 
 
 var actor: Player
@@ -42,6 +49,8 @@ func before_test() -> void:
 	actor.fervor = 20
 	actor.glory = 0
 	actor.actions_remaining = 5
+	actor.hand_size = 3
+	actor.hand.resize(3)
 
 	victim = auto_free(Player.new())
 	victim.initialize("Victim", Color.RED)
@@ -112,7 +121,7 @@ func test_destroy_village_free_invalid_when_no_village() -> void:
 func test_destroy_village_free_resolve_effect_removes_village() -> void:
 	_inject_village(0, 0, victim)
 	var power := DestroyVillageFreePower.new()
-	var success := power.resolve_effect(board, 0, 0, TargetedGodPower.NO_EXTRA)
+	var success := power.apply_effect(board, 0, 0)
 	assert_bool(success).is_true()
 	assert_object(village_manager.get_village_at(0, 0)).is_null()
 
@@ -138,7 +147,7 @@ func test_steal_harvest_resolve_effect_adds_yields_to_actor() -> void:
 		TileDefinition.ResourceType.GLORY: 1,
 	})
 	var power := StealHarvestPower.new()
-	var success := power.resolve_effect(board, 1, 1, TargetedGodPower.NO_EXTRA)
+	var success := power.apply_effect(board, 1, 1)
 	assert_bool(success).is_true()
 	assert_int(actor.materials).is_equal(3)
 	assert_int(actor.glory).is_equal(1)
@@ -147,7 +156,7 @@ func test_steal_harvest_resolve_effect_adds_yields_to_actor() -> void:
 func test_steal_harvest_resolve_effect_fails_without_tile() -> void:
 	_inject_village(1, 1, victim)
 	var power := StealHarvestPower.new()
-	var success := power.resolve_effect(board, 1, 1, TargetedGodPower.NO_EXTRA)
+	var success := power.apply_effect(board, 1, 1)
 	assert_bool(success).is_false()
 
 
@@ -206,63 +215,108 @@ func test_downgrade_invalid_when_already_plains() -> void:
 	assert_bool(power.is_valid_target(board, 3, 3)).is_false()
 
 
-# --- ChangeTileTypePower (Augia minor) ---
+# --- ChangeTileTypePower (Augia minor) — sourced from hand, swaps tile back into hand ---
 
-func test_change_tile_type_valid_target_is_own_village() -> void:
+func test_change_tile_type_needs_a_hand_tile() -> void:
+	assert_bool(ChangeTileTypePower.new().needs_hand_tile()).is_true()
+
+
+func test_change_tile_type_valid_target_is_own_village_matching_level() -> void:
 	_inject_village(4, 4, actor)
+	_inject_tile(4, 4, 0, TileDefinition.TileType.PLAINS, {})
+	actor.hand[0] = TileDefinition.new(TileDefinition.TileType.PLAINS, {TileDefinition.ResourceType.FERVOR: 1}, 2)
+	board.power_hand_index = 0
 	var power := ChangeTileTypePower.new()
 	assert_bool(power.is_valid_target(board, 4, 4)).is_true()
 
 
-func test_change_tile_type_invalid_on_enemy_village() -> void:
+func test_change_tile_type_invalid_target_on_enemy_village() -> void:
 	_inject_village(4, 4, victim)
+	_inject_tile(4, 4, 0, TileDefinition.TileType.PLAINS, {})
+	actor.hand[0] = TileDefinition.new(TileDefinition.TileType.PLAINS, {TileDefinition.ResourceType.FERVOR: 1}, 2)
+	board.power_hand_index = 0
 	var power := ChangeTileTypePower.new()
 	assert_bool(power.is_valid_target(board, 4, 4)).is_false()
 
 
-func test_change_tile_type_resolve_effect_swaps_yields_and_draws_from_bag() -> void:
+func test_change_tile_type_invalid_target_when_level_differs() -> void:
+	_inject_village(4, 4, actor)
+	_inject_tile(4, 4, 0, TileDefinition.TileType.PLAINS, {})
+	actor.hand[0] = TileDefinition.new(TileDefinition.TileType.HILLS, {TileDefinition.ResourceType.MATERIALS: 2}, 4)
+	board.power_hand_index = 0
+	var power := ChangeTileTypePower.new()
+	assert_bool(power.is_valid_target(board, 4, 4)).is_false()
+
+
+func test_change_tile_type_invalid_target_when_hand_slot_empty() -> void:
+	_inject_village(4, 4, actor)
+	_inject_tile(4, 4, 0, TileDefinition.TileType.PLAINS, {})
+	board.power_hand_index = 0
+	var power := ChangeTileTypePower.new()
+	assert_bool(power.is_valid_target(board, 4, 4)).is_false()
+
+
+func test_change_tile_type_invalid_target_when_no_hand_tile_picked() -> void:
+	_inject_village(4, 4, actor)
+	_inject_tile(4, 4, 0, TileDefinition.TileType.PLAINS, {})
+	actor.hand[0] = TileDefinition.new(TileDefinition.TileType.PLAINS, {TileDefinition.ResourceType.FERVOR: 1}, 2)
+	var power := ChangeTileTypePower.new()
+	assert_bool(power.is_valid_target(board, 4, 4)).is_false()
+
+
+func test_change_tile_type_apply_effect_swaps_board_and_hand_tiles() -> void:
 	_inject_village(4, 4, actor)
 	var tile := _inject_tile(4, 4, 0, TileDefinition.TileType.PLAINS, {
 		TileDefinition.ResourceType.MATERIALS: 2,
 	})
-	var before_count := tile_pool.get_remaining_count()
+	actor.hand[0] = TileDefinition.new(TileDefinition.TileType.PLAINS, {TileDefinition.ResourceType.FERVOR: 1}, 2)
+	board.power_hand_index = 0
 	var power := ChangeTileTypePower.new()
-	var success := power.resolve_effect(board, 4, 4, TileDefinition.ResourceType.FERVOR)
+	var success := power.apply_effect(board, 4, 4)
 	assert_bool(success).is_true()
 	assert_bool(tile.yields.has(TileDefinition.ResourceType.FERVOR)).is_true()
-	assert_int(tile_pool.get_remaining_count()).is_equal(before_count - 1)
+	assert_object(actor.hand[0]).is_not_null()
+	assert_int(actor.hand[0].tile_type).is_equal(TileDefinition.TileType.PLAINS)
+	assert_bool(actor.hand[0].yields.has(TileDefinition.ResourceType.MATERIALS)).is_true()
 
 
-func test_change_tile_type_resolve_effect_rejects_glory_on_plains() -> void:
+func test_change_tile_type_resolve_fails_and_pays_nothing_when_level_mismatch() -> void:
 	_inject_village(4, 4, actor)
-	_inject_tile(4, 4, 0, TileDefinition.TileType.PLAINS, {
-		TileDefinition.ResourceType.MATERIALS: 2,
-	})
+	_inject_tile(4, 4, 0, TileDefinition.TileType.PLAINS, {})
+	actor.hand[0] = TileDefinition.new(TileDefinition.TileType.HILLS, {TileDefinition.ResourceType.MATERIALS: 2}, 4)
+	board.power_hand_index = 0
 	var power := ChangeTileTypePower.new()
-	var success := power.resolve_effect(board, 4, 4, TileDefinition.ResourceType.GLORY)
-	assert_bool(success).is_false()
-
-
-func test_change_tile_type_resolve_only_pays_cost_on_success() -> void:
-	_inject_village(4, 4, actor)
-	_inject_tile(4, 4, 0, TileDefinition.TileType.PLAINS, {
-		TileDefinition.ResourceType.MATERIALS: 2,
-	})
-	var power := ChangeTileTypePower.new()
-	# GLORY on PLAINS is invalid -> resolve_effect fails -> cost must not be paid.
-	var success := power.resolve(board, 4, 4, TileDefinition.ResourceType.GLORY)
+	var success := power.resolve(board, 4, 4)
 	assert_bool(success).is_false()
 	assert_int(actor.fervor).is_equal(20)
 	assert_int(actor.actions_remaining).is_equal(5)
 
 
-func test_change_tile_type_resolve_pays_cost_when_valid() -> void:
+func test_change_tile_type_resolve_pays_cost_and_swaps_when_valid() -> void:
 	_inject_village(4, 4, actor)
 	_inject_tile(4, 4, 0, TileDefinition.TileType.PLAINS, {
 		TileDefinition.ResourceType.MATERIALS: 2,
 	})
+	actor.hand[0] = TileDefinition.new(TileDefinition.TileType.PLAINS, {TileDefinition.ResourceType.FERVOR: 1}, 2)
+	board.power_hand_index = 0
 	var power := ChangeTileTypePower.new()
-	var success := power.resolve(board, 4, 4, TileDefinition.ResourceType.FERVOR)
+	var success := power.resolve(board, 4, 4)
 	assert_bool(success).is_true()
 	assert_int(actor.fervor).is_equal(18)  # 20 - 2
 	assert_int(actor.actions_remaining).is_equal(4)
+	assert_object(actor.hand[0]).is_not_null()
+	assert_int(actor.hand[0].tile_type).is_equal(TileDefinition.TileType.PLAINS)
+	assert_bool(actor.hand[0].yields.has(TileDefinition.ResourceType.MATERIALS)).is_true()
+
+
+# --- ChangeTileTypePower.can_afford — its extra_afford_check override ---
+
+func test_change_tile_type_can_afford_false_when_hand_empty() -> void:
+	var power := ChangeTileTypePower.new()
+	assert_bool(power.can_afford(actor)).is_false()
+
+
+func test_change_tile_type_can_afford_true_when_hand_has_tile() -> void:
+	actor.hand[0] = TileDefinition.new(TileDefinition.TileType.PLAINS, {TileDefinition.ResourceType.MATERIALS: 1}, 2)
+	var power := ChangeTileTypePower.new()
+	assert_bool(power.can_afford(actor)).is_true()

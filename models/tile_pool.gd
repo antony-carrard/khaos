@@ -123,34 +123,6 @@ func draw_tile_of_type(tile_type: int) -> TileDefinition:
 	return null
 
 
-## Check if the bag has a tile of the given type whose yields include resource_type.
-func has_tile_of_type_and_resource(tile_type: int, resource_type: int) -> bool:
-	for tile in tile_bag:
-		if tile.tile_type == tile_type and tile.yields.has(resource_type):
-			return true
-	return false
-
-
-## Draw the first tile of the given type whose yields include resource_type.
-## Returns TileDefinition or null if none available.
-func draw_tile_of_type_and_resource(tile_type: int, resource_type: int) -> TileDefinition:
-	for i in range(tile_bag.size()):
-		if tile_bag[i].tile_type == tile_type and tile_bag[i].yields.has(resource_type):
-			var tile = tile_bag[i]
-			tile_bag.remove_at(i)
-			removed_tiles.append(tile)
-			Log.debug("TilePool: Drew %s tile (resource match). Remaining: %d" % [
-				TileDefinition.TileType.keys()[tile.tile_type],
-				tile_bag.size()
-			])
-			return tile
-	Log.warn("TilePool: No %s tile with %s in bag!" % [
-		TileDefinition.TileType.keys()[tile_type],
-		TileDefinition.ResourceType.keys()[resource_type]
-	])
-	return null
-
-
 ## Return a tile to the bag and shuffle.
 func return_tile(tile: TileDefinition) -> void:
 	var idx = removed_tiles.find(tile)

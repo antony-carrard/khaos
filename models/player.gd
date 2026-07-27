@@ -89,6 +89,19 @@ func add_to_hand(tile: TileDefinition):
 			return
 	assert(false, "the hand is already full")
 
+## Writes directly into a hand slot, replacing whatever is there. Used for
+## powers that swap a hand tile for another tile (e.g. Augia's Transformation).
+func replace_hand_tile(index: int, tile: TileDefinition):
+	assert(index >= 0 and index < hand_size, "Invalid hand index: %d" % index)
+	assert(hand[index] != null, "Slot %d is empty, cannot replace" % index)
+	hand[index] = tile
+
 func empty_hand():
 	for i in range(hand_size):
 		hand[i] = null
+
+func has_tile_in_hand() -> bool:
+	for tile in hand:
+		if tile != null:
+			return true
+	return false

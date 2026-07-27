@@ -1,20 +1,21 @@
 class_name PowerTargetStrategy extends PlacementStrategy
 
-## Generic targeting strategy for any TargetedGodPower — replaces the 5
-## near-identical per-power strategy files. The power instance itself is the
-## "pending power" state; there's nothing else for a separate object to own.
+## Targeting strategy for any GodPower — the power itself owns the validity
+## rule, the effect and the tooltip, so this just forwards. Powers needing a
+## pre-picked hand tile read it from board_manager's activation context; this
+## strategy doesn't need to know about it.
 
-var power: TargetedGodPower
+var power: GodPower
 
 
-func _init(p_power: TargetedGodPower) -> void:
+func _init(p_power: GodPower) -> void:
 	power = p_power
 
 
 func on_click(controller: PlacementController, q: int, r: int) -> bool:
 	if not power.is_valid_target(controller.board_manager, q, r):
 		return false
-	return power.on_target_selected(controller.board_manager, q, r)
+	return controller.board_manager._resolve_power_target(power, q, r)
 
 
 func get_validity(controller: PlacementController, q: int, r: int) -> bool:

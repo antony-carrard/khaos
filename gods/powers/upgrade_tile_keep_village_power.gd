@@ -1,5 +1,5 @@
 class_name UpgradeTileKeepVillagePower
-extends TargetedGodPower
+extends GodPower
 
 ## Augia major power — upgrade an own tile a level without destroying its village.
 
@@ -19,7 +19,7 @@ func is_valid_target(board_manager: Node3D, q: int, r: int) -> bool:
 	return board_manager.tile_pool.has_tile_of_type(next_type)
 
 
-func resolve_effect(board_manager: Node3D, q: int, r: int, _extra: int) -> bool:
+func apply_effect(board_manager: Node3D, q: int, r: int) -> bool:
 	var success: bool = board_manager.tile_manager.upgrade_tile(q, r)
 	if success:
 		var new_height = board_manager.tile_manager.get_top_height(q, r)

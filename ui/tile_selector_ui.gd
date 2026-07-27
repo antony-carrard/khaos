@@ -15,7 +15,6 @@ const HAND_SEPARATOR_WIDTH: int = 30      # Width of gap before right-side panel
 
 # Preload UI components
 const VictoryScreenScene = preload("res://ui/victory_screen.gd")
-const ResourceTypePickerScene = preload("res://ui/resource_type_picker.gd")
 const GodPanelScene = preload("res://ui/god_panel.gd")
 const ResourcePanelScene = preload("res://ui/resource_panel.gd")
 const HandDisplayScene = preload("res://ui/hand_display.gd")
@@ -45,7 +44,6 @@ var village_remove_button: Button = null
 
 # UI Components
 var victory_screen: VictoryScreen = null
-var resource_type_picker: ResourceTypePicker = null
 var god_panel: GodPanel = null
 var resource_panel: ResourcePanel = null
 var hand_display: HandDisplay = null
@@ -53,6 +51,7 @@ var tooltip_manager: TooltipManager = null
 
 # Container references (for hand display)
 var hand_container: HBoxContainer = null
+var hand_panel: PanelContainer = null
 var tile_count_label: Label = null
 
 
@@ -72,12 +71,6 @@ func _ready() -> void:
 	hand_display = HandDisplayScene.new()
 	add_child(hand_display)
 	hand_display.tile_selected_from_hand.connect(_on_hand_card_pressed)
-
-	resource_type_picker = ResourceTypePickerScene.new()
-	resource_type_picker.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	add_child(resource_type_picker)
-	resource_type_picker.resource_type_selected.connect(_on_resource_type_selected)
-	resource_type_picker.picker_cancelled.connect(_on_resource_type_picker_cancelled)
 
 func initialize(colors: Dictionary, _board_manager: Node3D = null) -> void:
 	tile_type_colors = colors
@@ -146,13 +139,14 @@ func initialize(colors: Dictionary, _board_manager: Node3D = null) -> void:
 	hand_vbox.add_child(tile_count_label)
 
 	# Hand panel
-	var hand_panel = PanelContainer.new()
+	hand_panel = PanelContainer.new()
 	var hand_style = StyleBoxFlat.new()
 	hand_style.bg_color = Color(0.1, 0.1, 0.1, 0.8)
 	hand_style.corner_radius_top_left = 10
 	hand_style.corner_radius_top_right = 10
 	hand_style.corner_radius_bottom_left = 10
 	hand_style.corner_radius_bottom_right = 10
+	hand_style.border_color = Color(0.6, 0.5, 0.3)  # Gold, matches god_panel's border
 	hand_panel.add_theme_stylebox_override("panel", hand_style)
 	hand_vbox.add_child(hand_panel)
 
@@ -309,10 +303,30 @@ func _on_village_remove_pressed() -> void:
 func update_hand_display() -> void:
 	if hand_display:
 		hand_display.update_hand_display()
+	# Hand-tile-consuming powers (e.g. Augia's Transformation) can flip
+	# availability whenever the hand changes, not just on fervor/actions.
+	if god_panel:
+		god_panel.update_power_buttons()
 
 
 func _on_hand_card_pressed(hand_index: int) -> void:
 	tile_selected_from_hand.emit(hand_index)
+
+
+## Toggled while a power that needs a hand tile is waiting for the player to
+## pick a tile from the hand bar below — highlights the hand panel so it's
+## clear the next hand click won't place the tile normally.
+func set_hand_picking_mode(enabled: bool) -> void:
+	if not hand_panel:
+		return
+	var style := hand_panel.get_theme_stylebox("panel") as StyleBoxFlat
+	if not style:
+		return
+	style.border_color = Color(0.7, 0.6, 0.2) if enabled else Color(0.6, 0.5, 0.3)
+	style.border_width_left = 3 if enabled else 0
+	style.border_width_right = 3 if enabled else 0
+	style.border_width_top = 3 if enabled else 0
+	style.border_width_bottom = 3 if enabled else 0
 
 
 func _on_end_turn_pressed() -> void:
@@ -413,32 +427,6 @@ func _on_power_activated(power: GodPower) -> void:
 	if board_manager and board_manager.current_player:
 		board_manager.on_power_activated(power, board_manager.current_player)
 
-
-## Shows the resource type picker UI for CHANGE_TILE_TYPE power
-## Delegates to resource_type_picker component.
-func show_resource_type_picker(q: int, r: int, current_type: int, tile_type: int, available_types: Array[int]) -> void:
-	if resource_type_picker:
-		resource_type_picker.show_picker(q, r, current_type, tile_type, available_types)
-
-
-## Handle resource type selection from picker
-func _on_resource_type_selected(q: int, r: int, resource_type: int) -> void:
-	# The pending power is whichever TargetedGodPower the placement controller
-	# is currently targeting with (set by ChangeTileTypePower.on_target_selected).
-	if not board_manager:
-		return
-	var strategy := board_manager.placement_controller.current_strategy as PowerTargetStrategy
-	if not strategy:
-		return
-	board_manager._resolve_power_target(strategy.power, q, r, resource_type)
-
-
-## Handle picker cancellation
-func _on_resource_type_picker_cancelled() -> void:
-	# Cancel placement mode
-	if board_manager and board_manager.placement_controller:
-		board_manager.placement_controller.cancel_placement()
-		
 
 ## Consume all input events on the overlay to prevent click-through
 func _on_overlay_gui_input(event: InputEvent) -> void:

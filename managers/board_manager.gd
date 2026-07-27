@@ -58,6 +58,17 @@ var local_player_index: int = 0
 
 # Final round tracking
 var final_round_triggered: bool = false
+
+# Activation context for the power currently being used. Powers are immutable
+# definitions, so the transient bits of an activation live here instead.
+#
+# _pending_hand_power is set while waiting for the player to pick a hand tile
+# for a power whose needs_hand_tile() is true (after the power button is
+# pressed, before target-selection starts). power_hand_index holds that pick,
+# read back by the power via get_picked_hand_tile().
+const NO_HAND_INDEX: int = -1
+var _pending_hand_power: GodPower = null
+var power_hand_index: int = NO_HAND_INDEX
 var triggering_player: Player = null
 
 
@@ -365,6 +376,15 @@ func _on_tile_selected_from_hand(hand_index: int) -> void:
 		Log.warn("No tile in this slot!")
 		return
 
+	if _pending_hand_power:
+		var power := _pending_hand_power
+		_pending_hand_power = null
+		if ui:
+			ui.set_hand_picking_mode(false)
+		power_hand_index = hand_index
+		placement_controller.select_power_target_mode(power)
+		return
+
 	# Check if player has actions remaining
 	if current_player.actions_remaining <= 0:
 		Log.warn("No actions remaining to place tile!")
@@ -418,7 +438,7 @@ func on_village_placed(q: int, r: int) -> bool:
 		Log.error("BoardManager: No tile at (%d,%d) for village placement" % [q, r])
 		return false
 
-	var cost = current_player.god.get_village_cost(tile.village_building_cost)
+	var cost = current_player.god.modify_village_cost(tile.village_building_cost, tile)
 
 	if current_player.materials < cost:
 		Log.warn("BoardManager: Cannot afford village — need %d, have %d" % [cost, current_player.materials])
@@ -556,7 +576,6 @@ func _begin_turn(player: Player) -> void:
 
 
 ## Sums a player's village yields and adds them to their materials/fervor/glory.
-## Public: also called by SecondHarvestPower.apply().
 func harvest_for_player(player: Player) -> void:
 	var totals := village_manager.harvest_totals_for_player(player)
 	if totals[TileDefinition.ResourceType.MATERIALS] > 0:
@@ -619,33 +638,56 @@ func on_end_turn_requested() -> void:
 		rpc("_rpc_end_turn")
 
 
-## Called by tile_selector_ui._on_power_activated.
-## Instant powers apply immediately and broadcast here. Targeted powers just
-## enter target-selection mode — they resolve (and broadcast) later via
-## _resolve_power_target once a valid target is clicked.
+## Called by tile_selector_ui._on_power_activated. Every power is targeted —
+## either it enters target-selection mode directly, or — if it needs a hand
+## tile — it first waits for a hand-card click (routed by
+## _on_tile_selected_from_hand) before entering target-selection mode. Either
+## way it resolves (and broadcasts) later via _resolve_power_target once a
+## valid target is clicked.
 func on_power_activated(power: GodPower, player: Player) -> void:
-	if power is InstantGodPower:
-		var success: bool = power.activate(self)
-		if success and _is_network:
-			rpc("_rpc_power_activate", player.god.get_active_powers().find(power))
-	elif power is TargetedGodPower:
-		if not power.can_afford(player):
-			Log.warn("Cannot afford power: %s" % power.power_name)
-			return
+	if not power.can_afford(player):
+		Log.warn("Cannot afford power: %s" % power.power_name)
+		return
+	power_hand_index = NO_HAND_INDEX
+	if power.needs_hand_tile():
+		_pending_hand_power = power
+		if ui:
+			ui.set_hand_picking_mode(true)
+	else:
 		placement_controller.select_power_target_mode(power)
 
 
-## Called by PowerTargetStrategy.on_click() (and directly by the resource-type
-## picker for change-tile-type) once a target has been validated. This is only
-## ever reached via a real local click, so broadcasting unconditionally here
-## can't cause a re-broadcast loop on remotes (they replay via _rpc_power_resolve
-## directly, never through this method).
-func _resolve_power_target(power: TargetedGodPower, q: int, r: int, extra: int) -> bool:
-	var success: bool = power.resolve(self, q, r, extra)
+## The hand tile picked for the power currently being targeted, or null.
+## Only meaningful for powers whose needs_hand_tile() is true.
+func get_picked_hand_tile() -> TileDefinition:
+	if power_hand_index < 0 or power_hand_index >= current_player.hand_size:
+		return null
+	return current_player.hand[power_hand_index]
+
+
+## Cancels a pending "pick a hand tile for this power" state, e.g. on Escape.
+func cancel_pending_hand_power() -> void:
+	power_hand_index = NO_HAND_INDEX
+	if _pending_hand_power:
+		_pending_hand_power = null
+		if ui:
+			ui.set_hand_picking_mode(false)
+
+
+## Called by PowerTargetStrategy.on_click() once a target has been validated.
+## This is only ever reached via a real local click, so broadcasting
+## unconditionally here can't cause a re-broadcast loop on remotes (they
+## replay via _rpc_power_resolve directly, never through this method).
+func _resolve_power_target(power: GodPower, q: int, r: int) -> bool:
+	var hand_index := power_hand_index
+	var success: bool = power.resolve(self, q, r)
+	power_hand_index = NO_HAND_INDEX
 	if success:
 		placement_controller.cancel_placement()
 		if _is_network:
-			rpc("_rpc_power_resolve", current_player.god.get_active_powers().find(power), q, r, extra)
+			# The hand pick has to be replayed explicitly — remotes have no
+			# local UI event to derive it from.
+			rpc("_rpc_power_resolve", current_player.god.find_slot(power), q, r, hand_index)
 	return success
 
 
@@ -732,7 +774,7 @@ func _rpc_place_village(q: int, r: int) -> void:
 	if not tile:
 		push_warning("_rpc_place_village: no tile at (%d,%d)" % [q, r])
 		return
-	var cost := current_player.god.get_village_cost(tile.village_building_cost)
+	var cost := current_player.god.modify_village_cost(tile.village_building_cost, tile)
 	village_manager.place_village(q, r, current_player)
 	_consume_action("build village")
 	_apply_village_construction(tile, current_player, cost)
@@ -766,23 +808,15 @@ func _rpc_end_turn() -> void:
 
 
 @rpc("any_peer", "call_remote", "reliable")
-func _rpc_power_activate(slot: int) -> void:
+func _rpc_power_resolve(slot: int, q: int, r: int, hand_index: int) -> void:
 	if not _validate_rpc_sender(): return
-	var powers := current_player.god.get_active_powers()
-	if slot < 0 or slot >= powers.size():
-		push_warning("_rpc_power_activate: slot %d not found for player's god" % slot)
+	var power := current_player.god.get_power(slot)
+	if power == null:
+		push_warning("_rpc_power_resolve: no power in slot %d for player's god" % slot)
 		return
-	(powers[slot] as InstantGodPower).activate(self)
-
-
-@rpc("any_peer", "call_remote", "reliable")
-func _rpc_power_resolve(slot: int, q: int, r: int, extra: int) -> void:
-	if not _validate_rpc_sender(): return
-	var powers := current_player.god.get_active_powers()
-	if slot < 0 or slot >= powers.size():
-		push_warning("_rpc_power_resolve: slot %d not found for player's god" % slot)
-		return
-	(powers[slot] as TargetedGodPower).resolve(self, q, r, extra)
+	power_hand_index = hand_index
+	power.resolve(self, q, r)
+	power_hand_index = NO_HAND_INDEX
 
 
 ## Calculates scores for all players and shows the victory screen.
