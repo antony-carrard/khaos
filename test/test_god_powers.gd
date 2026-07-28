@@ -4,7 +4,7 @@ extends GdUnitTestSuite
 # Tiles/villages are injected directly into the managers' internal dictionaries
 # (established repo test pattern) rather than placed through the full placement flow.
 #
-# NOTE: upgrade_tile()/downgrade_tile() themselves instantiate a real
+# NOTE: upgrade_tile_with()/downgrade_tile() themselves instantiate a real
 # hex_tile_scene (StaticBody3D) — per repo policy (see test_victory_scoring.gd)
 # those scene-dependent effects aren't re-verified here; only validity is
 # tested for the two tile-height powers. The effect for those is covered by
@@ -160,11 +160,18 @@ func test_steal_harvest_resolve_effect_fails_without_tile() -> void:
 	assert_bool(success).is_false()
 
 
-# --- UpgradeTileKeepVillagePower (Augia major) — validity only, see note above ---
+# --- UpgradeTileKeepVillagePower (Augia major) — sourced from hand; validity
+# only, see note above (apply_effect stacks a real HexTile scene node) ---
 
-func test_upgrade_valid_target_own_village_upgradable_tile_in_bag() -> void:
+func test_upgrade_needs_a_hand_tile() -> void:
+	assert_bool(UpgradeTileKeepVillagePower.new().needs_hand_tile()).is_true()
+
+
+func test_upgrade_valid_target_own_village_one_level_below_hand_tile() -> void:
 	_inject_village(2, 2, actor)
 	_inject_tile(2, 2, 0, TileDefinition.TileType.PLAINS, {})
+	actor.hand[0] = TileDefinition.new(TileDefinition.TileType.HILLS, {TileDefinition.ResourceType.MATERIALS: 2}, 4)
+	board.power_hand_index = 0
 	var power := UpgradeTileKeepVillagePower.new()
 	assert_bool(power.is_valid_target(board, 2, 2)).is_true()
 
@@ -172,24 +179,46 @@ func test_upgrade_valid_target_own_village_upgradable_tile_in_bag() -> void:
 func test_upgrade_invalid_on_enemy_village() -> void:
 	_inject_village(2, 2, victim)
 	_inject_tile(2, 2, 0, TileDefinition.TileType.PLAINS, {})
+	actor.hand[0] = TileDefinition.new(TileDefinition.TileType.HILLS, {TileDefinition.ResourceType.MATERIALS: 2}, 4)
+	board.power_hand_index = 0
 	var power := UpgradeTileKeepVillagePower.new()
 	assert_bool(power.is_valid_target(board, 2, 2)).is_false()
 
 
-func test_upgrade_invalid_when_already_mountain() -> void:
-	_inject_village(2, 2, actor)
-	_inject_tile(2, 2, 2, TileDefinition.TileType.MOUNTAIN, {})
-	var power := UpgradeTileKeepVillagePower.new()
-	assert_bool(power.is_valid_target(board, 2, 2)).is_false()
-
-
-func test_upgrade_invalid_when_bag_has_no_next_type() -> void:
+func test_upgrade_invalid_when_hand_tile_same_level() -> void:
 	_inject_village(2, 2, actor)
 	_inject_tile(2, 2, 0, TileDefinition.TileType.PLAINS, {})
-	for i in tile_pool.get_remaining_count():
-		tile_pool.draw_tile()
+	actor.hand[0] = TileDefinition.new(TileDefinition.TileType.PLAINS, {TileDefinition.ResourceType.FERVOR: 1}, 2)
+	board.power_hand_index = 0
 	var power := UpgradeTileKeepVillagePower.new()
 	assert_bool(power.is_valid_target(board, 2, 2)).is_false()
+
+
+func test_upgrade_invalid_when_hand_tile_two_levels_above() -> void:
+	_inject_village(2, 2, actor)
+	_inject_tile(2, 2, 0, TileDefinition.TileType.PLAINS, {})
+	actor.hand[0] = TileDefinition.new(TileDefinition.TileType.MOUNTAIN, {TileDefinition.ResourceType.MATERIALS: 3}, 6)
+	board.power_hand_index = 0
+	var power := UpgradeTileKeepVillagePower.new()
+	assert_bool(power.is_valid_target(board, 2, 2)).is_false()
+
+
+func test_upgrade_invalid_when_no_hand_tile_picked() -> void:
+	_inject_village(2, 2, actor)
+	_inject_tile(2, 2, 0, TileDefinition.TileType.PLAINS, {})
+	var power := UpgradeTileKeepVillagePower.new()
+	assert_bool(power.is_valid_target(board, 2, 2)).is_false()
+
+
+func test_upgrade_can_afford_false_when_hand_empty() -> void:
+	var power := UpgradeTileKeepVillagePower.new()
+	assert_bool(power.can_afford(actor)).is_false()
+
+
+func test_upgrade_can_afford_true_when_hand_has_tile() -> void:
+	actor.hand[0] = TileDefinition.new(TileDefinition.TileType.HILLS, {TileDefinition.ResourceType.MATERIALS: 1}, 4)
+	var power := UpgradeTileKeepVillagePower.new()
+	assert_bool(power.can_afford(actor)).is_true()
 
 
 # --- DowngradeTileKeepVillagePower (Rakun major) — validity only, see note above ---

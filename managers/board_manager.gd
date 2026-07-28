@@ -98,7 +98,6 @@ func _ready() -> void:
 	if GameConfig.initialized and GameConfig.mode == GameConfig.GameMode.NETWORK:
 		tile_seed = GameConfig.network_rng_seed
 	tile_pool.initialize(tile_seed)
-	tile_manager.tile_pool = tile_pool
 
 	# Create N players — prefer GameConfig when coming from the main menu
 	var count = clampi(GameConfig.player_count if GameConfig.initialized else player_count, 1, 4)

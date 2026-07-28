@@ -36,9 +36,6 @@ var placed_tiles: Dictionary = {}
 # Reference to village manager (for validation)
 var village_manager: VillageManager = null
 
-# Reference to tile pool (for bag-draw on upgrade)
-var tile_pool: TilePool = null
-
 
 ## Initializes the TileManager with required configuration.
 ## Call this once after instantiation before using other methods.
@@ -160,64 +157,52 @@ func get_tile_at(q: int, r: int) -> HexTile:
 	return placed_tiles.get(key, null)
 
 
-## Upgrades the tile at the given position to the next level.
-## PLAINS → HILLS, HILLS → MOUNTAIN
-## Adds a new tile on top, preserving the tile's resource properties.
+## Instantiates and registers a tile stacked on top of (q, r), at the height
+## implied by tile_type. Returns the new HexTile, or null if that height slot
+## is already occupied. Used by upgrade_tile_with().
+## Note: This bypasses village blocking - callers (upgrade powers) specifically allow this.
+func _place_tile_on_top(q: int, r: int, tile_type: int, tile_yields: Dictionary,
+		village_cost: int) -> HexTile:
+	var new_height = TILE_TYPE_TO_HEIGHT[tile_type]
+	var new_key = Vector3i(q, r, new_height)
+
+	if placed_tiles.has(new_key):
+		Log.warn("Cannot upgrade - tile already exists at height %d" % new_height)
+		return null
+
+	var tile = hex_tile_scene.instantiate() as HexTile
+	add_child(tile)
+	tile.set_grid_position(q, r, new_height)
+	tile.set_tile_type(tile_type, TILE_TYPE_COLORS[tile_type])
+	tile.global_position = HexGridUtils.axial_to_world(q, r, new_height)
+	tile.set_resource_properties(tile_yields, village_cost)
+
+	placed_tiles[new_key] = tile
+	return tile
+
+
+## Upgrades the tile at the given position to the next level using a specific
+## tile definition instead of drawing from the bag. Used by powers that source
+## the upgrade tile from a player's hand (e.g. Augia's Élévation divine).
+## tile_def.tile_type must be exactly one level above the current tile.
 ## Returns true on success, false if upgrade is not possible.
-func upgrade_tile(q: int, r: int) -> bool:
-	# Get the current top tile
+func upgrade_tile_with(q: int, r: int, tile_def: TileDefinition) -> bool:
 	var current_tile = get_tile_at(q, r)
 	if not current_tile:
 		Log.warn("No tile found at (%d, %d) to upgrade" % [q, r])
 		return false
 
-	# Determine the new tile type
-	var new_tile_type: int
-	match current_tile.tile_type:
-		TileDefinition.TileType.PLAINS:
-			new_tile_type = TileDefinition.TileType.HILLS
-		TileDefinition.TileType.HILLS:
-			new_tile_type = TileDefinition.TileType.MOUNTAIN
-		TileDefinition.TileType.MOUNTAIN:
-			Log.warn("Cannot upgrade MOUNTAIN - already at max level")
-			return false
-		_:
-			return false
-
-	# Draw the upgrade tile from the bag to get its yield value.
-	# NOTE: To also return the buried tile back to the bag (full board-game fidelity),
-	# call tile_pool.return_tile() here with its TileDefinition equivalent before drawing.
-	if not tile_pool:
-		Log.error("upgrade_tile: tile_pool is not set")
+	if tile_def.tile_type != current_tile.tile_type + 1:
+		Log.warn("Hand tile level does not directly follow the tile at (%d, %d)" % [q, r])
 		return false
-	var bag_tile = tile_pool.draw_tile_of_type(new_tile_type)
-	if not bag_tile:
-		return false  # No tile of this type in bag — upgrade blocked
 
 	var old_tile_type = current_tile.tile_type
-
-	# Place new tile on top (stacking)
-	# Note: This bypasses village blocking - the power specifically allows this
-	var new_height = TILE_TYPE_TO_HEIGHT[new_tile_type]
-	var new_key = Vector3i(q, r, new_height)
-
-	# Check if position is already occupied at new height
-	if placed_tiles.has(new_key):
-		Log.warn("Cannot upgrade - tile already exists at height %d" % new_height)
+	var tile = _place_tile_on_top(q, r, tile_def.tile_type, tile_def.yields, tile_def.village_building_cost)
+	if not tile:
 		return false
 
-	var tile = hex_tile_scene.instantiate() as HexTile
-	add_child(tile)
-	tile.set_grid_position(q, r, new_height)
-	tile.set_tile_type(new_tile_type, TILE_TYPE_COLORS[new_tile_type])
-	tile.global_position = HexGridUtils.axial_to_world(q, r, new_height)
-
-	tile.set_resource_properties(bag_tile.yields, bag_tile.village_building_cost)
-
-	placed_tiles[new_key] = tile
-
-	Log.info("Upgraded tile at (%d, %d) from %s to %s" %
-		  [q, r, TileDefinition.TileType.keys()[old_tile_type], TileDefinition.TileType.keys()[new_tile_type]])
+	Log.info("Upgraded tile at (%d, %d) from %s to %s using a hand tile" %
+		  [q, r, TileDefinition.TileType.keys()[old_tile_type], TileDefinition.TileType.keys()[tile_def.tile_type]])
 
 	return true
 
