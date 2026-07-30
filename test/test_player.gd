@@ -55,7 +55,7 @@ func test_set_glory_updates_value() -> void:
 func test_initialize_game_start_sets_hand_and_actions() -> void:
 	var god := God.new("Test God")
 	player.initialize_game_start(god, false)
-	assert_int(player.hand_size).is_equal(god.hand_size)
+	assert_int(player.base_hand_size).is_equal(god.hand_size)
 	assert_int(player.total_actions).is_equal(god.total_actions)
 	assert_int(player.hand.size()).is_equal(god.hand_size)
 	assert_int(player.glory).is_equal(0)
@@ -112,3 +112,31 @@ func test_empty_hand_clears_all_slots() -> void:
 	player.empty_hand()
 	for slot in player.hand:
 		assert_object(slot).is_null()
+
+
+func test_grow_hand_adds_empty_slots() -> void:
+	var god := God.new("Test God")
+	player.initialize_game_start(god, false)
+	var base_size := player.hand.size()
+	player.grow_hand(1)
+	assert_int(player.hand.size()).is_equal(base_size + 1)
+	assert_object(player.hand[base_size]).is_null()
+
+
+func test_grow_hand_lets_add_to_hand_exceed_base_size() -> void:
+	var god := God.new("Test God")
+	player.initialize_game_start(god, false)
+	for i in range(player.base_hand_size):
+		player.add_to_hand(TileDefinition.new(TileDefinition.TileType.PLAINS, {}, 2))
+	player.grow_hand(1)
+	var extra := TileDefinition.new(TileDefinition.TileType.PLAINS, {}, 2)
+	player.add_to_hand(extra)
+	assert_object(player.hand[player.base_hand_size]).is_same(extra)
+
+
+func test_empty_hand_discards_grown_capacity() -> void:
+	var god := God.new("Test God")
+	player.initialize_game_start(god, false)
+	player.grow_hand(2)
+	player.empty_hand()
+	assert_int(player.hand.size()).is_equal(player.base_hand_size)

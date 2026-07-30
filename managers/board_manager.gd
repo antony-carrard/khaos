@@ -367,7 +367,7 @@ func setup_ui() -> void:
 
 ## Handle tile selection from hand
 func _on_tile_selected_from_hand(hand_index: int) -> void:
-	if hand_index < 0 or hand_index >= current_player.hand_size:
+	if hand_index < 0 or hand_index >= current_player.hand.size():
 		return
 
 	var tile_def = current_player.hand[hand_index]
@@ -401,7 +401,7 @@ func _on_tile_selected_from_hand(hand_index: int) -> void:
 ## Called by TilePlacementStrategy (gameplay path) after placing a tile.
 ## q, r are the hex coords of the placement for network broadcasting.
 func on_tile_placed_from_hand(hand_index: int, q: int, r: int) -> void:
-	if hand_index < 0 or hand_index >= current_player.hand_size:
+	if hand_index < 0 or hand_index >= current_player.hand.size():
 		return
 
 	var placed_tile = current_player.hand[hand_index]
@@ -554,7 +554,7 @@ func on_village_removed(q: int, r: int) -> bool:
 ## Discards the player's hand and draws a fresh one from the tile pool.
 func _deal_hand(player: Player) -> void:
 	player.empty_hand()
-	for tile_def in tile_pool.draw_tiles(player.hand_size):
+	for tile_def in tile_pool.draw_tiles(player.base_hand_size):
 		player.add_to_hand(tile_def)
 
 
@@ -659,7 +659,7 @@ func on_power_activated(power: GodPower, player: Player) -> void:
 ## The hand tile picked for the power currently being targeted, or null.
 ## Only meaningful for powers whose needs_hand_tile() is true.
 func get_picked_hand_tile() -> TileDefinition:
-	if power_hand_index < 0 or power_hand_index >= current_player.hand_size:
+	if power_hand_index < 0 or power_hand_index >= current_player.hand.size():
 		return null
 	return current_player.hand[power_hand_index]
 

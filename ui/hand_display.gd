@@ -5,7 +5,6 @@ class_name HandDisplay
 
 signal tile_selected_from_hand(hand_index: int)
 
-const HAND_SIZE: int = 3  # Number of tiles in hand
 const CARD_SIZE: Vector2 = Vector2(100, 110)
 const CARD_MARGIN: int = 8
 const CARD_CORNER_RADIUS: int = 8
@@ -48,9 +47,9 @@ func update_hand_display() -> void:
 
 	var hand = board_manager_ref.ui_player.hand
 
-	# Always show HAND_SIZE slots (with placeholders for empty slots)
-	for i in range(HAND_SIZE):
-		if i < hand.size() and hand[i] != null:
+	# Always show one slot per hand tile (with placeholders for empty slots)
+	for i in range(hand.size()):
+		if hand[i] != null:
 			var tile_def = hand[i]
 			_create_hand_card(i, tile_def)
 		else:

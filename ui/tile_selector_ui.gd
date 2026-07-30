@@ -20,9 +20,6 @@ const ResourcePanelScene = preload("res://ui/resource_panel.gd")
 const HandDisplayScene = preload("res://ui/hand_display.gd")
 const TooltipManagerScene = preload("res://ui/tooltip_manager.gd")
 
-# Constants
-const HAND_SIZE: int = 3  # Number of tiles in hand
-
 # Signals
 signal tile_type_selected(tile_type: int)
 signal tile_selected_from_hand(hand_index: int)

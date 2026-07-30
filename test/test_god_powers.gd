@@ -28,7 +28,7 @@ class FakeBoardManager extends Node3D:
 	var power_hand_index: int = -1
 
 	func get_picked_hand_tile() -> TileDefinition:
-		if power_hand_index < 0 or power_hand_index >= current_player.hand_size:
+		if power_hand_index < 0 or power_hand_index >= current_player.hand.size():
 			return null
 		return current_player.hand[power_hand_index]
 
@@ -49,7 +49,6 @@ func before_test() -> void:
 	actor.fervor = 20
 	actor.glory = 0
 	actor.actions_remaining = 5
-	actor.hand_size = 3
 	actor.hand.resize(3)
 
 	victim = auto_free(Player.new())
