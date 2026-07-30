@@ -83,6 +83,8 @@ func remove_from_hand(index: int):
 	assert(index >= 0 and index < hand.size(), "Invalid hand index: %d" % index)
 	assert(hand[index] != null, "Slot %d is already empty" % index)
 	hand[index] = null
+	if hand.size() > base_hand_size:
+		hand.remove_at(index)
 
 func add_to_hand(tile: TileDefinition):
 	for i in range(hand.size()):

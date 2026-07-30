@@ -140,3 +140,38 @@ func test_empty_hand_discards_grown_capacity() -> void:
 	player.grow_hand(2)
 	player.empty_hand()
 	assert_int(player.hand.size()).is_equal(player.base_hand_size)
+
+
+func test_remove_from_hand_shrinks_grown_capacity_once_extra_tile_is_gone() -> void:
+	var god := God.new("Test God")
+	player.initialize_game_start(god, false)
+	for i in range(player.base_hand_size):
+		player.add_to_hand(TileDefinition.new(TileDefinition.TileType.PLAINS, {}, 2))
+	player.grow_hand(1)
+	var stolen := TileDefinition.new(TileDefinition.TileType.HILLS, {}, 4)
+	player.add_to_hand(stolen)
+
+	player.remove_from_hand(player.base_hand_size)  # play the grown-slot tile
+
+	assert_int(player.hand.size()).is_equal(player.base_hand_size)
+
+
+func test_remove_from_hand_compacts_other_tiles_when_grown_slot_still_occupied() -> void:
+	var god := God.new("Test God")
+	player.initialize_game_start(god, false)
+	var a := TileDefinition.new(TileDefinition.TileType.PLAINS, {}, 2)
+	var b := TileDefinition.new(TileDefinition.TileType.PLAINS, {}, 2)
+	var c := TileDefinition.new(TileDefinition.TileType.PLAINS, {}, 2)
+	player.add_to_hand(a)
+	player.add_to_hand(b)
+	player.add_to_hand(c)
+	player.grow_hand(1)
+	var stolen := TileDefinition.new(TileDefinition.TileType.HILLS, {}, 4)
+	player.add_to_hand(stolen)  # hand is now [a, b, c, stolen]
+
+	player.remove_from_hand(1)  # play b, which isn't the grown-slot tile
+
+	assert_int(player.hand.size()).is_equal(player.base_hand_size)
+	assert_object(player.hand[0]).is_same(a)
+	assert_object(player.hand[1]).is_same(c)
+	assert_object(player.hand[2]).is_same(stolen)
