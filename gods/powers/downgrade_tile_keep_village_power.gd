@@ -16,11 +16,20 @@ func is_valid_target(board_manager: Node3D, q: int, r: int) -> bool:
 
 
 func apply_effect(board_manager: Node3D, q: int, r: int) -> bool:
-	var success: bool = board_manager.tile_manager.downgrade_tile(q, r)
+	var stolen_tile: TileDefinition = board_manager.tile_manager.downgrade_tile(q, r)
+	var success: bool = stolen_tile != null
 	if success:
 		var new_height = board_manager.tile_manager.get_top_height(q, r)
 		var world_pos = HexGridUtils.axial_to_world(q, r, new_height)
 		var village = board_manager.village_manager.get_village_at(q, r)
 		village.global_position = world_pos + Vector3(0, HexGridUtils.TILE_HEIGHT / 2, 0)
-		Log.info("Downgraded tile at (%d, %d) with DowngradeTileKeepVillagePower" % [q, r])
+
+		var actor: Player = board_manager.current_player
+		if not actor.has_free_hand_slot():
+			actor.grow_hand()
+		actor.add_to_hand(stolen_tile)
+		if board_manager.ui:
+			board_manager.ui.update_hand_display()
+
+		Log.info("Downgraded tile at (%d, %d) with DowngradeTileKeepVillagePower, stolen tile returned to hand" % [q, r])
 	return success

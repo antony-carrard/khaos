@@ -120,3 +120,9 @@ func has_tile_in_hand() -> bool:
 		if tile != null:
 			return true
 	return false
+
+func has_free_hand_slot() -> bool:
+	for tile in hand:
+		if tile == null:
+			return true
+	return false

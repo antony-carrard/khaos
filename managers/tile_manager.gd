@@ -210,25 +210,29 @@ func upgrade_tile_with(q: int, r: int, tile_def: TileDefinition) -> bool:
 ## Downgrades the tile at the given position to the previous level.
 ## MOUNTAIN → HILLS, HILLS → PLAINS
 ## Removes the top tile, revealing the one below.
-## Returns true on success, false if downgrade is not possible.
-func downgrade_tile(q: int, r: int) -> bool:
+## Returns a TileDefinition describing the removed tile (e.g. for Rakun's
+## major power, which returns it to hand), or null if downgrade is not possible.
+func downgrade_tile(q: int, r: int) -> TileDefinition:
 	# Get the current top tile
 	var current_tile = get_tile_at(q, r)
 	if not current_tile:
 		Log.warn("No tile found at (%d, %d) to downgrade" % [q, r])
-		return false
+		return null
 
 	# Check if can be downgraded
 	var old_tile_type = current_tile.tile_type
 	match current_tile.tile_type:
 		TileDefinition.TileType.PLAINS:
 			Log.warn("Cannot downgrade PLAINS - already at min level")
-			return false
+			return null
 		TileDefinition.TileType.HILLS, TileDefinition.TileType.MOUNTAIN:
 			# Can downgrade
 			pass
 		_:
-			return false
+			return null
+
+	var removed_tile_def := TileDefinition.new(
+		current_tile.tile_type, current_tile.yields, current_tile.village_building_cost)
 
 	# Remove the top tile (this reveals the tile below)
 	var old_height = current_tile.height_level
@@ -240,9 +244,9 @@ func downgrade_tile(q: int, r: int) -> bool:
 	var new_top_tile = get_tile_at(q, r)
 	if not new_top_tile:
 		Log.error("No tile below after downgrade at (%d, %d)!" % [q, r])
-		return false
+		return null
 
 	Log.info("Downgraded tile at (%d, %d) from %s to %s" %
 		  [q, r, TileDefinition.TileType.keys()[old_tile_type], TileDefinition.TileType.keys()[new_top_tile.tile_type]])
 
-	return true
+	return removed_tile_def
