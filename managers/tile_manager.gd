@@ -208,8 +208,8 @@ func upgrade_tile_with(q: int, r: int, tile_def: TileDefinition) -> bool:
 
 
 ## Downgrades the tile at the given position to the previous level.
-## MOUNTAIN → HILLS, HILLS → PLAINS
-## Removes the top tile, revealing the one below.
+## MOUNTAIN → HILLS, HILLS → PLAINS, PLAINS → removed entirely (nothing below it).
+## Removes the top tile, revealing the one below (if any).
 ## Returns a TileDefinition describing the removed tile (e.g. for Rakun's
 ## major power, which returns it to hand), or null if downgrade is not possible.
 func downgrade_tile(q: int, r: int) -> TileDefinition:
@@ -219,26 +219,21 @@ func downgrade_tile(q: int, r: int) -> TileDefinition:
 		Log.warn("No tile found at (%d, %d) to downgrade" % [q, r])
 		return null
 
-	# Check if can be downgraded
 	var old_tile_type = current_tile.tile_type
-	match current_tile.tile_type:
-		TileDefinition.TileType.PLAINS:
-			Log.warn("Cannot downgrade PLAINS - already at min level")
-			return null
-		TileDefinition.TileType.HILLS, TileDefinition.TileType.MOUNTAIN:
-			# Can downgrade
-			pass
-		_:
-			return null
 
 	var removed_tile_def := TileDefinition.new(
 		current_tile.tile_type, current_tile.yields, current_tile.village_building_cost)
 
-	# Remove the top tile (this reveals the tile below)
+	# Remove the top tile (this reveals the tile below, if any)
 	var old_height = current_tile.height_level
 	var old_key = Vector3i(q, r, old_height)
 	placed_tiles.erase(old_key)
 	current_tile.queue_free()
+
+	# PLAINS has nothing below it - the position is now fully cleared.
+	if old_tile_type == TileDefinition.TileType.PLAINS:
+		Log.info("Removed PLAINS tile at (%d, %d)" % [q, r])
+		return removed_tile_def
 
 	# Get the new top tile (which was below)
 	var new_top_tile = get_tile_at(q, r)

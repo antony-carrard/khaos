@@ -4,11 +4,13 @@ extends GdUnitTestSuite
 # Tiles/villages are injected directly into the managers' internal dictionaries
 # (established repo test pattern) rather than placed through the full placement flow.
 #
-# NOTE: upgrade_tile_with()/downgrade_tile() themselves instantiate a real
-# hex_tile_scene (StaticBody3D) — per repo policy (see test_victory_scoring.gd)
-# those scene-dependent effects aren't re-verified here; only validity is
-# tested for the two tile-height powers. The effect for those is covered by
-# the Stage 2 manual playtest.
+# NOTE: upgrade_tile_with() instantiates a real hex_tile_scene, and
+# downgrade_tile() calls queue_free() on an existing HexTile node — both are
+# StaticBody3D (see test_victory_scoring.gd on the free()-on-worker-thread
+# crash) so per repo policy those scene-dependent effects aren't re-verified
+# here; only validity is tested for the two tile-height powers, including
+# DowngradeTileKeepVillagePower's plains-demolishes-the-village branch. The
+# effect for those is covered by the Stage 2 manual playtest.
 
 class FakePlacementController extends Node:
 	func cancel_placement() -> void:
@@ -236,11 +238,11 @@ func test_downgrade_invalid_on_own_village() -> void:
 	assert_bool(power.is_valid_target(board, 3, 3)).is_false()
 
 
-func test_downgrade_invalid_when_already_plains() -> void:
+func test_downgrade_valid_target_enemy_village_on_plains() -> void:
 	_inject_village(3, 3, victim)
 	_inject_tile(3, 3, 0, TileDefinition.TileType.PLAINS, {})
 	var power := DowngradeTileKeepVillagePower.new()
-	assert_bool(power.is_valid_target(board, 3, 3)).is_false()
+	assert_bool(power.is_valid_target(board, 3, 3)).is_true()
 
 
 # --- ChangeTileTypePower (Augia minor) — sourced from hand, swaps tile back into hand ---
