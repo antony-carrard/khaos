@@ -6,7 +6,7 @@ extends GodPower
 ## augmentation (rules.md).
 
 func _init():
-	super("Élévation divine", "Augmenter la Tuile d'un de ses Bâtiments d'un niveau grâce à une Tuile de sa main", 5)
+	super("Élévation divine", "Augmenter la Tuile d'un de ses Bâtiments d'un niveau grâce à une Tuile de sa main", 4)
 
 
 func needs_hand_tile() -> bool:

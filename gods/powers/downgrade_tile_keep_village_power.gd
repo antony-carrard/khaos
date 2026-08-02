@@ -11,7 +11,7 @@ extends GodPower
 ## if he already has a village adjacent to the demolished one (rules.md).
 
 func _init():
-	super("Affaissement", "Réduire la Tuile d'un Bâtiment adverse d'un niveau ; si c'est déjà une plaine, le Bâtiment est démoli", 4)
+	super("Affaissement", "Réduire la Tuile d'un Bâtiment adverse d'un niveau ; si c'est déjà une plaine, le Bâtiment est démoli", 5)
 
 
 func is_valid_target(board_manager: Node3D, q: int, r: int) -> bool:
