@@ -9,6 +9,7 @@ const TOOLTIP_OFFSET: Vector2 = Vector2(20, 20)  # Offset from cursor so it does
 
 var tooltip_panel: PanelContainer = null
 var tooltip_label: Label = null
+var tooltip_warning_label: Label = null
 
 
 func _ready() -> void:
@@ -53,12 +54,23 @@ func _create_tooltip() -> void:
 	margin.add_theme_constant_override("margin_bottom", 6)
 	tooltip_panel.add_child(margin)
 
+	var vbox = VBoxContainer.new()
+	margin.add_child(vbox)
+
 	# Label for the tooltip text
 	tooltip_label = Label.new()
 	tooltip_label.text = "+2 Resources"
 	tooltip_label.add_theme_color_override("font_color", Color(0.8, 0.9, 0.3))  # Yellow-green
 	tooltip_label.add_theme_font_size_override("font_size", 16)
-	margin.add_child(tooltip_label)
+	vbox.add_child(tooltip_label)
+
+	# Extra warning line, shown only when demolishing costs more than 1 action
+	# (attacking from a lower tile, or from a village built this same turn).
+	tooltip_warning_label = Label.new()
+	tooltip_warning_label.add_theme_color_override("font_color", Color(0.9, 0.2, 0.2))  # Red
+	tooltip_warning_label.add_theme_font_size_override("font_size", 16)
+	tooltip_warning_label.visible = false
+	vbox.add_child(tooltip_warning_label)
 
 
 ## Shows or hides the village sell tooltip with the refund amount
@@ -67,17 +79,25 @@ func show_village_sell_tooltip(visible_flag: bool, refund_amount: int = 0) -> vo
 		return
 	if visible_flag:
 		tooltip_label.text = "Free" if refund_amount == 0 else "+%d Resources" % refund_amount
+		tooltip_warning_label.visible = false
 		tooltip_panel.visible = true
 	else:
 		tooltip_panel.visible = false
 
 
-## Shows or hides the cost tooltip for destroying an enemy village
-func show_village_cost_tooltip(visible_flag: bool, cost_amount: int = 0) -> void:
+## Shows or hides the cost tooltip for destroying an enemy village. Adds a red
+## warning line when the demolition costs more than 1 action (attacking from a
+## lower tile, or from a village built this same turn — rules.md).
+func show_village_cost_tooltip(visible_flag: bool, cost_amount: int = 0, action_cost: int = 1) -> void:
 	if not tooltip_label or not tooltip_panel:
 		return
 	if visible_flag:
 		tooltip_label.text = "-%d Materials" % cost_amount
+		if action_cost > 1:
+			tooltip_warning_label.text = "-%d Actions" % action_cost
+			tooltip_warning_label.visible = true
+		else:
+			tooltip_warning_label.visible = false
 		tooltip_panel.visible = true
 	else:
 		tooltip_panel.visible = false

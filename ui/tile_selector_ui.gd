@@ -385,9 +385,9 @@ func show_village_sell_tooltip(visible_flag: bool, refund_amount: int = 0) -> vo
 
 
 ## Shows or hides the cost tooltip for destroying an enemy village
-func show_village_cost_tooltip(visible_flag: bool, cost_amount: int = 0) -> void:
+func show_village_cost_tooltip(visible_flag: bool, cost_amount: int = 0, action_cost: int = 1) -> void:
 	if tooltip_manager:
-		tooltip_manager.show_village_cost_tooltip(visible_flag, cost_amount)
+		tooltip_manager.show_village_cost_tooltip(visible_flag, cost_amount, action_cost)
 
 
 # ========== ENDGAME UI (Delegated to VictoryScreen) ==========
