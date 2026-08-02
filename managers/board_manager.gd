@@ -59,6 +59,13 @@ var local_player_index: int = 0
 # Final round tracking
 var final_round_triggered: bool = false
 
+# Turn-scoped village event tracking, cleared at the start of each turn in _begin_turn().
+# Only ever populated by the currently-acting player, so no per-player keying is needed.
+var villages_built_this_turn: Dictionary[Vector2i, bool] = {}
+# Value = whether the demolisher had an adjacent own village at the moment of demolition
+# (read by Le Démolisseur's Échafaudage passive).
+var villages_demolished_this_turn: Dictionary[Vector2i, bool] = {}
+
 # Activation context for the power currently being used. Powers are immutable
 # definitions, so the transient bits of an activation live here instead.
 #
@@ -437,7 +444,7 @@ func on_village_placed(q: int, r: int) -> bool:
 		Log.error("BoardManager: No tile at (%d,%d) for village placement" % [q, r])
 		return false
 
-	var cost = current_player.god.modify_village_cost(tile.village_building_cost, tile)
+	var cost = _compute_village_cost(tile)
 
 	if current_player.materials < cost:
 		Log.warn("BoardManager: Cannot afford village — need %d, have %d" % [cost, current_player.materials])
@@ -450,6 +457,8 @@ func on_village_placed(q: int, r: int) -> bool:
 	if not success:
 		return false
 
+	villages_built_this_turn[Vector2i(q, r)] = true
+
 	var glory := _apply_village_construction(tile, current_player, cost)
 	Log.info("Built village for %d resources, gained %d glory" % [cost, glory])
 
@@ -457,6 +466,16 @@ func on_village_placed(q: int, r: int) -> bool:
 		rpc("_rpc_place_village", q, r)
 
 	return true
+
+
+## Materials cost for the current player to build a village on `tile`, shared by the
+## afford-check, the local execution path, and the network replay path. Runs the god's
+## two cost hooks in sequence: modify_village_cost() (tile-based), then
+## modify_rebuild_cost() (turn-history-based, e.g. Le Démolisseur's Échafaudage).
+func _compute_village_cost(tile: HexTile) -> int:
+	var cost := current_player.god.modify_village_cost(tile.village_building_cost, tile)
+	var demolished: bool = villages_demolished_this_turn.get(Vector2i(tile.q, tile.r), false)
+	return current_player.god.modify_rebuild_cost(cost, demolished)
 
 
 ## Returns the highest height_level of an adjacent own village, or -1 if none.
@@ -486,23 +505,46 @@ func get_demolition_action_cost(enemy_tile: HexTile, best_own_height: int) -> in
 	return 1 + surcharge
 
 
+## Returns true if at least one adjacent own village was NOT built this turn — i.e. the
+## demolition could be carried out from a village other than a freshly-built one.
+func _has_non_fresh_adjacent_own_village(q: int, r: int) -> bool:
+	for neighbor in HexGridUtils.get_axial_neighbors(q, r):
+		var own_village := village_manager.get_village_at(neighbor.x, neighbor.y)
+		if not own_village or own_village.player_owner != current_player:
+			continue
+		if not villages_built_this_turn.get(Vector2i(neighbor.x, neighbor.y), false):
+			return true
+	return false
+
+
+## Full demolition cost for the enemy village at (q, r), shared by the afford-check, the
+## local execution path, and the network replay path so they can't drift apart. Bundles the
+## height-based surcharge with the "only a freshly-built adjacent village is available"
+## surcharge (+1 action, rules.md). has_own_village is false if there's no legal attacker.
+func _compute_demolition_cost(q: int, r: int) -> Dictionary:
+	var enemy_tile := tile_manager.get_tile_at(q, r)
+	var best_own_height := get_best_adjacent_own_height(q, r)
+	if not enemy_tile or best_own_height < 0:
+		return {"res_cost": 0, "act_cost": 0, "has_own_village": false}
+	var res_cost := get_demolition_resources_cost(enemy_tile, best_own_height)
+	var act_cost := get_demolition_action_cost(enemy_tile, best_own_height)
+	if not _has_non_fresh_adjacent_own_village(q, r):
+		act_cost += 1
+	return {"res_cost": res_cost, "act_cost": act_cost, "has_own_village": true}
+
+
 ## Returns true if the current player can legally destroy the enemy village at (q, r).
 ## Requires an adjacent own village. Cost scales with tile height and height disadvantage.
 func can_destroy_enemy_village(q: int, r: int) -> bool:
 	var enemy_village := village_manager.get_village_at(q, r)
 	if not enemy_village or enemy_village.player_owner == current_player:
 		return false
-	var enemy_tile := tile_manager.get_tile_at(q, r)
-	if not enemy_tile:
+	var cost := _compute_demolition_cost(q, r)
+	if not cost["has_own_village"]:
 		return false
-	var best_own_height := get_best_adjacent_own_height(q, r)
-	if best_own_height < 0:
+	if current_player.materials < int(cost["res_cost"]):
 		return false
-	var res_cost := get_demolition_resources_cost(enemy_tile, best_own_height)
-	var act_cost := get_demolition_action_cost(enemy_tile, best_own_height)
-	if current_player.materials < res_cost:
-		return false
-	if current_player.actions_remaining < act_cost:
+	if current_player.actions_remaining < int(cost["act_cost"]):
 		return false
 	return true
 
@@ -531,12 +573,13 @@ func on_village_removed(q: int, r: int) -> bool:
 		if not can_destroy_enemy_village(q, r):
 			Log.warn("BoardManager: Cannot destroy enemy village at (%d,%d) — conditions not met" % [q, r])
 			return false
-		var best_own_height := get_best_adjacent_own_height(q, r)
-		var res_cost := get_demolition_resources_cost(tile, best_own_height)
-		var act_cost := get_demolition_action_cost(tile, best_own_height)
+		var cost := _compute_demolition_cost(q, r)
+		var res_cost: int = cost["res_cost"]
+		var act_cost: int = cost["act_cost"]
 		for i in act_cost:
 			if not _consume_action("destroy enemy village"):
 				return false
+		villages_demolished_this_turn[Vector2i(q, r)] = get_best_adjacent_own_height(q, r) >= 0
 		if not village_manager.remove_village(q, r):
 			return false
 		current_player.god.on_village_demolished(self, tile)
@@ -571,6 +614,8 @@ func _consume_action(action_name: String = "action") -> bool:
 
 ## Resets actions and applies this turn's harvest for the given player.
 func _begin_turn(player: Player) -> void:
+	villages_built_this_turn.clear()
+	villages_demolished_this_turn.clear()
 	player.start_turn()
 	harvest_for_player(player)
 
@@ -774,8 +819,9 @@ func _rpc_place_village(q: int, r: int) -> void:
 	if not tile:
 		push_warning("_rpc_place_village: no tile at (%d,%d)" % [q, r])
 		return
-	var cost := current_player.god.modify_village_cost(tile.village_building_cost, tile)
+	var cost := _compute_village_cost(tile)
 	village_manager.place_village(q, r, current_player)
+	villages_built_this_turn[Vector2i(q, r)] = true
 	_consume_action("build village")
 	_apply_village_construction(tile, current_player, cost)
 
@@ -792,9 +838,10 @@ func _rpc_remove_village(q: int, r: int) -> void:
 		village_manager.remove_village(q, r)
 		_consume_action("remove village")
 	else:
-		var best_own_height := get_best_adjacent_own_height(q, r)
-		var res_cost := get_demolition_resources_cost(tile, best_own_height)
-		var act_cost := get_demolition_action_cost(tile, best_own_height)
+		var cost := _compute_demolition_cost(q, r)
+		var res_cost: int = cost["res_cost"]
+		var act_cost: int = cost["act_cost"]
+		villages_demolished_this_turn[Vector2i(q, r)] = get_best_adjacent_own_height(q, r) >= 0
 		village_manager.remove_village(q, r)
 		current_player.god.on_village_demolished(self, tile)
 		for i in act_cost:

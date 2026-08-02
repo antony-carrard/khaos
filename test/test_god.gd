@@ -29,12 +29,12 @@ func _board_tile(tile_type: int = TileDefinition.TileType.PLAINS) -> HexTile:
 
 
 
-func test_create_all_returns_the_four_gods() -> void:
+func test_create_all_returns_all_gods() -> void:
 	var gods := God.create_all()
 	var names: Array[String] = []
 	for god in gods:
 		names.append(god.god_name)
-	assert_array(names).contains_exactly("Le Bâtisseur", "Bicéphallès", "Augia", "Rakun")
+	assert_array(names).contains_exactly("Le Bâtisseur", "Bicéphallès", "Augia", "Rakun", "Le Démolisseur")
 
 
 func test_create_all_returns_fresh_instances_each_call() -> void:
@@ -51,6 +51,21 @@ func test_base_god_village_cost_is_unchanged() -> void:
 func test_le_batisseur_flat_village_cost_overrides_base() -> void:
 	var god := LeBatisseurGod.new()
 	assert_int(god.modify_village_cost(10, _board_tile())).is_equal(LeBatisseurGod.FLAT_VILLAGE_COST)
+
+
+func test_base_god_rebuild_cost_is_unchanged() -> void:
+	var god := God.new("Test God")
+	assert_int(god.modify_rebuild_cost(10, true)).is_equal(10)
+
+
+func test_demolisseur_rebuild_cost_halves_when_demolished_this_turn() -> void:
+	var god := LeDemolisseurGod.new()
+	assert_int(god.modify_rebuild_cost(10, true)).is_equal(5)
+
+
+func test_demolisseur_rebuild_cost_unchanged_when_not_demolished_this_turn() -> void:
+	var god := LeDemolisseurGod.new()
+	assert_int(god.modify_rebuild_cost(10, false)).is_equal(10)
 
 
 # --- Power slots ---

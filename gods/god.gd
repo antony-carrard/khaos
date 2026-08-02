@@ -42,6 +42,7 @@ static func create_all() -> Array[God]:
 		BicephallesGod.new(),
 		AugiaGod.new(),
 		RakunGod.new(),
+		LeDemolisseurGod.new(),
 	]
 	return all
 
@@ -72,6 +73,15 @@ func find_slot(power: GodPower) -> int:
 ## applies to plains only).
 func modify_village_cost(base_cost: int, _tile: HexTile) -> int:
 	return base_cost
+
+
+## Further adjusts `cost` (already run through modify_village_cost) based on
+## whether this exact position was demolished by this god's owner earlier in
+## the same turn. No-op by default; Le Démolisseur overrides it for Échafaudage
+## (rules.md: rebuilding on a spot demolished this turn is half price, if the
+## démolisseur had an adjacent village at the moment of demolition).
+func modify_rebuild_cost(cost: int, _was_demolished_this_turn: bool) -> int:
+	return cost
 
 
 ## Called after this god's owner demolishes an enemy village whose board tile
