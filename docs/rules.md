@@ -45,13 +45,14 @@ Pour chaque village construit, le joueur gagne une récompenses de points de glo
 ### Démolir un village
 Durant son tour, le joueur peut démolir un village adverse si un de ses propres villages se trouve sur une tuile adjacente. Le coût de démolition du village dépend du type de tuile sur laquelle le village adverse se trouve, ainsi que le type de tuile sur lequel le village du joueur se trouve.
 Le coût de base de démolition du village adverse en fonction de la tuile sur laquelle il se trouve est le suivant :
-- Plaine : 2 matériaux 
+- Plaine : 2 matériaux
 - Colline : 4 matériaux
 - Montagne : 6 matériaux
 En plus du coût de base, un surcoût peut être additionné au coût de base si le village adverse à démolir se trouve en dessus du village du joueur actuel. En fonction de la différence de niveau, le surcoût est le suivant :
 - 1 niveau inférieur : + 2 matériaux, + 1 action
 - 2 niveaux inférieurs : + 4 matériaux, + 2 actions
 Ainsi, si le joueur dont c'est le tour souhaite démolir un village situé sur une montagne depuis un village situé sur une plaine, il devra payer 6 + 4 = 10 matériaux, et devra utiliser 1 + 2 = 3 actions.
+Si le joueur souhaite démolir un village adverse depuis un village qu'il a vient de construire durant le même tour, il devra s'affranchir d'une action supplémentaire pour démolir le village.
 Pour chaque village adverse démoli, le joueur gagne une récompenses de points de gloires selon le barème suivant :
 - Plaine : 1 gloire 
 - Colline : 2 gloire
@@ -91,7 +92,7 @@ Pouvoir majeur (4 ferveur): Augmentation de la tuile d'un village possédé. Aug
 ### Rakun
 Pouvoir passif : Rakun effectue un vol de récolte sur les villages qu'il démolit.
 Pouvoir mineur (2 ferveur) : Vol de récolte de ressources d'un village ennemi à proximité.
-Pouvoir majeur (5 ferveur) : Réduction d'une tuile ennemie. Rakun peut par exemple voler la tuile de type colline d'un village adverse, pour le transformer en village de type plaine. La tuile volée retourne dans la main de Rakun. Si le village réduit se trouve sur une plaine, le village est démoli, activant son passif. Rakun gagne un point de gloire pour chaque réduction.
+Pouvoir majeur (5 ferveur) : Réduction d'une tuile ennemie. Rakun peut par exemple voler la tuile de type colline d'un village adverse, pour le transformer en village de type plaine. La tuile volée retourne dans la main de Rakun. Si le village réduit se trouve sur une plaine, le village est démoli. Son passif lui octroie un vol de récolte si Rakun possède un village à proximité du village démoli. Rakun gagne un point de gloire pour chaque réduction.
 ### Le Démolisseur
 Pouvoir passif : Échafaudage. La construction d'un village sur l'emplacement d'un village adverse démoli durant le même tour est moitié prix. Ce passif s'applique uniquement si le démolisseur possède un village à proximité lors de la démolition.
 Pouvoir mineur (3 ferveur): Le démolisseur peut détruire un village adverse à proximité. Il ne récolte pas de gloire pour la démolition.
