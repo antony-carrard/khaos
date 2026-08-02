@@ -2,6 +2,12 @@ extends GdUnitTestSuite
 
 # God.create_all() catalog, the minor/major power slots, and the passive hooks.
 
+class FakeBoardManager extends Node3D:
+	var current_player: Player
+	func _init(p: Player) -> void:
+		current_player = p
+
+
 var _bare_tiles: Array[HexTile] = []
 
 
@@ -120,3 +126,29 @@ func test_gods_without_a_stat_passive_use_the_defaults() -> void:
 	var god := RakunGod.new()
 	assert_int(god.total_actions).is_equal(3)
 	assert_int(god.hand_size).is_equal(3)
+
+
+# --- Demolish-triggered passive hook ---
+
+func test_base_god_on_village_demolished_is_a_noop() -> void:
+	var god := God.new("Test God")
+	var player: Player = auto_free(Player.new())
+	player.initialize("P", Color.BLUE)
+	var tile := _board_tile()
+	tile.yields = {TileDefinition.ResourceType.MATERIALS: 3}
+	god.on_village_demolished(auto_free(FakeBoardManager.new(player)), tile)
+	assert_int(player.materials).is_equal(0)
+
+
+func test_rakun_on_village_demolished_steals_the_tiles_yields() -> void:
+	var god := RakunGod.new()
+	var player: Player = auto_free(Player.new())
+	player.initialize("P", Color.BLUE)
+	var tile := _board_tile()
+	tile.yields = {
+		TileDefinition.ResourceType.MATERIALS: 3,
+		TileDefinition.ResourceType.GLORY: 1,
+	}
+	god.on_village_demolished(auto_free(FakeBoardManager.new(player)), tile)
+	assert_int(player.materials).is_equal(3)
+	assert_int(player.glory).is_equal(1)

@@ -72,3 +72,10 @@ func find_slot(power: GodPower) -> int:
 ## applies to plains only).
 func modify_village_cost(base_cost: int, _tile: HexTile) -> int:
 	return base_cost
+
+
+## Called after this god's owner demolishes an enemy village whose board tile
+## was `tile` (still live, not yet mutated further). No-op by default; Rakun
+## overrides it to steal the tile's yields (rules.md passive).
+func on_village_demolished(_board_manager: Node3D, _tile: HexTile) -> void:
+	pass

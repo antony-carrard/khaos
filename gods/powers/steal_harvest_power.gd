@@ -18,9 +18,16 @@ func apply_effect(board_manager: Node3D, q: int, r: int) -> bool:
 		Log.error("StealHarvestPower: village at (%d,%d) has no tile" % [q, r])
 		return false
 
-	var player: Player = board_manager.current_player
-	for res_type in tile.yields:
-		var amount: int = tile.yields[res_type]
+	steal_yields(board_manager.current_player, tile.yields)
+	return true
+
+
+## Grants `player` the resources listed in `tile_yields` (a tile's `yields`
+## dict). Shared by this minor power's direct steal and Rakun's
+## demolish-triggered passive (God.on_village_demolished).
+static func steal_yields(player: Player, tile_yields: Dictionary) -> void:
+	for res_type in tile_yields:
+		var amount: int = tile_yields[res_type]
 		match res_type:
 			TileDefinition.ResourceType.MATERIALS:
 				player.materials += amount
@@ -31,7 +38,6 @@ func apply_effect(board_manager: Node3D, q: int, r: int) -> bool:
 			TileDefinition.ResourceType.GLORY:
 				player.glory += amount
 				Log.info("Stole %d glory from enemy village" % amount)
-	return true
 
 
 func update_tooltip(controller: PlacementController, q: int, r: int, is_valid: bool) -> void:

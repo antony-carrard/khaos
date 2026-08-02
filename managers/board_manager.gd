@@ -539,6 +539,7 @@ func on_village_removed(q: int, r: int) -> bool:
 				return false
 		if not village_manager.remove_village(q, r):
 			return false
+		current_player.god.on_village_demolished(self, tile)
 		var glory := _apply_village_demolition(tile, current_player, res_cost)
 		Log.info("Destroyed enemy village at (%d,%d), paid %d resources, %d actions, gained %d glory" % [q, r, res_cost, act_cost, glory])
 
@@ -795,6 +796,7 @@ func _rpc_remove_village(q: int, r: int) -> void:
 		var res_cost := get_demolition_resources_cost(tile, best_own_height)
 		var act_cost := get_demolition_action_cost(tile, best_own_height)
 		village_manager.remove_village(q, r)
+		current_player.god.on_village_demolished(self, tile)
 		for i in act_cost:
 			_consume_action("destroy enemy village")
 		_apply_village_demolition(tile, current_player, res_cost)
