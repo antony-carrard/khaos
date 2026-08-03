@@ -48,9 +48,18 @@ func test_base_god_village_cost_is_unchanged() -> void:
 	assert_int(god.modify_village_cost(10, _board_tile())).is_equal(10)
 
 
-func test_le_batisseur_flat_village_cost_overrides_base() -> void:
+func test_le_batisseur_plains_village_cost_overrides_base() -> void:
 	var god := LeBatisseurGod.new()
-	assert_int(god.modify_village_cost(10, _board_tile())).is_equal(LeBatisseurGod.FLAT_VILLAGE_COST)
+	var tile := _board_tile(TileDefinition.TileType.PLAINS)
+	assert_int(god.modify_village_cost(10, tile)).is_equal(LeBatisseurGod.PLAINS_VILLAGE_COST)
+
+
+func test_le_batisseur_non_plains_village_cost_is_unchanged() -> void:
+	var god := LeBatisseurGod.new()
+	var hills_tile := _board_tile(TileDefinition.TileType.HILLS)
+	assert_int(god.modify_village_cost(4, hills_tile)).is_equal(4)
+	var mountain_tile := _board_tile(TileDefinition.TileType.MOUNTAIN)
+	assert_int(god.modify_village_cost(6, mountain_tile)).is_equal(6)
 
 
 func test_base_god_rebuild_cost_is_unchanged() -> void:

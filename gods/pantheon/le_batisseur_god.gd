@@ -1,15 +1,13 @@
 class_name LeBatisseurGod
 extends God
 
-## NOTE: the passive below is the current behaviour (flat 4 for every village),
-## which does not yet match rules.md — that says a village on a *plains* tile
-## costs 1 material instead of 2. Left as-is for the content pass; the hook
-## already receives the tile it needs for the fix.
-const FLAT_VILLAGE_COST: int = 4
+## rules.md: village construction on a plains tile costs 1 material instead
+## of 2. Hills and mountain keep the standard cost (4 and 6).
+const PLAINS_VILLAGE_COST: int = 1
 
 func _init():
 	super("Le Bâtisseur", "res://assets/gods/bâtisseur.jpg",
-		"Coût fixe", "Les constructions coûtent 4 ressources")
+		"Coût réduit", "Les constructions sur une plaine coûtent 1 ressource")
 
 	# rules.md gives Le Bâtisseur a "fusion de villages" minor and a
 	# "construction divine" major; this destroy power is the existing content,
@@ -17,5 +15,7 @@ func _init():
 	major = DestroyVillageFreePower.new()
 
 
-func modify_village_cost(_base_cost: int, _tile: HexTile) -> int:
-	return FLAT_VILLAGE_COST
+func modify_village_cost(base_cost: int, tile: HexTile) -> int:
+	if tile.tile_type == TileDefinition.TileType.PLAINS:
+		return PLAINS_VILLAGE_COST
+	return base_cost
