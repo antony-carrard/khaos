@@ -459,7 +459,7 @@ func on_village_placed(q: int, r: int) -> bool:
 
 	villages_built_this_turn[Vector2i(q, r)] = true
 
-	var glory := _apply_village_construction(tile, current_player, cost)
+	var glory := apply_village_construction(tile, current_player, cost)
 	Log.info("Built village for %d resources, gained %d glory" % [cost, glory])
 
 	if _is_network:
@@ -781,7 +781,7 @@ func _grant_placement_bounty(player: Player, tile_yields: Dictionary) -> void:
 
 
 ## Applies the cost/glory of building a village. Shared by the local path and the network replay path.
-func _apply_village_construction(tile: HexTile, player: Player, cost: int) -> int:
+func apply_village_construction(tile: HexTile, player: Player, cost: int) -> int:
 	player.materials -= cost
 	var glory := tile.height_level + 1
 	player.glory += glory
@@ -823,7 +823,7 @@ func _rpc_place_village(q: int, r: int) -> void:
 	village_manager.place_village(q, r, current_player)
 	villages_built_this_turn[Vector2i(q, r)] = true
 	_consume_action("build village")
-	_apply_village_construction(tile, current_player, cost)
+	apply_village_construction(tile, current_player, cost)
 
 
 @rpc("any_peer", "call_remote", "reliable")

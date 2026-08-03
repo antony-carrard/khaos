@@ -82,6 +82,12 @@ func test_demolisseur_rebuild_cost_unchanged_when_not_demolished_this_turn() -> 
 func test_le_batisseur_has_a_major_and_no_minor() -> void:
 	var god := LeBatisseurGod.new()
 	assert_object(god.minor).is_null()
+	assert_bool(god.major is BuildAnywherePower).is_true()
+
+
+func test_le_demolisseur_has_a_major_and_no_minor() -> void:
+	var god := LeDemolisseurGod.new()
+	assert_object(god.minor).is_null()
 	assert_bool(god.major is DestroyVillageFreePower).is_true()
 
 

@@ -9,10 +9,8 @@ func _init():
 	super("Le Bâtisseur", "res://assets/gods/bâtisseur.jpg",
 		"Coût réduit", "Les constructions sur une plaine coûtent 1 ressource")
 
-	# rules.md gives Le Bâtisseur a "fusion de villages" minor and a
-	# "construction divine" major; this destroy power is the existing content,
-	# slotted as major on cost. Both are due for the content pass.
-	major = DestroyVillageFreePower.new()
+	# rules.md gives Le Bâtisseur a "fusion de villages" minor, still pending.
+	major = BuildAnywherePower.new()
 
 
 func modify_village_cost(base_cost: int, tile: HexTile) -> int:

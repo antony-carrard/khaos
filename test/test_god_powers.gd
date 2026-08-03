@@ -24,6 +24,7 @@ class FakeBoardManager extends Node3D:
 	var tile_pool: TilePool
 	var placement_controller: Node = null
 	var ui: Node = null
+	var villages_built_this_turn: Dictionary[Vector2i, bool] = {}
 
 	# Activation context — stands in for the real board_manager's, which is
 	# where a power reads the hand tile the player picked for it.
@@ -125,6 +126,32 @@ func test_destroy_village_free_resolve_effect_removes_village() -> void:
 	var success := power.apply_effect(board, 0, 0)
 	assert_bool(success).is_true()
 	assert_object(village_manager.get_village_at(0, 0)).is_null()
+
+
+# --- BuildAnywherePower (Le Bâtisseur major) ---
+
+func test_build_anywhere_valid_target_is_vacant_tile() -> void:
+	_inject_tile(0, 0, 0, TileDefinition.TileType.MOUNTAIN, {})
+	var power := BuildAnywherePower.new()
+	assert_bool(power.is_valid_target(board, 0, 0)).is_true()
+
+
+func test_build_anywhere_invalid_when_village_already_present() -> void:
+	_inject_tile(0, 0, 0, TileDefinition.TileType.PLAINS, {})
+	_inject_village(0, 0, victim)
+	var power := BuildAnywherePower.new()
+	assert_bool(power.is_valid_target(board, 0, 0)).is_false()
+
+
+func test_build_anywhere_invalid_when_no_tile() -> void:
+	var power := BuildAnywherePower.new()
+	assert_bool(power.is_valid_target(board, 0, 0)).is_false()
+
+# apply_effect() is not re-verified here: place_village() sets global_position,
+# which requires the node to be inside the scene tree (unlike this suite's
+# detached managers) and otherwise only logs an engine error — same
+# scene-dependent-effect carve-out as the tile-height powers above. Covered by
+# manual playtest instead.
 
 
 # --- StealHarvestPower (Rakun minor) ---
