@@ -147,6 +147,18 @@ func get_top_height(q: int, r: int) -> int:
 	return top_height
 
 
+## Every (q, r) column that has at least one tile, each listed once regardless
+## of stack height. For callers that need to sweep the board rather than probe
+## a known position.
+func get_occupied_hexes() -> Array[Vector2i]:
+	var hexes: Array[Vector2i] = []
+	for key in placed_tiles:
+		var hex := Vector2i(key.x, key.y)
+		if not hexes.has(hex):
+			hexes.append(hex)
+	return hexes
+
+
 ## Gets the topmost tile at the given hex position.
 ## Returns the HexTile node, or null if no tile exists.
 func get_tile_at(q: int, r: int) -> HexTile:

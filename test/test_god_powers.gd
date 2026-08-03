@@ -27,13 +27,24 @@ class FakeBoardManager extends Node3D:
 	var villages_built_this_turn: Dictionary[Vector2i, bool] = {}
 
 	# Activation context — stands in for the real board_manager's, which is
-	# where a power reads the hand tile the player picked for it.
+	# where a power reads the hand tile the player picked for it and the board
+	# picks a multi-step power has collected so far.
 	var power_hand_index: int = -1
+	var power_selected_villages: Array[Vector2i] = []
 
 	func get_picked_hand_tile() -> TileDefinition:
 		if power_hand_index < 0 or power_hand_index >= current_player.hand.size():
 			return null
 		return current_player.hand[power_hand_index]
+
+	# Mirrors the real one minus the board highlighting, which needs live tiles.
+	func toggle_power_selection(q: int, r: int) -> void:
+		var key := Vector2i(q, r)
+		var index := power_selected_villages.find(key)
+		if index == -1:
+			power_selected_villages.append(key)
+		else:
+			power_selected_villages.remove_at(index)
 
 
 var actor: Player
@@ -152,6 +163,122 @@ func test_build_anywhere_invalid_when_no_tile() -> void:
 # detached managers) and otherwise only logs an engine error — same
 # scene-dependent-effect carve-out as the tile-height powers above. Covered by
 # manual playtest instead.
+
+
+# --- MergeVillagesPower (Le Bâtisseur minor) ---
+#
+# Two-step targeting: is_selectable()/handle_selection_click() collect own
+# plains villages, then is_valid_target() gates the receiving hex. apply_effect()
+# is not re-verified here — it calls place_village(), same scene-dependent
+# carve-out as BuildAnywherePower above.
+
+# Own plains villages on the east and northeast neighbours of the receiving hex
+# at (0, 0), which the caller then makes a vacant hills or mountain tile.
+func _setup_two_mergeable_villages() -> void:
+	for pos in [Vector2i(1, 0), Vector2i(1, -1)]:
+		_inject_village(pos.x, pos.y, actor)
+		_inject_tile(pos.x, pos.y, 0, TileDefinition.TileType.PLAINS, {})
+
+
+func test_merge_selectable_on_own_plains_village() -> void:
+	_inject_village(1, 0, actor)
+	_inject_tile(1, 0, 0, TileDefinition.TileType.PLAINS, {})
+	var power := MergeVillagesPower.new()
+	assert_bool(power.is_selectable(board, 1, 0)).is_true()
+
+
+func test_merge_not_selectable_on_enemy_village() -> void:
+	_inject_village(1, 0, victim)
+	_inject_tile(1, 0, 0, TileDefinition.TileType.PLAINS, {})
+	var power := MergeVillagesPower.new()
+	assert_bool(power.is_selectable(board, 1, 0)).is_false()
+
+
+func test_merge_not_selectable_on_own_hills_village() -> void:
+	_inject_village(1, 0, actor)
+	_inject_tile(1, 0, 1, TileDefinition.TileType.HILLS, {})
+	var power := MergeVillagesPower.new()
+	assert_bool(power.is_selectable(board, 1, 0)).is_false()
+
+
+func test_merge_selection_click_toggles_the_pick() -> void:
+	_inject_village(1, 0, actor)
+	_inject_tile(1, 0, 0, TileDefinition.TileType.PLAINS, {})
+	var power := MergeVillagesPower.new()
+	assert_bool(power.handle_selection_click(board, 1, 0)).is_true()
+	assert_int(board.power_selected_villages.size()).is_equal(1)
+	assert_bool(power.handle_selection_click(board, 1, 0)).is_true()
+	assert_int(board.power_selected_villages.size()).is_equal(0)
+
+
+func test_merge_selection_stops_at_three_villages() -> void:
+	var power := MergeVillagesPower.new()
+	for pos in [Vector2i(1, 0), Vector2i(1, -1), Vector2i(0, -1), Vector2i(-1, 0)]:
+		_inject_village(pos.x, pos.y, actor)
+		_inject_tile(pos.x, pos.y, 0, TileDefinition.TileType.PLAINS, {})
+		power.handle_selection_click(board, pos.x, pos.y)
+	assert_int(board.power_selected_villages.size()).is_equal(MergeVillagesPower.MAX_MERGED)
+	assert_bool(board.power_selected_villages.has(Vector2i(-1, 0))).is_false()
+
+
+func test_merge_two_villages_target_vacant_hills_is_valid() -> void:
+	_setup_two_mergeable_villages()
+	_inject_tile(0, 0, 1, TileDefinition.TileType.HILLS, {})
+	board.power_selected_villages = [Vector2i(1, 0), Vector2i(1, -1)]
+	var power := MergeVillagesPower.new()
+	assert_bool(power.is_valid_target(board, 0, 0)).is_true()
+
+
+func test_merge_two_villages_target_vacant_mountain_is_invalid() -> void:
+	_setup_two_mergeable_villages()
+	_inject_tile(0, 0, 2, TileDefinition.TileType.MOUNTAIN, {})
+	board.power_selected_villages = [Vector2i(1, 0), Vector2i(1, -1)]
+	var power := MergeVillagesPower.new()
+	assert_bool(power.is_valid_target(board, 0, 0)).is_false()
+
+
+func test_merge_three_villages_target_vacant_mountain_is_valid() -> void:
+	_setup_two_mergeable_villages()
+	_inject_village(0, -1, actor)
+	_inject_tile(0, -1, 0, TileDefinition.TileType.PLAINS, {})
+	_inject_tile(0, 0, 2, TileDefinition.TileType.MOUNTAIN, {})
+	board.power_selected_villages = [Vector2i(1, 0), Vector2i(1, -1), Vector2i(0, -1)]
+	var power := MergeVillagesPower.new()
+	assert_bool(power.is_valid_target(board, 0, 0)).is_true()
+
+
+func test_merge_target_invalid_when_only_one_village_selected() -> void:
+	_setup_two_mergeable_villages()
+	_inject_tile(0, 0, 1, TileDefinition.TileType.HILLS, {})
+	board.power_selected_villages = [Vector2i(1, 0)]
+	var power := MergeVillagesPower.new()
+	assert_bool(power.is_valid_target(board, 0, 0)).is_false()
+
+
+func test_merge_target_invalid_when_a_village_is_not_adjacent() -> void:
+	_setup_two_mergeable_villages()
+	_inject_village(3, 0, actor)
+	_inject_tile(3, 0, 0, TileDefinition.TileType.PLAINS, {})
+	_inject_tile(0, 0, 1, TileDefinition.TileType.HILLS, {})
+	board.power_selected_villages = [Vector2i(1, 0), Vector2i(3, 0)]
+	var power := MergeVillagesPower.new()
+	assert_bool(power.is_valid_target(board, 0, 0)).is_false()
+
+
+func test_merge_target_invalid_when_receiving_hex_is_occupied() -> void:
+	_setup_two_mergeable_villages()
+	_inject_tile(0, 0, 1, TileDefinition.TileType.HILLS, {})
+	_inject_village(0, 0, victim)
+	board.power_selected_villages = [Vector2i(1, 0), Vector2i(1, -1)]
+	var power := MergeVillagesPower.new()
+	assert_bool(power.is_valid_target(board, 0, 0)).is_false()
+
+
+func test_merge_target_invalid_when_receiving_hex_has_no_tile() -> void:
+	_setup_two_mergeable_villages()
+	board.power_selected_villages = [Vector2i(1, 0), Vector2i(1, -1)]
+	var power := MergeVillagesPower.new()
+	assert_bool(power.is_valid_target(board, 0, 0)).is_false()
 
 
 # --- StealHarvestPower (Rakun minor) ---

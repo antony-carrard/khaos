@@ -257,4 +257,4 @@ func _deactivate() -> void:
 	if preview_village:
 		preview_village.visible = false
 	if board_manager:
-		board_manager.cancel_pending_hand_power()
+		board_manager.cancel_power_activation()

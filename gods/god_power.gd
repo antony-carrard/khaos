@@ -36,6 +36,21 @@ func needs_hand_tile() -> bool:
 	return false
 
 
+## Multi-step powers only: whether clicking (q, r) would add it to (or remove
+## it from) the running board selection instead of resolving the power. Drives
+## the hover-highlight for the collecting steps, mirroring is_valid_target()
+## for the final one.
+func is_selectable(_board_manager: Node3D, _q: int, _r: int) -> bool:
+	return false
+
+
+## Multi-step powers only: absorbs a click as a selection step. Returns true if
+## the click was consumed, which keeps targeting mode active. The picks live in
+## board_manager's activation context (power_selected_villages), not here.
+func handle_selection_click(_board_manager: Node3D, _q: int, _r: int) -> bool:
+	return false
+
+
 ## Hover tooltip while targeting. Default: hide. Override to preview something
 ## (e.g. steal-harvest's yield amount).
 func update_tooltip(controller: PlacementController, _q: int, _r: int, _is_valid: bool) -> void:

@@ -9,7 +9,7 @@ func _init():
 	super("Le Bâtisseur", "res://assets/gods/bâtisseur.jpg",
 		"Coût réduit", "Les constructions sur une plaine coûtent 1 ressource")
 
-	# rules.md gives Le Bâtisseur a "fusion de villages" minor, still pending.
+	minor = MergeVillagesPower.new()
 	major = BuildAnywherePower.new()
 
 

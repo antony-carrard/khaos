@@ -79,9 +79,9 @@ func test_demolisseur_rebuild_cost_unchanged_when_not_demolished_this_turn() -> 
 
 # --- Power slots ---
 
-func test_le_batisseur_has_a_major_and_no_minor() -> void:
+func test_le_batisseur_has_both_powers() -> void:
 	var god := LeBatisseurGod.new()
-	assert_object(god.minor).is_null()
+	assert_bool(god.minor is MergeVillagesPower).is_true()
 	assert_bool(god.major is BuildAnywherePower).is_true()
 
 

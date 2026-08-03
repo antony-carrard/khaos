@@ -73,9 +73,17 @@ var villages_demolished_this_turn: Dictionary[Vector2i, bool] = {}
 # for a power whose needs_hand_tile() is true (after the power button is
 # pressed, before target-selection starts). power_hand_index holds that pick,
 # read back by the power via get_picked_hand_tile().
+#
+# power_selected_villages holds the board picks a multi-step power collects
+# before its final target resolves it (Le Bâtisseur's merge). Powers read it,
+# toggle_power_selection() writes it, and the picks are highlighted on the
+# board so the running selection is visible.
 const NO_HAND_INDEX: int = -1
 var _pending_hand_power: GodPower = null
 var power_hand_index: int = NO_HAND_INDEX
+var power_selected_villages: Array[Vector2i] = []
+# Hexes currently lit up as resolvable targets, tracked so they can be unlit.
+var _power_candidate_hexes: Array[Vector2i] = []
 var triggering_player: Player = null
 
 
@@ -694,6 +702,7 @@ func on_power_activated(power: GodPower, player: Player) -> void:
 		Log.warn("Cannot afford power: %s" % power.power_name)
 		return
 	power_hand_index = NO_HAND_INDEX
+	clear_power_selection()
 	if power.needs_hand_tile():
 		_pending_hand_power = power
 		if ui:
@@ -710,9 +719,58 @@ func get_picked_hand_tile() -> TileDefinition:
 	return current_player.hand[power_hand_index]
 
 
-## Cancels a pending "pick a hand tile for this power" state, e.g. on Escape.
-func cancel_pending_hand_power() -> void:
+## Adds (q, r) to a multi-step power's running selection, or removes it if it
+## was already picked. Called by the power from handle_selection_click().
+func toggle_power_selection(q: int, r: int) -> void:
+	var key := Vector2i(q, r)
+	var index := power_selected_villages.find(key)
+	if index == -1:
+		power_selected_villages.append(key)
+	else:
+		power_selected_villages.remove_at(index)
+	_set_tile_highlight(key, index == -1)
+
+
+## Lights up every hex `power` could resolve on given the picks collected so
+## far, so the player can see what a growing selection makes available — and,
+## when nothing lights up, that this combination is a dead end. Called by
+## PowerTargetStrategy after each absorbed selection click. Picks and
+## candidates share the one highlight: picks always carry a village and
+## candidates are always vacant, so they don't read as the same thing.
+##
+## A hex that is both a pick and a candidate keeps its light — merge can't
+## produce one, but the two sets aren't disjoint by construction, so unlighting
+## blind would silently drop a live pick for some future power.
+func refresh_power_candidates(power: GodPower) -> void:
+	for key in _power_candidate_hexes:
+		if not power_selected_villages.has(key):
+			_set_tile_highlight(key, false)
+	_power_candidate_hexes.clear()
+	for key in tile_manager.get_occupied_hexes():
+		if power.is_valid_target(self, key.x, key.y):
+			_power_candidate_hexes.append(key)
+			_set_tile_highlight(key, true)
+
+
+## Drops a multi-step power's selection and every highlight it put on the board.
+func clear_power_selection() -> void:
+	for key in power_selected_villages + _power_candidate_hexes:
+		_set_tile_highlight(key, false)
+	power_selected_villages.clear()
+	_power_candidate_hexes.clear()
+
+
+func _set_tile_highlight(key: Vector2i, enabled: bool) -> void:
+	var tile := tile_manager.get_tile_at(key.x, key.y)
+	if tile:
+		tile.set_highlight(enabled, true)
+
+
+## Cancels an in-progress power activation, e.g. on Escape: the pending "pick a
+## hand tile" state and any board picks a multi-step power had collected.
+func cancel_power_activation() -> void:
 	power_hand_index = NO_HAND_INDEX
+	clear_power_selection()
 	if _pending_hand_power:
 		_pending_hand_power = null
 		if ui:
@@ -725,14 +783,16 @@ func cancel_pending_hand_power() -> void:
 ## replay via _rpc_power_resolve directly, never through this method).
 func _resolve_power_target(power: GodPower, q: int, r: int) -> bool:
 	var hand_index := power_hand_index
+	var selection := power_selected_villages.duplicate()
 	var success: bool = power.resolve(self, q, r)
 	power_hand_index = NO_HAND_INDEX
+	clear_power_selection()
 	if success:
 		placement_controller.cancel_placement()
 		if _is_network:
-			# The hand pick has to be replayed explicitly — remotes have no
-			# local UI event to derive it from.
-			rpc("_rpc_power_resolve", current_player.god.find_slot(power), q, r, hand_index)
+			# The hand pick and the collected board picks have to be replayed
+			# explicitly — remotes have no local UI events to derive them from.
+			rpc("_rpc_power_resolve", current_player.god.find_slot(power), q, r, hand_index, selection)
 	return success
 
 
@@ -856,15 +916,21 @@ func _rpc_end_turn() -> void:
 
 
 @rpc("any_peer", "call_remote", "reliable")
-func _rpc_power_resolve(slot: int, q: int, r: int, hand_index: int) -> void:
+func _rpc_power_resolve(slot: int, q: int, r: int, hand_index: int, selection: Array) -> void:
 	if not _validate_rpc_sender(): return
 	var power := current_player.god.get_power(slot)
 	if power == null:
 		push_warning("_rpc_power_resolve: no power in slot %d for player's god" % slot)
 		return
 	power_hand_index = hand_index
+	# Rebuilt element by element rather than assigned: the wire hands back a
+	# plain Array, which won't assign straight into a typed one.
+	power_selected_villages.clear()
+	for village_pos in selection:
+		power_selected_villages.append(village_pos)
 	power.resolve(self, q, r)
 	power_hand_index = NO_HAND_INDEX
+	clear_power_selection()
 
 
 ## Calculates scores for all players and shows the victory screen.

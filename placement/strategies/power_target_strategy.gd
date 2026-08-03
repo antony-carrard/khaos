@@ -13,13 +13,18 @@ func _init(p_power: GodPower) -> void:
 
 
 func on_click(controller: PlacementController, q: int, r: int) -> bool:
-	if not power.is_valid_target(controller.board_manager, q, r):
-		return false
-	return controller.board_manager._resolve_power_target(power, q, r)
+	if power.is_valid_target(controller.board_manager, q, r):
+		return controller.board_manager._resolve_power_target(power, q, r)
+	# Multi-step powers absorb clicks on their intermediate targets. Returning
+	# false keeps this strategy installed so collecting can continue.
+	if power.handle_selection_click(controller.board_manager, q, r):
+		controller.board_manager.refresh_power_candidates(power)
+	return false
 
 
 func get_validity(controller: PlacementController, q: int, r: int) -> bool:
-	return power.is_valid_target(controller.board_manager, q, r)
+	return power.is_valid_target(controller.board_manager, q, r) \
+		or power.is_selectable(controller.board_manager, q, r)
 
 
 func update_tooltip(controller: PlacementController, q: int, r: int, is_valid: bool) -> void:
