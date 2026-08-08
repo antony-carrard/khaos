@@ -54,6 +54,18 @@ class FakeBoardManager extends Node3D:
 		player.glory += glory
 		return glory
 
+	# Mirrors board_manager.get_best_adjacent_own_height() exactly.
+	func get_best_adjacent_own_height(q: int, r: int) -> int:
+		var best := -1
+		for neighbor in HexGridUtils.get_axial_neighbors(q, r):
+			var own_village := village_manager.get_village_at(neighbor.x, neighbor.y)
+			if not own_village or own_village.player_owner != current_player:
+				continue
+			var own_tile := tile_manager.get_tile_at(neighbor.x, neighbor.y)
+			if own_tile and own_tile.height_level > best:
+				best = own_tile.height_level
+		return best
+
 
 var actor: Player
 var victim: Player
@@ -601,3 +613,44 @@ func test_change_tile_type_can_afford_true_when_hand_has_tile() -> void:
 	actor.hand[0] = TileDefinition.new(TileDefinition.TileType.PLAINS, {TileDefinition.ResourceType.MATERIALS: 1}, 2)
 	var power := ChangeTileTypePower.new()
 	assert_bool(power.can_afford(actor)).is_true()
+
+
+# --- DestroyAdjacentVillagePower (Le Démolisseur minor) ---
+
+func test_destroy_adjacent_valid_target_enemy_village_with_own_neighbor() -> void:
+	_inject_village(5, 5, victim)
+	_inject_village(6, 5, actor)
+	_inject_tile(6, 5, 0, TileDefinition.TileType.PLAINS, {})
+	var power := DestroyAdjacentVillagePower.new()
+	assert_bool(power.is_valid_target(board, 5, 5)).is_true()
+
+
+func test_destroy_adjacent_invalid_without_own_neighbor() -> void:
+	_inject_village(5, 5, victim)
+	var power := DestroyAdjacentVillagePower.new()
+	assert_bool(power.is_valid_target(board, 5, 5)).is_false()
+
+
+func test_destroy_adjacent_invalid_on_own_village() -> void:
+	_inject_village(5, 5, actor)
+	_inject_village(6, 5, actor)
+	_inject_tile(6, 5, 0, TileDefinition.TileType.PLAINS, {})
+	var power := DestroyAdjacentVillagePower.new()
+	assert_bool(power.is_valid_target(board, 5, 5)).is_false()
+
+
+func test_destroy_adjacent_invalid_when_no_village() -> void:
+	_inject_village(6, 5, actor)
+	_inject_tile(6, 5, 0, TileDefinition.TileType.PLAINS, {})
+	var power := DestroyAdjacentVillagePower.new()
+	assert_bool(power.is_valid_target(board, 5, 5)).is_false()
+
+
+func test_destroy_adjacent_resolve_effect_removes_village_and_grants_no_glory() -> void:
+	_inject_village(5, 5, victim)
+	_inject_village(6, 5, actor)
+	var power := DestroyAdjacentVillagePower.new()
+	var success := power.apply_effect(board, 5, 5)
+	assert_bool(success).is_true()
+	assert_object(village_manager.get_village_at(5, 5)).is_null()
+	assert_int(actor.glory).is_equal(0)

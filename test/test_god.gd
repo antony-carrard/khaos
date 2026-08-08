@@ -85,9 +85,9 @@ func test_le_batisseur_has_both_powers() -> void:
 	assert_bool(god.major is BuildAnywherePower).is_true()
 
 
-func test_le_demolisseur_has_a_major_and_no_minor() -> void:
+func test_le_demolisseur_has_both_powers() -> void:
 	var god := LeDemolisseurGod.new()
-	assert_object(god.minor).is_null()
+	assert_bool(god.minor is DestroyAdjacentVillagePower).is_true()
 	assert_bool(god.major is DestroyVillageFreePower).is_true()
 
 
@@ -118,8 +118,9 @@ func test_get_power_returns_the_slot_occupant() -> void:
 
 
 func test_get_power_returns_null_for_an_empty_slot() -> void:
-	var god := LeDemolisseurGod.new()
+	var god := God.new()
 	assert_object(god.get_power(God.PowerSlot.MINOR)).is_null()
+	assert_object(god.get_power(God.PowerSlot.MAJOR)).is_null()
 
 
 func test_find_slot_round_trips_through_get_power() -> void:
