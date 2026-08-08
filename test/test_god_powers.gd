@@ -54,6 +54,14 @@ class FakeBoardManager extends Node3D:
 		player.glory += glory
 		return glory
 
+	# Mirrors board_manager.apply_village_demolition() — no scene-tree
+	# dependency, so it's safe to stub here.
+	func apply_village_demolition(tile: HexTile, player: Player, res_cost: int) -> int:
+		player.materials -= res_cost
+		var glory := tile.height_level + 1
+		player.glory += glory
+		return glory
+
 	# Mirrors board_manager.get_best_adjacent_own_height() exactly.
 	func get_best_adjacent_own_height(q: int, r: int) -> int:
 		var best := -1
@@ -152,11 +160,20 @@ func test_destroy_village_free_invalid_when_no_village() -> void:
 
 
 func test_destroy_village_free_resolve_effect_removes_village() -> void:
+	_inject_tile(0, 0, 1, TileDefinition.TileType.HILLS, {})
 	_inject_village(0, 0, victim)
 	var power := DestroyVillageFreePower.new()
 	var success := power.apply_effect(board, 0, 0)
 	assert_bool(success).is_true()
 	assert_object(village_manager.get_village_at(0, 0)).is_null()
+
+
+func test_destroy_village_free_resolve_effect_grants_glory() -> void:
+	_inject_tile(0, 0, 1, TileDefinition.TileType.HILLS, {})
+	_inject_village(0, 0, victim)
+	var power := DestroyVillageFreePower.new()
+	power.apply_effect(board, 0, 0)
+	assert_int(actor.glory).is_equal(2)
 
 
 # --- BuildAnywherePower (Le Bâtisseur major) ---

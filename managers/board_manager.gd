@@ -591,7 +591,7 @@ func on_village_removed(q: int, r: int) -> bool:
 		if not village_manager.remove_village(q, r):
 			return false
 		current_player.god.on_village_demolished(self, tile)
-		var glory := _apply_village_demolition(tile, current_player, res_cost)
+		var glory := apply_village_demolition(tile, current_player, res_cost)
 		Log.info("Destroyed enemy village at (%d,%d), paid %d resources, %d actions, gained %d glory" % [q, r, res_cost, act_cost, glory])
 
 	if _is_network:
@@ -837,7 +837,7 @@ func apply_village_construction(tile: HexTile, player: Player, cost: int) -> int
 
 
 ## Applies the cost/glory of destroying an enemy village. Shared by the local path and the network replay path.
-func _apply_village_demolition(tile: HexTile, player: Player, res_cost: int) -> int:
+func apply_village_demolition(tile: HexTile, player: Player, res_cost: int) -> int:
 	player.materials -= res_cost
 	var glory := tile.height_level + 1
 	player.glory += glory
@@ -894,7 +894,7 @@ func _rpc_remove_village(q: int, r: int) -> void:
 		current_player.god.on_village_demolished(self, tile)
 		for i in act_cost:
 			_consume_action("destroy enemy village")
-		_apply_village_demolition(tile, current_player, res_cost)
+		apply_village_demolition(tile, current_player, res_cost)
 
 
 @rpc("any_peer", "call_remote", "reliable")
