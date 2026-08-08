@@ -7,16 +7,17 @@ class_name TilePool
 
 var tile_bag: Array[TileDefinition] = []
 var removed_tiles: Array[TileDefinition] = []
+var _rng: RandomNumberGenerator
 
 
 ## Initialize the tile pool with all 64 tiles from rules.md.
 ## Pass rng_seed >= 0 for deterministic shuffling (network mode); -1 uses random seed.
 func initialize(rng_seed: int = -1) -> void:
-	var rng := RandomNumberGenerator.new()
+	_rng = RandomNumberGenerator.new()
 	if rng_seed >= 0:
-		rng.seed = rng_seed
+		_rng.seed = rng_seed
 	else:
-		rng.randomize()
+		_rng.randomize()
 
 	tile_bag.clear()
 	removed_tiles.clear()
@@ -53,7 +54,7 @@ func initialize(rng_seed: int = -1) -> void:
 
 	# Fisher-Yates shuffle using seeded RNG for deterministic ordering
 	for i in range(tile_bag.size() - 1, 0, -1):
-		var j := rng.randi_range(0, i)
+		var j := _rng.randi_range(0, i)
 		var tmp = tile_bag[i]
 		tile_bag[i] = tile_bag[j]
 		tile_bag[j] = tmp
@@ -98,37 +99,13 @@ func is_empty() -> bool:
 	return tile_bag.is_empty()
 
 
-## Check if the bag has at least one tile of the given tile type.
-func has_tile_of_type(tile_type: int) -> bool:
-	for tile in tile_bag:
-		if tile.tile_type == tile_type:
-			return true
-	return false
-
-
-## Draw any tile of the given tile type from the bag.
-## Returns TileDefinition or null if none available.
-func draw_tile_of_type(tile_type: int) -> TileDefinition:
-	for i in range(tile_bag.size()):
-		if tile_bag[i].tile_type == tile_type:
-			var tile = tile_bag[i]
-			tile_bag.remove_at(i)
-			removed_tiles.append(tile)
-			Log.debug("TilePool: Drew %s tile from bag. Remaining: %d" % [
-				TileDefinition.TileType.keys()[tile.tile_type],
-				tile_bag.size()
-			])
-			return tile
-	Log.warn("TilePool: No %s tile available in bag!" % TileDefinition.TileType.keys()[tile_type])
-	return null
-
-
-## Return a tile to the bag and shuffle.
+## Return a tile to the bag at a random position (using the pool's seeded RNG,
+## so network games stay deterministic across peers).
 func return_tile(tile: TileDefinition) -> void:
 	var idx = removed_tiles.find(tile)
 	if idx != -1:
 		removed_tiles.remove_at(idx)
 
-	tile_bag.append(tile)
-	tile_bag.shuffle()
+	var insert_idx = _rng.randi_range(0, tile_bag.size())
+	tile_bag.insert(insert_idx, tile)
 	Log.debug("TilePool: Returned tile to bag. Total: %d" % tile_bag.size())

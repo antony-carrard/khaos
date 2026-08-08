@@ -156,10 +156,6 @@ func _ready() -> void:
 			await show_god_selection(player, selected_so_far)
 			selected_so_far.append(player.god)
 
-	# Deal starting hands to all players
-	for player in players:
-		_deal_hand(player)
-
 	# Create persistent status header
 	var header_canvas = CanvasLayer.new()
 	add_child(header_canvas)
@@ -196,6 +192,8 @@ func _ready() -> void:
 
 	setup_ui()
 	_begin_turn(current_player)
+	if ui:
+		ui.update_hand_display()
 
 
 ## Show god selection screen for a specific player, greying out already-taken gods.
@@ -602,11 +600,23 @@ func on_village_removed(q: int, r: int) -> bool:
 
 # ==================== TURN FLOW ====================
 
-## Discards the player's hand and draws a fresh one from the tile pool.
+## Draws a fresh hand for the player from the tile pool. Called at the start
+## of the player's turn, so tiles other players returned during their own
+## turns are back in the bag and up for grabs before this player redraws.
 func _deal_hand(player: Player) -> void:
-	player.empty_hand()
 	for tile_def in tile_pool.draw_tiles(player.base_hand_size):
 		player.add_to_hand(tile_def)
+
+
+## Returns the player's unplayed hand tiles to the bag and empties their hand.
+## Called when the player's turn ends — the fresh hand isn't drawn until their
+## own next turn begins (_begin_turn), so these tiles sit in the bag available
+## to other players in the meantime instead of being reclaimed immediately.
+func _return_hand_to_bag(player: Player) -> void:
+	for tile in player.hand:
+		if tile != null:
+			tile_pool.return_tile(tile)
+	player.empty_hand()
 
 
 ## Validates and consumes one action from the current player. Logs and returns
@@ -619,12 +629,13 @@ func _consume_action(action_name: String = "action") -> bool:
 	return true
 
 
-## Resets actions and applies this turn's harvest for the given player.
+## Resets actions, applies this turn's harvest, and deals a fresh hand for the given player.
 func _begin_turn(player: Player) -> void:
 	villages_built_this_turn.clear()
 	villages_demolished_this_turn.clear()
 	player.start_turn()
 	harvest_for_player(player)
+	_deal_hand(player)
 
 
 ## Sums a player's village yields and adds them to their materials/fervor/glory.
@@ -644,9 +655,11 @@ func harvest_for_player(player: Player) -> void:
 	])
 
 
-## Discards+redraws the current player's hand, then advances to the next player.
+## Returns the current player's unplayed hand to the bag, then advances to the
+## next player. The player's fresh hand isn't dealt until their own next turn
+## begins (see _begin_turn) — see _return_hand_to_bag for why.
 func _end_turn() -> void:
-	_deal_hand(current_player)
+	_return_hand_to_bag(current_player)
 	_advance_to_next_player()
 
 
@@ -680,6 +693,13 @@ func _advance_to_next_player() -> void:
 func _on_debug_end_opponent_turn() -> void:
 	Log.info("Debug overlay: skipping action for %s" % current_player.player_name)
 	_end_turn()
+
+
+## Debug only: ends the game immediately and shows the victory screen,
+## skipping the rest of the final round. Called by tile_selector_ui's debug button.
+func debug_finish_game() -> void:
+	Log.info("Debug: forcing game end")
+	_trigger_game_end()
 
 
 

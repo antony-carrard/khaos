@@ -197,7 +197,23 @@ func initialize(colors: Dictionary, _board_manager: Node3D = null) -> void:
 	end_turn_button.add_theme_font_size_override("font_size", END_TURN_FONT_SIZE)
 	end_turn_button.pressed.connect(_on_end_turn_pressed)
 	right_vbox.add_child(end_turn_button)
-	
+
+	# Debug-only: skip straight to the victory screen without finishing the game.
+	# Gated on test_mode (not just debug builds) so it only shows up when
+	# deliberately testing, not during normal debug-build playtesting.
+	if OS.is_debug_build() and board_manager and board_manager.test_mode:
+		var debug_finish_button = Button.new()
+		debug_finish_button.text = "[DEBUG] Finish Game"
+		debug_finish_button.custom_minimum_size = END_TURN_BUTTON_SIZE
+		var debug_finish_style = create_button_style(Color(0.6, 0.2, 0.2))
+		debug_finish_button.add_theme_stylebox_override("normal", debug_finish_style)
+		debug_finish_button.add_theme_stylebox_override("hover", create_button_style(Color(0.7, 0.3, 0.3)))
+		debug_finish_button.add_theme_stylebox_override("pressed", create_button_style(Color(0.5, 0.15, 0.15)))
+		debug_finish_button.add_theme_color_override("font_color", Color.WHITE)
+		debug_finish_button.add_theme_font_size_override("font_size", END_TURN_FONT_SIZE)
+		debug_finish_button.pressed.connect(_on_debug_finish_game_pressed)
+		right_vbox.add_child(debug_finish_button)
+
 	hand_display.initialize(tile_type_colors, board_manager)
 	hand_display.set_hand_container(hand_container)
 	hand_display.set_tile_count_label(tile_count_label)
@@ -329,6 +345,11 @@ func set_hand_picking_mode(enabled: bool) -> void:
 func _on_end_turn_pressed() -> void:
 	if board_manager:
 		board_manager.on_end_turn_requested()
+
+
+func _on_debug_finish_game_pressed() -> void:
+	if board_manager:
+		board_manager.debug_finish_game()
 
 
 ## Updates the actions display

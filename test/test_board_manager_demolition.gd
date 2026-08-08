@@ -18,6 +18,7 @@ var victim: Player
 var board: Node3D
 var tile_manager: TileManager
 var village_manager: VillageManager
+var tile_pool: TilePool
 var _bare_tiles: Array[HexTile] = []
 
 
@@ -37,12 +38,15 @@ func before_test() -> void:
 	tile_manager.max_stack_height = 3
 	village_manager = auto_free(VillageManager.new())
 	village_manager.tile_manager = tile_manager
+	tile_pool = auto_free(TilePool.new())
+	tile_pool.initialize()
 
 	var typed_players: Array[Player] = [actor, victim]
 
 	board = auto_free(BoardManagerScript.new())
 	board.tile_manager = tile_manager
 	board.village_manager = village_manager
+	board.tile_pool = tile_pool
 	board.players = typed_players
 	board.current_player_index = 0
 	board.current_player = actor

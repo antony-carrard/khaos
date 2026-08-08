@@ -56,35 +56,20 @@ func test_glory_only_on_hills_and_mountains() -> void:
 			assert_int(tile.tile_type).is_not_equal(TileDefinition.TileType.PLAINS)
 
 
-# --- has_tile_of_type ---
+# --- return_tile ---
 
-func test_has_tile_of_type_true_when_present() -> void:
-	assert_bool(pool.has_tile_of_type(TileDefinition.TileType.HILLS)).is_true()
-
-
-func test_has_tile_of_type_false_when_exhausted() -> void:
-	# Draw all 20 HILLS tiles
-	for i in range(20):
-		pool.draw_tile_of_type(TileDefinition.TileType.HILLS)
-	assert_bool(pool.has_tile_of_type(TileDefinition.TileType.HILLS)).is_false()
+func test_return_tile_increases_count() -> void:
+	var tile = pool.draw_tile()
+	pool.return_tile(tile)
+	assert_int(pool.get_remaining_count()).is_equal(64)
 
 
-# --- draw_tile_of_type ---
+func test_return_tile_can_be_drawn_again() -> void:
+	for i in range(63):
+		pool.draw_tile()
+	var last_in_bag = pool.draw_tile()
+	assert_bool(pool.is_empty()).is_true()
 
-func test_draw_tile_of_type_returns_correct_type() -> void:
-	var tile = pool.draw_tile_of_type(TileDefinition.TileType.HILLS)
-	assert_object(tile).is_not_null()
-	assert_int(tile.tile_type).is_equal(TileDefinition.TileType.HILLS)
-
-
-func test_draw_tile_of_type_reduces_count() -> void:
-	pool.draw_tile_of_type(TileDefinition.TileType.MOUNTAIN)
-	assert_int(pool.get_remaining_count()).is_equal(63)
-
-
-func test_draw_tile_of_type_returns_null_when_exhausted() -> void:
-	# Draw all 12 MOUNTAIN tiles
-	for i in range(12):
-		pool.draw_tile_of_type(TileDefinition.TileType.MOUNTAIN)
-	var tile = pool.draw_tile_of_type(TileDefinition.TileType.MOUNTAIN)
-	assert_object(tile).is_null()
+	pool.return_tile(last_in_bag)
+	assert_bool(pool.is_empty()).is_false()
+	assert_object(pool.draw_tile()).is_same(last_in_bag)
