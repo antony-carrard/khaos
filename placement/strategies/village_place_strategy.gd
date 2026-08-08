@@ -29,4 +29,4 @@ func get_validity(controller: PlacementController, q: int, r: int) -> bool:
 
 func update_tooltip(controller: PlacementController, _q: int, _r: int, _is_valid: bool) -> void:
 	if controller.board_manager and controller.board_manager.ui:
-		controller.board_manager.ui.show_village_sell_tooltip(false)
+		controller.board_manager.ui.show_resource_gain_tooltip(false)

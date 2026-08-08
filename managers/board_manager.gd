@@ -434,7 +434,7 @@ func on_tile_placed_from_hand(hand_index: int, q: int, r: int) -> void:
 		TileDefinition.format_yields(placed_tile.yields)
 	])
 
-	_grant_placement_bounty(current_player, placed_tile.yields)
+	current_player.receive_yields(placed_tile.yields)
 	current_player.remove_from_hand(hand_index)
 
 	if ui:
@@ -828,18 +828,6 @@ func _rpc_god_selected(player_index: int, god_index: int) -> void:
 
 
 
-func _grant_placement_bounty(player: Player, tile_yields: Dictionary) -> void:
-	for res_type in tile_yields:
-		var amount: int = tile_yields[res_type]
-		match res_type:
-			TileDefinition.ResourceType.MATERIALS:
-				player.materials += amount
-			TileDefinition.ResourceType.FERVOR:
-				player.fervor += amount
-			TileDefinition.ResourceType.GLORY:
-				player.glory += amount
-
-
 ## Applies the cost/glory of building a village. Shared by the local path and the network replay path.
 func apply_village_construction(tile: HexTile, player: Player, cost: int) -> int:
 	player.materials -= cost
@@ -864,7 +852,7 @@ func _rpc_place_tile(hand_index: int, q: int, r: int) -> void:
 		push_warning("_rpc_place_tile: hand[%d] is null" % hand_index)
 		return
 	tile_manager.place_tile(q, r, td.tile_type, td.yields, td.village_building_cost)
-	_grant_placement_bounty(current_player, td.yields)
+	current_player.receive_yields(td.yields)
 	current_player.remove_from_hand(hand_index)
 	_consume_action("place tile")
 	if ui:

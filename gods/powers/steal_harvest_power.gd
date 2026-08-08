@@ -26,18 +26,8 @@ func apply_effect(board_manager: Node3D, q: int, r: int) -> bool:
 ## dict). Shared by this minor power's direct steal and Rakun's
 ## demolish-triggered passive (God.on_village_demolished).
 static func steal_yields(player: Player, tile_yields: Dictionary) -> void:
-	for res_type in tile_yields:
-		var amount: int = tile_yields[res_type]
-		match res_type:
-			TileDefinition.ResourceType.MATERIALS:
-				player.materials += amount
-				Log.info("Stole %d materials from enemy village" % amount)
-			TileDefinition.ResourceType.FERVOR:
-				player.fervor += amount
-				Log.info("Stole %d fervor from enemy village" % amount)
-			TileDefinition.ResourceType.GLORY:
-				player.glory += amount
-				Log.info("Stole %d glory from enemy village" % amount)
+	player.receive_yields(tile_yields)
+	Log.info("Stole yields from enemy village: %s" % TileDefinition.format_yields(tile_yields))
 
 
 func update_tooltip(controller: PlacementController, q: int, r: int, is_valid: bool) -> void:
@@ -48,6 +38,6 @@ func update_tooltip(controller: PlacementController, q: int, r: int, is_valid: b
 		if tile:
 			var total_yield = 0
 			for v in tile.yields.values(): total_yield += v
-			controller.board_manager.ui.show_village_sell_tooltip(true, total_yield)
+			controller.board_manager.ui.show_resource_gain_tooltip(true, total_yield)
 			return
-	controller.board_manager.ui.show_village_sell_tooltip(false)
+	controller.board_manager.ui.show_resource_gain_tooltip(false)

@@ -73,8 +73,8 @@ func _create_tooltip() -> void:
 	vbox.add_child(tooltip_warning_label)
 
 
-## Shows or hides the village sell tooltip with the refund amount
-func show_village_sell_tooltip(visible_flag: bool, refund_amount: int = 0) -> void:
+## Shows or hides the resource-gain tooltip with the refund amount
+func show_resource_gain_tooltip(visible_flag: bool, refund_amount: int = 0) -> void:
 	if not tooltip_label or not tooltip_panel:
 		return
 	if visible_flag:

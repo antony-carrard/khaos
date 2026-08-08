@@ -378,10 +378,10 @@ func update_current_player(player: Player) -> void:
 		player_turn_label.add_theme_color_override("font_color", player.color)
 
 
-## Shows or hides the village sell tooltip with the refund amount
-func show_village_sell_tooltip(visible_flag: bool, refund_amount: int = 0) -> void:
+## Shows or hides the resource-gain tooltip with the refund amount
+func show_resource_gain_tooltip(visible_flag: bool, refund_amount: int = 0) -> void:
 	if tooltip_manager:
-		tooltip_manager.show_village_sell_tooltip(visible_flag, refund_amount)
+		tooltip_manager.show_resource_gain_tooltip(visible_flag, refund_amount)
 
 
 ## Shows or hides the cost tooltip for destroying an enemy village

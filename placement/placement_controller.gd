@@ -97,7 +97,7 @@ func update_preview() -> void:
 		if preview_village:
 			preview_village.visible = false
 		if board_manager.ui:
-			board_manager.ui.show_village_sell_tooltip(false)
+			board_manager.ui.show_resource_gain_tooltip(false)
 		return
 
 	if current_strategy.uses_tile_preview:
@@ -117,7 +117,7 @@ func update_village_preview() -> void:
 	if not viewport:
 		preview_village.visible = false
 		if board_manager.ui:
-			board_manager.ui.show_village_sell_tooltip(false)
+			board_manager.ui.show_resource_gain_tooltip(false)
 		return
 
 	var mouse_pos = viewport.get_mouse_position()
@@ -125,7 +125,7 @@ func update_village_preview() -> void:
 	if axial == HexGridUtils.NO_HIT:
 		preview_village.visible = false
 		if board_manager.ui:
-			board_manager.ui.show_village_sell_tooltip(false)
+			board_manager.ui.show_resource_gain_tooltip(false)
 		return
 
 	var q = axial.x
@@ -134,7 +134,7 @@ func update_village_preview() -> void:
 	if not tile_manager.has_tile_at(q, r):
 		preview_village.visible = false
 		if board_manager.ui:
-			board_manager.ui.show_village_sell_tooltip(false)
+			board_manager.ui.show_resource_gain_tooltip(false)
 		return
 
 	preview_village.visible = true

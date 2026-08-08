@@ -315,6 +315,45 @@ func test_steal_harvest_resolve_effect_fails_without_tile() -> void:
 	assert_bool(success).is_false()
 
 
+# --- BonusHarvestPower (Bicéphallès minor) ---
+
+func test_bonus_harvest_valid_target_is_own_village() -> void:
+	_inject_village(1, 1, actor)
+	var power := BonusHarvestPower.new()
+	assert_bool(power.is_valid_target(board, 1, 1)).is_true()
+
+
+func test_bonus_harvest_invalid_on_enemy_village() -> void:
+	_inject_village(1, 1, victim)
+	var power := BonusHarvestPower.new()
+	assert_bool(power.is_valid_target(board, 1, 1)).is_false()
+
+
+func test_bonus_harvest_invalid_when_no_village() -> void:
+	var power := BonusHarvestPower.new()
+	assert_bool(power.is_valid_target(board, 1, 1)).is_false()
+
+
+func test_bonus_harvest_resolve_effect_adds_yields_to_actor() -> void:
+	_inject_village(1, 1, actor)
+	_inject_tile(1, 1, 0, TileDefinition.TileType.PLAINS, {
+		TileDefinition.ResourceType.MATERIALS: 3,
+		TileDefinition.ResourceType.GLORY: 1,
+	})
+	var power := BonusHarvestPower.new()
+	var success := power.apply_effect(board, 1, 1)
+	assert_bool(success).is_true()
+	assert_int(actor.materials).is_equal(3)
+	assert_int(actor.glory).is_equal(1)
+
+
+func test_bonus_harvest_resolve_effect_fails_without_tile() -> void:
+	_inject_village(1, 1, actor)
+	var power := BonusHarvestPower.new()
+	var success := power.apply_effect(board, 1, 1)
+	assert_bool(success).is_false()
+
+
 # --- UpgradeTileKeepVillagePower (Augia major) — sourced from hand; validity
 # only, see note above (apply_effect stacks a real HexTile scene node) ---
 

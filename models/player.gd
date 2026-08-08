@@ -117,6 +117,20 @@ func empty_hand():
 	for i in range(base_hand_size):
 		hand[i] = null
 
+## Grants resources described by a tile's yields dict (materials/fervor/glory
+## by TileDefinition.ResourceType). Shared by placement bounties, harvest-style
+## powers (steal, bonus harvest), so the type match isn't duplicated per call site.
+func receive_yields(tile_yields: Dictionary) -> void:
+	for res_type in tile_yields:
+		var amount: int = tile_yields[res_type]
+		match res_type:
+			TileDefinition.ResourceType.MATERIALS:
+				materials += amount
+			TileDefinition.ResourceType.FERVOR:
+				fervor += amount
+			TileDefinition.ResourceType.GLORY:
+				glory += amount
+
 func has_tile_in_hand() -> bool:
 	for tile in hand:
 		if tile != null:

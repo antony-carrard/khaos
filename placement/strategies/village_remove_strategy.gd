@@ -18,15 +18,15 @@ func update_tooltip(controller: PlacementController, q: int, r: int, is_valid: b
 	if not (controller.board_manager and controller.board_manager.ui):
 		return
 	if not is_valid:
-		controller.board_manager.ui.show_village_sell_tooltip(false)
+		controller.board_manager.ui.show_resource_gain_tooltip(false)
 		return
 	var village = controller.village_manager.get_village_at(q, r)
 	var tile = controller.tile_manager.get_tile_at(q, r)
 	if not village or not tile:
-		controller.board_manager.ui.show_village_sell_tooltip(false)
+		controller.board_manager.ui.show_resource_gain_tooltip(false)
 		return
 	if village.player_owner == controller.board_manager.current_player:
-		controller.board_manager.ui.show_village_sell_tooltip(true, 0)
+		controller.board_manager.ui.show_resource_gain_tooltip(true, 0)
 	else:
 		var bm = controller.board_manager
 		var cost: Dictionary = bm._compute_demolition_cost(q, r)
