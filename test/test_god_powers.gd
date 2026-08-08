@@ -362,6 +362,20 @@ func test_bonus_harvest_resolve_effect_fails_without_tile() -> void:
 	assert_bool(success).is_false()
 
 
+func test_bonus_harvest_resolve_effect_doubles_yields_on_doubled_village() -> void:
+	var village := _inject_village(1, 1, actor)
+	village.set_doubled(true)
+	_inject_tile(1, 1, 0, TileDefinition.TileType.PLAINS, {
+		TileDefinition.ResourceType.MATERIALS: 3,
+		TileDefinition.ResourceType.GLORY: 1,
+	})
+	var power := BonusHarvestPower.new()
+	var success := power.apply_effect(board, 1, 1)
+	assert_bool(success).is_true()
+	assert_int(actor.materials).is_equal(6)
+	assert_int(actor.glory).is_equal(2)
+
+
 # --- DoubleVillagePower (Bicéphallès major) ---
 
 func test_double_village_valid_target_is_own_undoubled_village() -> void:

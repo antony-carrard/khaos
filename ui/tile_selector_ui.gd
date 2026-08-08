@@ -384,6 +384,12 @@ func show_resource_gain_tooltip(visible_flag: bool, refund_amount: int = 0) -> v
 		tooltip_manager.show_resource_gain_tooltip(visible_flag, refund_amount)
 
 
+## Shows or hides the resource-gain tooltip with a formatted yield breakdown
+func show_resource_gain_tooltip_text(visible_flag: bool, text: String = "") -> void:
+	if tooltip_manager:
+		tooltip_manager.show_resource_gain_tooltip_text(visible_flag, text)
+
+
 ## Shows or hides the cost tooltip for destroying an enemy village
 func show_village_cost_tooltip(visible_flag: bool, cost_amount: int = 0, action_cost: int = 1) -> void:
 	if tooltip_manager:

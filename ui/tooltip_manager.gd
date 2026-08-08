@@ -85,6 +85,20 @@ func show_resource_gain_tooltip(visible_flag: bool, refund_amount: int = 0) -> v
 		tooltip_panel.visible = false
 
 
+## Shows or hides the resource-gain tooltip with an already-formatted yield
+## breakdown (e.g. "+3M+1G"), so callers whose gain spans multiple resource
+## types can show the real composition instead of a generic total.
+func show_resource_gain_tooltip_text(visible_flag: bool, text: String = "") -> void:
+	if not tooltip_label or not tooltip_panel:
+		return
+	if visible_flag:
+		tooltip_label.text = "Free" if text.is_empty() else "+%s" % text
+		tooltip_warning_label.visible = false
+		tooltip_panel.visible = true
+	else:
+		tooltip_panel.visible = false
+
+
 ## Shows or hides the cost tooltip for destroying an enemy village. Adds a red
 ## warning line when the demolition costs more than 1 action (attacking from a
 ## lower tile, or from a village built this same turn — rules.md).

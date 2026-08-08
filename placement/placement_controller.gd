@@ -142,6 +142,11 @@ func update_village_preview() -> void:
 	var world_pos = HexGridUtils.axial_to_world(q, r, top_height)
 	preview_village.global_position = world_pos + Vector3(0, HexGridUtils.TILE_HEIGHT / 2, 0)
 
+	# Match the real village's scale when targeting an existing (possibly
+	# doubled) village, so the ghost overlay doesn't look mismatched.
+	var existing_village = village_manager.get_village_at(q, r)
+	preview_village.scale = Village.scale_for(existing_village != null and existing_village.is_doubled)
+
 	var is_valid = current_strategy.get_validity(self, q, r)
 	current_strategy.update_tooltip(self, q, r, is_valid)
 	village_manager.update_preview_color(preview_village, is_valid)

@@ -29,7 +29,14 @@ const DOUBLED_SCALE: float = 1.3
 ## until a dedicated doubled-village asset exists: scales the whole node up.
 func set_doubled(value: bool) -> void:
 	is_doubled = value
-	scale = Vector3.ONE * DOUBLED_SCALE if value else Vector3.ONE
+	scale = scale_for(value)
+
+
+## Scale a village node should use for a given doubled state. Shared so
+## preview/ghost villages (which aren't Village.is_doubled themselves, just
+## standing in for a real one) can match the real village's visual size.
+static func scale_for(doubled: bool) -> Vector3:
+	return Vector3.ONE * DOUBLED_SCALE if doubled else Vector3.ONE
 
 
 ## How much this village counts as: 2 if doubled, else 1. Single source of

@@ -15,11 +15,12 @@ func is_valid_target(board_manager: Node3D, q: int, r: int) -> bool:
 
 func apply_effect(board_manager: Node3D, q: int, r: int) -> bool:
 	var tile = board_manager.tile_manager.get_tile_at(q, r)
-	if not tile:
+	var village = board_manager.village_manager.get_village_at(q, r)
+	if not tile or not village:
 		Log.error("BonusHarvestPower: village at (%d,%d) has no tile" % [q, r])
 		return false
 
-	board_manager.current_player.receive_yields(tile.yields)
+	board_manager.current_player.receive_yields(_scaled_yields(tile.yields, village.multiplier()))
 	return true
 
 
@@ -28,9 +29,19 @@ func update_tooltip(controller: PlacementController, q: int, r: int, is_valid: b
 		return
 	if is_valid:
 		var tile = controller.tile_manager.get_tile_at(q, r)
-		if tile:
-			var total_yield = 0
-			for v in tile.yields.values(): total_yield += v
-			controller.board_manager.ui.show_resource_gain_tooltip(true, total_yield)
+		var village = controller.board_manager.village_manager.get_village_at(q, r)
+		if tile and village:
+			var text := TileDefinition.format_yields(_scaled_yields(tile.yields, village.multiplier()))
+			controller.board_manager.ui.show_resource_gain_tooltip_text(true, text)
 			return
-	controller.board_manager.ui.show_resource_gain_tooltip(false)
+	controller.board_manager.ui.show_resource_gain_tooltip_text(false)
+
+
+## Multiplies a tile's yields dict by a village's multiplier (2 for a
+## doubled village, 1 otherwise) — see rules.md: the minor power harvests a
+## "village normal ou doublé".
+static func _scaled_yields(tile_yields: Dictionary, multiplier: int) -> Dictionary:
+	var scaled: Dictionary = {}
+	for res_type in tile_yields:
+		scaled[res_type] = tile_yields[res_type] * multiplier
+	return scaled
