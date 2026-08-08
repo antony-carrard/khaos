@@ -19,6 +19,14 @@ const VILLAGE_COST_BY_TYPE = {
 	TileType.MOUNTAIN: 6,
 }
 
+## Standard (most common) yields per tile type, mirroring TilePool's base tiles. Used by
+## debug tile placement (1/2/3 keyboard shortcuts), which has no hand TileDefinition to draw from.
+const STANDARD_YIELDS_BY_TYPE = {
+	TileType.PLAINS: {ResourceType.MATERIALS: 1},
+	TileType.HILLS: {ResourceType.MATERIALS: 2},
+	TileType.MOUNTAIN: {ResourceType.MATERIALS: 3, ResourceType.GLORY: 1},
+}
+
 var tile_type: int               # TileType
 var yields: Dictionary           # ResourceType → amount, e.g. {MATERIALS: 3, GLORY: 1}
 var village_building_cost: int

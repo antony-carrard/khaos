@@ -22,11 +22,12 @@ func on_click(controller: PlacementController, _q: int, _r: int) -> bool:
 		)
 	else:
 		# Debug-only path (1/2/3 keyboard shortcuts, see PlacementController.select_tile_type):
-		# no hand TileDefinition exists, so supply the rules.md base village cost directly.
+		# no hand TileDefinition exists, so supply the rules.md base village cost and
+		# standard yields directly.
 		success = controller.tile_manager.place_tile(
 			pos.x, pos.y,
 			controller.current_tile_type,
-			{},
+			TileDefinition.STANDARD_YIELDS_BY_TYPE[controller.current_tile_type],
 			TileDefinition.VILLAGE_COST_BY_TYPE[controller.current_tile_type]
 		)
 
