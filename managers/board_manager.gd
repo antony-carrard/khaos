@@ -587,10 +587,9 @@ func on_village_removed(q: int, r: int) -> bool:
 		for i in act_cost:
 			if not _consume_action("destroy enemy village"):
 				return false
-		villages_demolished_this_turn[Vector2i(q, r)] = get_best_adjacent_own_height(q, r) >= 0
 		if not village_manager.remove_village(q, r):
 			return false
-		current_player.god.on_village_demolished(self, tile)
+		record_village_demolition(q, r, tile)
 		var glory := apply_village_demolition(tile, current_player, res_cost)
 		Log.info("Destroyed enemy village at (%d,%d), paid %d resources, %d actions, gained %d glory" % [q, r, res_cost, act_cost, glory])
 
@@ -844,6 +843,16 @@ func apply_village_demolition(tile: HexTile, player: Player, res_cost: int) -> i
 	return glory
 
 
+## Records the bookkeeping every demolition of an enemy village must perform, regardless of
+## which path triggered it (resource-cost demolition, or Le Démolisseur's minor/major powers):
+## the position/adjacency flag Échafaudage reads back on rebuild, and the demolisher's
+## on_village_demolished passive hook (e.g. Rakun stealing yields). Call after the village has
+## actually been removed, with the tile still valid.
+func record_village_demolition(q: int, r: int, tile: HexTile) -> void:
+	villages_demolished_this_turn[Vector2i(q, r)] = get_best_adjacent_own_height(q, r) >= 0
+	current_player.god.on_village_demolished(self, tile)
+
+
 @rpc("any_peer", "call_remote", "reliable")
 func _rpc_place_tile(hand_index: int, q: int, r: int) -> void:
 	if not _validate_rpc_sender(): return
@@ -889,9 +898,8 @@ func _rpc_remove_village(q: int, r: int) -> void:
 		var cost := _compute_demolition_cost(q, r)
 		var res_cost: int = cost["res_cost"]
 		var act_cost: int = cost["act_cost"]
-		villages_demolished_this_turn[Vector2i(q, r)] = get_best_adjacent_own_height(q, r) >= 0
 		village_manager.remove_village(q, r)
-		current_player.god.on_village_demolished(self, tile)
+		record_village_demolition(q, r, tile)
 		for i in act_cost:
 			_consume_action("destroy enemy village")
 		apply_village_demolition(tile, current_player, res_cost)

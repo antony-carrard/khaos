@@ -25,6 +25,7 @@ class FakeBoardManager extends Node3D:
 	var placement_controller: Node = null
 	var ui: Node = null
 	var villages_built_this_turn: Dictionary[Vector2i, bool] = {}
+	var villages_demolished_this_turn: Dictionary[Vector2i, bool] = {}
 
 	# Activation context — stands in for the real board_manager's, which is
 	# where a power reads the hand tile the player picked for it and the board
@@ -74,6 +75,11 @@ class FakeBoardManager extends Node3D:
 				best = own_tile.height_level
 		return best
 
+	# Mirrors board_manager.record_village_demolition() exactly.
+	func record_village_demolition(q: int, r: int, tile: HexTile) -> void:
+		villages_demolished_this_turn[Vector2i(q, r)] = get_best_adjacent_own_height(q, r) >= 0
+		current_player.god.on_village_demolished(self, tile)
+
 
 var actor: Player
 var victim: Player
@@ -92,6 +98,7 @@ func before_test() -> void:
 	actor.glory = 0
 	actor.actions_remaining = 5
 	actor.hand.resize(3)
+	actor.god = God.new()
 
 	victim = auto_free(Player.new())
 	victim.initialize("Victim", Color.RED)
@@ -174,6 +181,24 @@ func test_destroy_village_free_resolve_effect_grants_glory() -> void:
 	var power := DestroyVillageFreePower.new()
 	power.apply_effect(board, 0, 0)
 	assert_int(actor.glory).is_equal(2)
+
+
+func test_destroy_village_free_records_demolition_with_adjacency() -> void:
+	_inject_tile(0, 0, 1, TileDefinition.TileType.HILLS, {})
+	_inject_village(0, 0, victim)
+	_inject_village(1, 0, actor)
+	_inject_tile(1, 0, 0, TileDefinition.TileType.PLAINS, {})
+	var power := DestroyVillageFreePower.new()
+	power.apply_effect(board, 0, 0)
+	assert_bool(board.villages_demolished_this_turn.get(Vector2i(0, 0), false)).is_true()
+
+
+func test_destroy_village_free_records_demolition_without_adjacency() -> void:
+	_inject_tile(0, 0, 1, TileDefinition.TileType.HILLS, {})
+	_inject_village(0, 0, victim)
+	var power := DestroyVillageFreePower.new()
+	power.apply_effect(board, 0, 0)
+	assert_bool(board.villages_demolished_this_turn.get(Vector2i(0, 0), false)).is_false()
 
 
 # --- BuildAnywherePower (Le Bâtisseur major) ---
@@ -671,3 +696,12 @@ func test_destroy_adjacent_resolve_effect_removes_village_and_grants_no_glory() 
 	assert_bool(success).is_true()
 	assert_object(village_manager.get_village_at(5, 5)).is_null()
 	assert_int(actor.glory).is_equal(0)
+
+
+func test_destroy_adjacent_records_demolition_with_adjacency() -> void:
+	_inject_village(5, 5, victim)
+	_inject_village(6, 5, actor)
+	_inject_tile(6, 5, 0, TileDefinition.TileType.PLAINS, {})
+	var power := DestroyAdjacentVillagePower.new()
+	power.apply_effect(board, 5, 5)
+	assert_bool(board.villages_demolished_this_turn.get(Vector2i(5, 5), false)).is_true()

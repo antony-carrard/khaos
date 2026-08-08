@@ -17,7 +17,9 @@ func is_valid_target(board_manager: Node3D, q: int, r: int) -> bool:
 
 
 func apply_effect(board_manager: Node3D, q: int, r: int) -> bool:
+	var tile = board_manager.tile_manager.get_tile_at(q, r)
 	var success: bool = board_manager.village_manager.remove_village(q, r)
 	if success:
+		board_manager.record_village_demolition(q, r, tile)
 		Log.info("Destroyed adjacent enemy village at (%d, %d) with DestroyAdjacentVillagePower" % [q, r])
 	return success
