@@ -37,12 +37,13 @@ func _calculate_territory_points(player: Player, village_manager: VillageManager
 	var total_points = 0
 	var breakdown = ""
 
-	# Sort groups by size (largest first)
-	groups.sort_custom(func(a, b): return a.size() > b.size())
+	# Sort groups by effective size (largest first) — a doubled village (Bicéphallès
+	# major) counts as 2 toward its group's size, per rules.md.
+	groups.sort_custom(func(a, b): return _effective_group_size(a, village_manager) > _effective_group_size(b, village_manager))
 
 	# Only score the largest group
 	if groups.size() > 0:
-		var largest_size = groups[0].size()
+		var largest_size = _effective_group_size(groups[0], village_manager)
 		total_points = _calculate_territory_score(largest_size)
 
 		var formula = _format_territory_formula(largest_size)
@@ -52,7 +53,7 @@ func _calculate_territory_points(player: Player, village_manager: VillageManager
 		if groups.size() > 1:
 			var all_sizes = []
 			for group in groups:
-				all_sizes.append(group.size())
+				all_sizes.append(_effective_group_size(group, village_manager))
 			Log.debug("VictoryManager: Territory groups: %s (largest scores: %d pts)" % [all_sizes, total_points])
 	else:
 		breakdown = "  No territory bonuses"
@@ -115,6 +116,17 @@ func _flood_fill_group(start_pos: Vector2i, player: Player,
 				queue.append(neighbor)
 
 	return group
+
+## Counts a group's villages for territory scoring, where a doubled village
+## (Bicéphallès major) counts as 2 instead of 1 (rules.md). Every position in
+## `group` was already confirmed to hold a village by the flood-fill that
+## built it, so no null-check is needed here.
+func _effective_group_size(group: Array, village_manager: VillageManager) -> int:
+	var size := 0
+	for pos in group:
+		size += village_manager.get_village_at(pos.x, pos.y).multiplier()
+	return size
+
 
 # The subsequent bonus glory is equal to the capped ceiling
 func _calculate_territory_score(nb_villages: int) -> int:

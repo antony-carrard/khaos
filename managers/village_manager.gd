@@ -107,8 +107,9 @@ func harvest_totals_for_player(player: Player) -> Dictionary:
 	for village in get_villages_for_player(player):
 		var tile = tile_manager.get_tile_at(village.q, village.r)
 		if tile:
+			var multiplier := village.multiplier()
 			for res_type in tile.yields:
-				totals[res_type] = totals.get(res_type, 0) + tile.yields[res_type]
+				totals[res_type] = totals.get(res_type, 0) + tile.yields[res_type] * multiplier
 
 	return totals
 

@@ -38,3 +38,24 @@ func test_total_equals_sum_of_categories() -> void:
 	player.glory = 1
 	var score = victory_manager.calculate_player_score(player, village_manager)
 	assert_int(score.total).is_equal(score.glory_points + score.territory_points)
+
+
+func _inject_village(q: int, r: int, owner: Player) -> Village:
+	var village := Village.new()
+	village.set_grid_position(q, r)
+	village.set_player_owner(owner)
+	village_manager.placed_villages[Vector2i(q, r)] = village
+	if not village_manager.player_villages.has(owner):
+		village_manager.player_villages[owner] = [] as Array[Village]
+	village_manager.player_villages[owner].append(village)
+	return village
+
+
+# A doubled village (Bicéphallès major) counts as 2 toward its group's size
+# for territory scoring — a single doubled village scores like a 2-village
+# group (1 + 2 = 3), not a 1-village group (1).
+func test_doubled_village_counts_double_for_territory() -> void:
+	var village := _inject_village(0, 0, player)
+	village.is_doubled = true
+	var score = victory_manager.calculate_player_score(player, village_manager)
+	assert_int(score.territory_points).is_equal(3)

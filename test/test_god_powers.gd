@@ -46,6 +46,14 @@ class FakeBoardManager extends Node3D:
 		else:
 			power_selected_villages.remove_at(index)
 
+	# Mirrors board_manager.apply_village_construction() — no scene-tree
+	# dependency, so unlike place_village() it's safe to stub here.
+	func apply_village_construction(tile: HexTile, player: Player, cost: int) -> int:
+		player.materials -= cost
+		var glory := tile.height_level + 1
+		player.glory += glory
+		return glory
+
 
 var actor: Player
 var victim: Player
@@ -352,6 +360,42 @@ func test_bonus_harvest_resolve_effect_fails_without_tile() -> void:
 	var power := BonusHarvestPower.new()
 	var success := power.apply_effect(board, 1, 1)
 	assert_bool(success).is_false()
+
+
+# --- DoubleVillagePower (Bicéphallès major) ---
+
+func test_double_village_valid_target_is_own_undoubled_village() -> void:
+	_inject_village(1, 1, actor)
+	var power := DoubleVillagePower.new()
+	assert_bool(power.is_valid_target(board, 1, 1)).is_true()
+
+
+func test_double_village_invalid_on_enemy_village() -> void:
+	_inject_village(1, 1, victim)
+	var power := DoubleVillagePower.new()
+	assert_bool(power.is_valid_target(board, 1, 1)).is_false()
+
+
+func test_double_village_invalid_when_no_village() -> void:
+	var power := DoubleVillagePower.new()
+	assert_bool(power.is_valid_target(board, 1, 1)).is_false()
+
+
+func test_double_village_invalid_when_already_doubled() -> void:
+	var village := _inject_village(1, 1, actor)
+	village.is_doubled = true
+	var power := DoubleVillagePower.new()
+	assert_bool(power.is_valid_target(board, 1, 1)).is_false()
+
+
+func test_double_village_apply_effect_marks_doubled_and_grants_glory() -> void:
+	var village := _inject_village(1, 1, actor)
+	_inject_tile(1, 1, 1, TileDefinition.TileType.HILLS, {})
+	var power := DoubleVillagePower.new()
+	var success := power.apply_effect(board, 1, 1)
+	assert_bool(success).is_true()
+	assert_bool(village.is_doubled).is_true()
+	assert_int(actor.glory).is_equal(2)  # height_level 1 -> +2 glory, same formula as a fresh build
 
 
 # --- UpgradeTileKeepVillagePower (Augia major) — sourced from hand; validity

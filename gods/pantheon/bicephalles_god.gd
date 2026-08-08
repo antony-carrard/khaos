@@ -8,6 +8,4 @@ func _init():
 	total_actions = 4
 
 	minor = BonusHarvestPower.new()
-
-	# major intentionally null — rules.md gives Bicéphallès a double-village
-	# major; content-pass work for a later session.
+	major = DoubleVillagePower.new()
