@@ -34,7 +34,7 @@ func test_create_all_returns_all_gods() -> void:
 	var names: Array[String] = []
 	for god in gods:
 		names.append(god.god_name)
-	assert_array(names).contains_exactly("Le Bâtisseur", "Bicéphallès", "Augia", "Rakun", "Le Démolisseur")
+	assert_array(names).contains_exactly("Le Bâtisseur", "Bicéphallès", "Augia", "Rakun", "Le Démolisseur", "Le Nomade")
 
 
 func test_create_all_returns_fresh_instances_each_call() -> void:

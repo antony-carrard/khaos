@@ -84,6 +84,40 @@ func remove_village(q: int, r: int) -> bool:
 	return true
 
 
+## Moves an existing village to a currently vacant hex that has a tile.
+## Keeps the same Village node (owner, color, doubled state survive intact)
+## and repositions it onto the destination hex's topmost tile, exactly like a
+## fresh placement. Returns false without changing anything if there is no
+## village at the source, the destination is occupied, or it has no tile.
+func move_village(from_q: int, from_r: int, to_q: int, to_r: int) -> bool:
+	var from_key = Vector2i(from_q, from_r)
+	var to_key = Vector2i(to_q, to_r)
+
+	if not placed_villages.has(from_key):
+		Log.warn("No village at q=%d, r=%d to move" % [from_q, from_r])
+		return false
+	if placed_villages.has(to_key):
+		Log.warn("Village already exists at q=%d, r=%d" % [to_q, to_r])
+		return false
+	if not tile_manager or not tile_manager.has_tile_at(to_q, to_r):
+		Log.warn("No tile exists at q=%d, r=%d" % [to_q, to_r])
+		return false
+
+	var village = placed_villages[from_key]
+	placed_villages.erase(from_key)
+	village.set_grid_position(to_q, to_r)
+	placed_villages[to_key] = village
+
+	var top_height = tile_manager.get_top_height(to_q, to_r)
+	var world_pos = HexGridUtils.axial_to_world(to_q, to_r, top_height)
+	village.global_position = world_pos + Vector3(0, HexGridUtils.TILE_HEIGHT / 2, 0)
+
+	Log.info("Moved village from q=%d, r=%d to q=%d, r=%d" % [from_q, from_r, to_q, to_r])
+	village_removed.emit(from_q, from_r)
+	village_placed.emit(to_q, to_r)
+	return true
+
+
 ## Checks if a village exists at the given hex position.
 ## Returns true if a village is present, false otherwise.
 func has_village_at(q: int, r: int) -> bool:

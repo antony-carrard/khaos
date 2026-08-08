@@ -43,6 +43,7 @@ static func create_all() -> Array[God]:
 		AugiaGod.new(),
 		RakunGod.new(),
 		LeDemolisseurGod.new(),
+		LeNomadeGod.new(),
 	]
 	return all
 

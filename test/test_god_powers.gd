@@ -698,6 +698,182 @@ func test_destroy_adjacent_resolve_effect_removes_village_and_grants_no_glory() 
 	assert_int(actor.glory).is_equal(0)
 
 
+# --- MoveVillagePower (Le Nomade minor/major) ---
+#
+# Two-step targeting like MergeVillagesPower, but capped at exactly one pick.
+# Unlike MergeVillagesPower's apply_effect (which calls place_village() and so
+# is scene-dependent), move_village() reuses the existing Village node with no
+# scene instantiation, so apply_effect is safe to verify directly here too.
+# It does reposition the node via global_position, which logs a harmless
+# "!is_inside_tree()" engine error for these tree-detached test villages
+# (real villages are always parented via place_village) — doesn't affect
+# pass/fail, not worth wiring the fixtures into the scene tree to silence.
+
+func test_move_selectable_on_own_village() -> void:
+	_inject_village(0, 0, actor)
+	var power := MoveVillageAdjacentPower.new()
+	assert_bool(power.is_selectable(board, 0, 0)).is_true()
+
+
+func test_move_not_selectable_on_enemy_village() -> void:
+	_inject_village(0, 0, victim)
+	var power := MoveVillageAdjacentPower.new()
+	assert_bool(power.is_selectable(board, 0, 0)).is_false()
+
+
+func test_move_selection_click_toggles_the_pick() -> void:
+	_inject_village(0, 0, actor)
+	var power := MoveVillageAdjacentPower.new()
+	assert_bool(power.handle_selection_click(board, 0, 0)).is_true()
+	assert_int(board.power_selected_villages.size()).is_equal(1)
+	assert_bool(power.handle_selection_click(board, 0, 0)).is_true()
+	assert_int(board.power_selected_villages.size()).is_equal(0)
+
+
+func test_move_selection_caps_at_one_village() -> void:
+	_inject_village(0, 0, actor)
+	_inject_village(1, 0, actor)
+	var power := MoveVillageAdjacentPower.new()
+	power.handle_selection_click(board, 0, 0)
+	assert_bool(power.is_selectable(board, 1, 0)).is_false()
+	assert_bool(power.handle_selection_click(board, 1, 0)).is_false()
+	assert_int(board.power_selected_villages.size()).is_equal(1)
+
+
+func test_move_adjacent_valid_target_same_level() -> void:
+	_inject_village(0, 0, actor)
+	_inject_tile(0, 0, 0, TileDefinition.TileType.PLAINS, {})
+	_inject_tile(1, 0, 0, TileDefinition.TileType.PLAINS, {})
+	board.power_selected_villages = [Vector2i(0, 0)]
+	var power := MoveVillageAdjacentPower.new()
+	assert_bool(power.is_valid_target(board, 1, 0)).is_true()
+
+
+func test_move_adjacent_valid_target_climb_one_level() -> void:
+	_inject_village(0, 0, actor)
+	_inject_tile(0, 0, 0, TileDefinition.TileType.PLAINS, {})
+	_inject_tile(1, 0, 1, TileDefinition.TileType.HILLS, {})
+	board.power_selected_villages = [Vector2i(0, 0)]
+	var power := MoveVillageAdjacentPower.new()
+	assert_bool(power.is_valid_target(board, 1, 0)).is_true()
+
+
+func test_move_adjacent_invalid_climb_two_levels() -> void:
+	_inject_village(0, 0, actor)
+	_inject_tile(0, 0, 0, TileDefinition.TileType.PLAINS, {})
+	_inject_tile(1, 0, 2, TileDefinition.TileType.MOUNTAIN, {})
+	board.power_selected_villages = [Vector2i(0, 0)]
+	var power := MoveVillageAdjacentPower.new()
+	assert_bool(power.is_valid_target(board, 1, 0)).is_false()
+
+
+func test_move_adjacent_valid_target_descend_two_levels() -> void:
+	_inject_village(0, 0, actor)
+	_inject_tile(0, 0, 2, TileDefinition.TileType.MOUNTAIN, {})
+	_inject_tile(1, 0, 0, TileDefinition.TileType.PLAINS, {})
+	board.power_selected_villages = [Vector2i(0, 0)]
+	var power := MoveVillageAdjacentPower.new()
+	assert_bool(power.is_valid_target(board, 1, 0)).is_true()
+
+
+func test_move_adjacent_invalid_when_not_adjacent() -> void:
+	_inject_village(0, 0, actor)
+	_inject_tile(0, 0, 0, TileDefinition.TileType.PLAINS, {})
+	_inject_tile(5, 5, 0, TileDefinition.TileType.PLAINS, {})
+	board.power_selected_villages = [Vector2i(0, 0)]
+	var power := MoveVillageAdjacentPower.new()
+	assert_bool(power.is_valid_target(board, 5, 5)).is_false()
+
+
+func test_move_adjacent_invalid_when_no_village_selected() -> void:
+	_inject_tile(0, 0, 0, TileDefinition.TileType.PLAINS, {})
+	_inject_tile(1, 0, 0, TileDefinition.TileType.PLAINS, {})
+	var power := MoveVillageAdjacentPower.new()
+	assert_bool(power.is_valid_target(board, 1, 0)).is_false()
+
+
+func test_move_adjacent_invalid_when_destination_occupied() -> void:
+	_inject_village(0, 0, actor)
+	_inject_tile(0, 0, 0, TileDefinition.TileType.PLAINS, {})
+	_inject_village(1, 0, victim)
+	_inject_tile(1, 0, 0, TileDefinition.TileType.PLAINS, {})
+	board.power_selected_villages = [Vector2i(0, 0)]
+	var power := MoveVillageAdjacentPower.new()
+	assert_bool(power.is_valid_target(board, 1, 0)).is_false()
+
+
+func test_move_adjacent_invalid_when_destination_has_no_tile() -> void:
+	_inject_village(0, 0, actor)
+	_inject_tile(0, 0, 0, TileDefinition.TileType.PLAINS, {})
+	board.power_selected_villages = [Vector2i(0, 0)]
+	var power := MoveVillageAdjacentPower.new()
+	assert_bool(power.is_valid_target(board, 1, 0)).is_false()
+
+
+func test_move_anywhere_valid_target_far_and_climbing() -> void:
+	_inject_village(0, 0, actor)
+	_inject_tile(0, 0, 0, TileDefinition.TileType.PLAINS, {})
+	_inject_tile(5, 5, 2, TileDefinition.TileType.MOUNTAIN, {})
+	board.power_selected_villages = [Vector2i(0, 0)]
+	var power := MoveVillageAnywherePower.new()
+	assert_bool(power.is_valid_target(board, 5, 5)).is_true()
+
+
+func test_move_anywhere_invalid_when_destination_occupied() -> void:
+	_inject_village(0, 0, actor)
+	_inject_tile(0, 0, 0, TileDefinition.TileType.PLAINS, {})
+	_inject_village(5, 5, victim)
+	_inject_tile(5, 5, 0, TileDefinition.TileType.PLAINS, {})
+	board.power_selected_villages = [Vector2i(0, 0)]
+	var power := MoveVillageAnywherePower.new()
+	assert_bool(power.is_valid_target(board, 5, 5)).is_false()
+
+
+func test_move_apply_effect_relocates_village_and_keeps_owner() -> void:
+	_inject_village(0, 0, actor)
+	_inject_tile(0, 0, 0, TileDefinition.TileType.PLAINS, {})
+	_inject_tile(1, 0, 0, TileDefinition.TileType.PLAINS, {})
+	board.power_selected_villages = [Vector2i(0, 0)]
+	var power := MoveVillageAdjacentPower.new()
+	var success := power.apply_effect(board, 1, 0)
+	assert_bool(success).is_true()
+	assert_object(village_manager.get_village_at(0, 0)).is_null()
+	var moved := village_manager.get_village_at(1, 0)
+	assert_object(moved).is_not_null()
+	assert_object(moved.player_owner).is_same(actor)
+
+
+func test_move_apply_effect_harvests_destination_yield() -> void:
+	_inject_village(0, 0, actor)
+	_inject_tile(0, 0, 0, TileDefinition.TileType.PLAINS, {})
+	_inject_tile(1, 0, 0, TileDefinition.TileType.PLAINS, {TileDefinition.ResourceType.MATERIALS: 3})
+	board.power_selected_villages = [Vector2i(0, 0)]
+	actor.materials = 0
+	var power := MoveVillageAdjacentPower.new()
+	power.apply_effect(board, 1, 0)
+	assert_int(actor.materials).is_equal(3)
+
+
+func test_move_apply_effect_grants_glory_per_level_climbed() -> void:
+	_inject_village(0, 0, actor)
+	_inject_tile(0, 0, 0, TileDefinition.TileType.PLAINS, {})
+	_inject_tile(1, 0, 1, TileDefinition.TileType.HILLS, {})
+	board.power_selected_villages = [Vector2i(0, 0)]
+	var power := MoveVillageAdjacentPower.new()
+	power.apply_effect(board, 1, 0)
+	assert_int(actor.glory).is_equal(1)
+
+
+func test_move_apply_effect_grants_no_glory_when_descending() -> void:
+	_inject_village(0, 0, actor)
+	_inject_tile(0, 0, 2, TileDefinition.TileType.MOUNTAIN, {})
+	_inject_tile(1, 0, 0, TileDefinition.TileType.PLAINS, {})
+	board.power_selected_villages = [Vector2i(0, 0)]
+	var power := MoveVillageAdjacentPower.new()
+	power.apply_effect(board, 1, 0)
+	assert_int(actor.glory).is_equal(0)
+
+
 func test_destroy_adjacent_records_demolition_with_adjacency() -> void:
 	_inject_village(5, 5, victim)
 	_inject_village(6, 5, actor)
