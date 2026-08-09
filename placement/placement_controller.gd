@@ -215,8 +215,13 @@ func update_tile_preview() -> void:
 
 
 # Public API for mode switching
+# select_power_target_mode deliberately does NOT cancel a pending power (that
+# would cancel the very power it's setting up) — every other mode below is a
+# competing, non-power placement mode, so each cancels a pending power first.
 
 func select_tile_type(tile_type: int) -> void:
+	if board_manager:
+		board_manager.cancel_power_activation()
 	current_tile_type = tile_type
 	selected_hand_index = -1
 	selected_tile_def = null
@@ -224,6 +229,8 @@ func select_tile_type(tile_type: int) -> void:
 
 
 func select_tile_from_hand(hand_index: int, tile_def) -> void:
+	if board_manager:
+		board_manager.cancel_power_activation()
 	selected_hand_index = hand_index
 	selected_tile_def = tile_def
 	current_tile_type = tile_def.tile_type
@@ -231,10 +238,14 @@ func select_tile_from_hand(hand_index: int, tile_def) -> void:
 
 
 func select_village_place_mode() -> void:
+	if board_manager:
+		board_manager.cancel_power_activation()
 	current_strategy = VillagePlaceStrategy.new()
 
 
 func select_village_remove_mode() -> void:
+	if board_manager:
+		board_manager.cancel_power_activation()
 	current_strategy = VillageRemoveStrategy.new()
 
 
