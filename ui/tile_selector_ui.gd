@@ -457,3 +457,26 @@ func _on_overlay_gui_input(event: InputEvent) -> void:
 	# Accept and consume all mouse button events to prevent click-through to 3D scene
 	if event is InputEventMouseButton:
 		get_viewport().set_input_as_handled()
+
+
+## Keyboard shortcuts: E/R for minor/major power, V/X for place/remove village, T for end turn.
+## Each button's own `disabled` state already reflects turn/action/affordability, so pressing
+## a shortcut just does what clicking the (possibly disabled) button would do.
+func _unhandled_input(event: InputEvent) -> void:
+	if event.is_action_pressed("power_minor"):
+		if god_panel:
+			_press_button_if_enabled(god_panel.minor_button)
+	elif event.is_action_pressed("power_major"):
+		if god_panel:
+			_press_button_if_enabled(god_panel.major_button)
+	elif event.is_action_pressed("village_place"):
+		_press_button_if_enabled(village_place_button)
+	elif event.is_action_pressed("village_remove"):
+		_press_button_if_enabled(village_remove_button)
+	elif event.is_action_pressed("end_turn"):
+		_press_button_if_enabled(end_turn_button)
+
+
+func _press_button_if_enabled(button: Button) -> void:
+	if button and not button.disabled:
+		button.pressed.emit()
