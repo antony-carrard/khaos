@@ -720,6 +720,10 @@ func on_power_activated(power: GodPower, player: Player) -> void:
 	if not power.can_afford(player):
 		Log.warn("Cannot afford power: %s" % power.power_name)
 		return
+	# Drop whatever placement mode (normal tile, village place/remove) was
+	# already active — otherwise its strategy stays installed and still
+	# intercepts board clicks while this power is mid-activation.
+	placement_controller.cancel_placement()
 	power_hand_index = NO_HAND_INDEX
 	clear_power_selection()
 	if power.needs_hand_tile():
