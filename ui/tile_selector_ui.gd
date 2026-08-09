@@ -459,9 +459,13 @@ func _on_overlay_gui_input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 
 
-## Keyboard shortcuts: E/R for minor/major power, V/X for place/remove village, T for end turn.
-## Each button's own `disabled` state already reflects turn/action/affordability, so pressing
-## a shortcut just does what clicking the (possibly disabled) button would do.
+const HAND_SLOT_KEYS: Array[Key] = [KEY_1, KEY_2, KEY_3, KEY_4, KEY_5, KEY_6]
+
+
+## Keyboard shortcuts: E/R for minor/major power, V/X for place/remove village, T for end turn,
+## 1-6 to pick the matching hand slot. Each button's own `disabled` state already reflects
+## turn/action/affordability, so pressing a shortcut just does what clicking the (possibly
+## disabled) button would do.
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("power_minor"):
 		if god_panel:
@@ -475,6 +479,10 @@ func _unhandled_input(event: InputEvent) -> void:
 		_press_button_if_enabled(village_remove_button)
 	elif event.is_action_pressed("end_turn"):
 		_press_button_if_enabled(end_turn_button)
+	elif event is InputEventKey and event.pressed and not event.echo:
+		var slot_index := HAND_SLOT_KEYS.find(event.physical_keycode)
+		if slot_index != -1 and hand_display:
+			hand_display.press_card(slot_index)
 
 
 func _press_button_if_enabled(button: Button) -> void:

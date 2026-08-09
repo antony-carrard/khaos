@@ -215,3 +215,20 @@ func _create_button_style(bg_color: Color) -> StyleBoxFlat:
 ## Handle hand card press
 func _on_hand_card_pressed(hand_index: int) -> void:
 	tile_selected_from_hand.emit(hand_index)
+
+
+## Simulates a click on the hand card at the given index (used by number-key
+## shortcuts). Respects the card's existing disabled state — no actions left,
+## not your turn, or an empty slot (no Button child at all) are all no-ops.
+func press_card(hand_index: int) -> void:
+	if not hand_container or hand_index < 0 or hand_index >= hand_container.get_child_count():
+		return
+	var card_vbox = hand_container.get_child(hand_index)
+	if card_vbox.get_child_count() == 0:
+		return
+	var card = card_vbox.get_child(0)
+	for child in card.get_children():
+		if child is Button:
+			if not child.disabled:
+				child.pressed.emit()
+			return

@@ -83,11 +83,11 @@ func handle_keyboard_input(event: InputEvent) -> void:
 	if not OS.is_debug_build():
 		return
 
-	if event.keycode == KEY_1:
+	if event.keycode == KEY_F1:
 		select_tile_type(TileDefinition.TileType.PLAINS)
-	elif event.keycode == KEY_2:
+	elif event.keycode == KEY_F2:
 		select_tile_type(TileDefinition.TileType.HILLS)
-	elif event.keycode == KEY_3:
+	elif event.keycode == KEY_F3:
 		select_tile_type(TileDefinition.TileType.MOUNTAIN)
 
 
