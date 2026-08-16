@@ -318,6 +318,12 @@ func _switch_to_player(index: int) -> void:
 
 	var is_network: bool = GameConfig.initialized and GameConfig.mode == GameConfig.GameMode.NETWORK
 	if not is_network:
+		# bind() below immediately re-emits the new player's current stats, which
+		# would otherwise diff against the previous player's last-seen value and
+		# flash a bogus "+N" gain — reset the tracking first so that re-emit is
+		# treated as a fresh baseline instead.
+		if ui:
+			ui.reset_resource_gain_tracking()
 		# Hot-seat: rebind APV so its stat signals track the new player and seed the UI
 		active_player_view.bind(current_player)
 		ui_player = current_player

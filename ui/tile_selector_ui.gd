@@ -304,6 +304,12 @@ func update_glory(amount: int) -> void:
 		resource_panel.update_glory(amount)
 
 
+## Forwards to ResourcePanel — see its reset_gain_tracking() docstring.
+func reset_resource_gain_tracking() -> void:
+	if resource_panel:
+		resource_panel.reset_gain_tracking()
+
+
 func _on_village_place_pressed() -> void:
 	village_place_selected.emit()
 
