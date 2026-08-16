@@ -27,6 +27,18 @@ func get_validity(controller: PlacementController, q: int, r: int) -> bool:
 	return true
 
 
-func update_tooltip(controller: PlacementController, _q: int, _r: int, _is_valid: bool) -> void:
-	if controller.board_manager and controller.board_manager.ui:
+func update_tooltip(controller: PlacementController, q: int, r: int, _is_valid: bool) -> void:
+	if not (controller.board_manager and controller.board_manager.ui):
+		return
+
+	if controller.village_manager.has_village_at(q, r):
 		controller.board_manager.ui.show_resource_gain_tooltip(false)
+		return
+
+	var tile = controller.tile_manager.get_tile_at(q, r)
+	if not tile:
+		controller.board_manager.ui.show_resource_gain_tooltip(false)
+		return
+
+	var cost = controller.board_manager._compute_village_cost(tile)
+	controller.board_manager.ui.show_village_cost_tooltip(true, cost)
