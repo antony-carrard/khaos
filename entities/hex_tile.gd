@@ -20,7 +20,7 @@ const LABEL_PIXEL_SIZE: float = 0.01  # Matches Label3D's default pixel_size
 const SINGLE_ICON_SIZE: Vector2 = Vector2(1.25, 1.25)
 const SINGLE_FONT_SIZE: int = 160
 const MULTI_ICON_SIZE: Vector2 = Vector2(0.8, 0.8)
-const MULTI_FONT_SIZE: int = 85
+const MULTI_FONT_SIZE: int = 110
 
 const BADGE_SPACING_X: float = 0.32  # Half-distance between left/right badges
 const BADGE_SPACING_Z: float = 0.32  # Half-distance between top row and bottom badge
