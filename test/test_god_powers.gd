@@ -80,6 +80,11 @@ class FakeBoardManager extends Node3D:
 		villages_demolished_this_turn[Vector2i(q, r)] = get_best_adjacent_own_height(q, r) >= 0
 		current_player.god.on_village_demolished(self, tile)
 
+	# Stubbed: the resource-popup visual is scene-tree dependent (see
+	# ResourcePopupManager), so it's a no-op here like place_village().
+	func show_resource_gain(_q: int, _r: int, _height: int, _yields: Dictionary) -> void:
+		pass
+
 
 var actor: Player
 var victim: Player

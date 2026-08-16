@@ -42,6 +42,7 @@ func apply_effect(board_manager: Node3D, q: int, r: int) -> bool:
 
 		board_manager.current_player.remove_from_hand(board_manager.power_hand_index)
 		board_manager.current_player.glory += 1
+		board_manager.show_resource_gain(q, r, new_height, {TileDefinition.ResourceType.GLORY: 1})
 		if board_manager.ui:
 			board_manager.ui.update_hand_display()
 

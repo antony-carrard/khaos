@@ -20,7 +20,9 @@ func apply_effect(board_manager: Node3D, q: int, r: int) -> bool:
 		Log.error("BonusHarvestPower: village at (%d,%d) has no tile" % [q, r])
 		return false
 
-	board_manager.current_player.receive_yields(_scaled_yields(tile.yields, village.multiplier()))
+	var scaled_yields := _scaled_yields(tile.yields, village.multiplier())
+	board_manager.current_player.receive_yields(scaled_yields)
+	board_manager.show_resource_gain(q, r, tile.height_level, scaled_yields)
 	return true
 
 

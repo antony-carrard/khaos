@@ -44,6 +44,7 @@ var current_player_index: int = 0
 var current_player: Player = null   # always == players[current_player_index]
 
 var active_player_view: ActivePlayerView = null
+var resource_popups: ResourcePopupManager = null
 var status_header: PlayerStatusHeader = null
 var not_your_turn_overlay: NotYourTurnOverlay = null
 
@@ -96,6 +97,9 @@ func _ready() -> void:
 	# Create active player view (signal bridge)
 	active_player_view = ActivePlayerView.new()
 	add_child(active_player_view)
+
+	resource_popups = ResourcePopupManager.new()
+	add_child(resource_popups)
 
 	# Create and initialize managers
 	tile_manager = TileManager.new()
@@ -434,6 +438,7 @@ func on_tile_placed_from_hand(hand_index: int, q: int, r: int) -> void:
 
 	current_player.receive_yields(placed_tile.yields)
 	current_player.remove_from_hand(hand_index)
+	show_resource_gain(q, r, tile_manager.get_top_height(q, r), placed_tile.yields)
 
 	if ui:
 		ui.update_hand_display()
@@ -654,6 +659,17 @@ func harvest_for_player(player: Player) -> void:
 		totals[TileDefinition.ResourceType.GLORY]
 	])
 
+	# Per-village popups (purely visual — the mutation above already applied
+	# the aggregated total in one shot to keep signal emits down).
+	for village in village_manager.get_villages_for_player(player):
+		var tile := tile_manager.get_tile_at(village.q, village.r)
+		if not tile:
+			continue
+		var scaled: Dictionary = {}
+		for res_type in tile.yields:
+			scaled[res_type] = tile.yields[res_type] * village.multiplier()
+		show_resource_gain(village.q, village.r, tile.height_level, scaled)
+
 
 ## Returns the current player's unplayed hand to the bag, then advances to the
 ## next player. The player's fresh hand isn't dealt until their own next turn
@@ -856,6 +872,7 @@ func apply_village_construction(tile: HexTile, player: Player, cost: int) -> int
 	player.materials -= cost
 	var glory := tile.height_level + 1
 	player.glory += glory
+	show_resource_gain(tile.q, tile.r, tile.height_level, {TileDefinition.ResourceType.GLORY: glory})
 	return glory
 
 
@@ -864,7 +881,20 @@ func apply_village_demolition(tile: HexTile, player: Player, res_cost: int) -> i
 	player.materials -= res_cost
 	var glory := tile.height_level + 1
 	player.glory += glory
+	show_resource_gain(tile.q, tile.r, tile.height_level, {TileDefinition.ResourceType.GLORY: glory})
 	return glory
+
+
+## Spawns a floating "+N <icon>" popup above the hex at (q, r, height) for every
+## positive entry in `yields` (TileDefinition.ResourceType -> amount). Called
+## wherever a player's resources actually change, so gains are visible on the
+## board — tile placement, village construction/demolition, harvest, powers.
+func show_resource_gain(q: int, r: int, height: int, yields: Dictionary) -> void:
+	# resource_popups is only created in _ready(); some tests drive board_manager
+	# directly via its script without ever entering the scene tree (see
+	# test_board_manager_demolition.gd), so guard like the `ui` references below.
+	if resource_popups:
+		resource_popups.spawn(q, r, height, yields)
 
 
 ## Records the bookkeeping every demolition of an enemy village must perform, regardless of
@@ -887,6 +917,7 @@ func _rpc_place_tile(hand_index: int, q: int, r: int) -> void:
 	tile_manager.place_tile(q, r, td.tile_type, td.yields, td.village_building_cost)
 	current_player.receive_yields(td.yields)
 	current_player.remove_from_hand(hand_index)
+	show_resource_gain(q, r, tile_manager.get_top_height(q, r), td.yields)
 	_consume_action("place tile")
 	if ui:
 		ui.update_hand_display()

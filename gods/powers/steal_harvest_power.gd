@@ -19,12 +19,16 @@ func apply_effect(board_manager: Node3D, q: int, r: int) -> bool:
 		return false
 
 	steal_yields(board_manager.current_player, tile.yields)
+	board_manager.show_resource_gain(q, r, tile.height_level, tile.yields)
 	return true
 
 
 ## Grants `player` the resources listed in `tile_yields` (a tile's `yields`
-## dict). Shared by this minor power's direct steal and Rakun's
-## demolish-triggered passive (God.on_village_demolished).
+## dict). Shared by this minor power's direct steal, Rakun's demolish-triggered
+## passive (God.on_village_demolished), and DowngradeTileKeepVillagePower's
+## stolen-tile branch. Purely a resource grant — callers show their own popup
+## so a single player action that grants more than one thing (e.g. downgrade's
+## steal + glory) can merge them into one instead of stacking two.
 static func steal_yields(player: Player, tile_yields: Dictionary) -> void:
 	player.receive_yields(tile_yields)
 	Log.info("Stole yields from enemy village: %s" % TileDefinition.format_yields(tile_yields))

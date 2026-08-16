@@ -11,3 +11,4 @@ func _init():
 
 func on_village_demolished(board_manager: Node3D, tile: HexTile) -> void:
 	StealHarvestPower.steal_yields(board_manager.current_player, tile.yields)
+	board_manager.show_resource_gain(tile.q, tile.r, tile.height_level, tile.yields)

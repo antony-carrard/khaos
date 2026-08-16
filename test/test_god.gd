@@ -6,6 +6,10 @@ class FakeBoardManager extends Node3D:
 	var current_player: Player
 	func _init(p: Player) -> void:
 		current_player = p
+	# Stubbed: the resource-popup visual is scene-tree dependent, see
+	# test_god_powers.gd's FakeBoardManager for the same stub.
+	func show_resource_gain(_q: int, _r: int, _height: int, _yields: Dictionary) -> void:
+		pass
 
 
 var _bare_tiles: Array[HexTile] = []
