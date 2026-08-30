@@ -257,3 +257,30 @@ func downgrade_tile(q: int, r: int) -> TileDefinition:
 		  [q, r, TileDefinition.TileType.keys()[old_tile_type], TileDefinition.TileType.keys()[new_top_tile.tile_type]])
 
 	return removed_tile_def
+
+
+# ==================== SERIALIZATION ====================
+
+## Flat snapshot of every placed tile, sorted into a canonical (q, r, height)
+## order so two snapshots of the same board compare equal.
+##
+## Each entry is self-contained: a tile carries its own yields and village cost,
+## which its type alone does not determine (the bag holds several variants of
+## each type), so the board can be rebuilt without consulting the pool.
+func to_dict() -> Array:
+	var tiles: Array = []
+	for key in placed_tiles:
+		var tile: HexTile = placed_tiles[key]
+		tiles.append({
+			"q": tile.q,
+			"r": tile.r,
+			"height": tile.height_level,
+			"tile_type": tile.tile_type,
+			"yields": tile.yields.duplicate(),
+			"village_building_cost": tile.village_building_cost,
+		})
+	tiles.sort_custom(func(a, b):
+		if a["q"] != b["q"]: return a["q"] < b["q"]
+		if a["r"] != b["r"]: return a["r"] < b["r"]
+		return a["height"] < b["height"])
+	return tiles

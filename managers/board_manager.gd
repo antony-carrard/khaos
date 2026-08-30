@@ -232,14 +232,8 @@ func _select_god_networked() -> void:
 		if i == local_player_index:
 			# Our turn: interactive selection, then broadcast the choice
 			await show_god_selection(players[i], taken)
-			var all_gods := God.create_all()
-			var chosen_index := 0
-			for j in range(all_gods.size()):
-				if all_gods[j].god_name == players[i].god.god_name:
-					chosen_index = j
-					break
 			Log.info("Player %d selected god: %s" % [i + 1, players[i].god.god_name])
-			rpc("_rpc_god_selected", i, chosen_index)
+			rpc("_rpc_god_selected", i, players[i].god.get_id())
 		else:
 			# Their turn: show god selection as read-only backdrop, block until RPC arrives
 			var waiting_canvas := _show_god_waiting_ui(players[i], taken)
@@ -865,10 +859,15 @@ func _validate_rpc_sender() -> bool:
 # ==================== RPC HANDLERS ====================
 
 @rpc("any_peer", "call_remote", "reliable")
-func _rpc_god_selected(player_index: int, god_index: int) -> void:
-	var all_gods := God.create_all()
-	players[player_index].initialize_game_start(all_gods[god_index % all_gods.size()], test_mode)
-	Log.info("Player %d selected god: %s" % [player_index + 1, players[player_index].god.god_name])
+func _rpc_god_selected(player_index: int, god_id: String) -> void:
+	var god := God.from_id(god_id)
+	if god == null:
+		# Only reachable if peers are running different builds. Log loudly, but
+		# still release the waiting peer: a hang here would hide the real cause.
+		Log.error("_rpc_god_selected: unknown god id '%s'" % god_id)
+	else:
+		players[player_index].initialize_game_start(god, test_mode)
+		Log.info("Player %d selected god: %s" % [player_index + 1, god.god_name])
 	_god_choice_received.emit()
 
 

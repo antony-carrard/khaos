@@ -230,3 +230,31 @@ func _apply_color(node: Node, color: Color) -> void:
 				mi.set_surface_override_material(i, colored)
 	for child in node.get_children():
 		_apply_color(child, color)
+
+
+# ==================== SERIALIZATION ====================
+
+## Flat snapshot of every placed village, sorted into a canonical (q, r) order so
+## two snapshots of the same board compare equal.
+##
+## Ownership is recorded as an index into `players` rather than as the object
+## reference held in Village.player_owner — an index is what survives a save file
+## or the wire. An owner missing from `players` is a bug, and is recorded as -1
+## rather than silently reassigned.
+func to_dict(players: Array[Player]) -> Array:
+	var villages: Array = []
+	for pos in placed_villages:
+		var village: Village = placed_villages[pos]
+		var owner_index := players.find(village.player_owner)
+		if owner_index == -1:
+			Log.error("VillageManager: village at (%d,%d) has an owner outside the player list" % [village.q, village.r])
+		villages.append({
+			"q": village.q,
+			"r": village.r,
+			"owner_index": owner_index,
+			"is_doubled": village.is_doubled,
+		})
+	villages.sort_custom(func(a, b):
+		if a["q"] != b["q"]: return a["q"] < b["q"]
+		return a["r"] < b["r"])
+	return villages

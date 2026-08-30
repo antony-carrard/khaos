@@ -90,3 +90,22 @@ func modify_rebuild_cost(cost: int, _was_demolished_this_turn: bool) -> int:
 ## overrides it to steal the tile's yields (rules.md passive).
 func on_village_demolished(_board_manager: Node3D, _tile: HexTile) -> void:
 	pass
+
+
+# ==================== SERIALIZATION ====================
+
+## Stable identifier for this god, for anywhere a god has to survive a round-trip
+## through a save file or the wire — the script's class_name, e.g. "LeBatisseurGod".
+## Unlike god_name it isn't display text, and unlike a position in create_all() it
+## doesn't shift when a god is added to the pantheon.
+func get_id() -> String:
+	return String(get_script().get_global_name())
+
+
+## A fresh instance of the god matching `id`, or null if the pantheon has no
+## such god (peers running mismatched builds).
+static func from_id(id: String) -> God:
+	for god in create_all():
+		if god.get_id() == id:
+			return god
+	return null

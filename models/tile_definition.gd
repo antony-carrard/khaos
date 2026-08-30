@@ -60,3 +60,24 @@ static func format_yields(tile_yields: Dictionary) -> String:
 	for res_type in tile_yields:
 		parts.append("%d%s" % [tile_yields[res_type], prefixes.get(res_type, "?")])
 	return "+".join(parts)
+
+
+# ==================== SERIALIZATION ====================
+
+## Flat snapshot of this definition. `yields` is copied rather than shared so a
+## captured snapshot can't be mutated through the live tile it came from.
+func to_dict() -> Dictionary:
+	return {
+		"tile_type": tile_type,
+		"yields": yields.duplicate(),
+		"village_building_cost": village_building_cost,
+	}
+
+
+## Rebuilds a definition from to_dict() output.
+static func from_dict(data: Dictionary) -> TileDefinition:
+	return TileDefinition.new(
+		data["tile_type"],
+		data["yields"].duplicate(),
+		data["village_building_cost"]
+	)

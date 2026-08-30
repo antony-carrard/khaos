@@ -142,3 +142,51 @@ func has_free_hand_slot() -> bool:
 		if tile == null:
 			return true
 	return false
+
+
+# ==================== SERIALIZATION ====================
+
+## Flat snapshot of this player. The god is recorded by its stable id rather than
+## by reference; empty hand slots are stored as null so capacity survives intact.
+func to_dict() -> Dictionary:
+	var hand_data: Array = []
+	for tile in hand:
+		hand_data.append(tile.to_dict() if tile != null else null)
+	return {
+		"player_name": player_name,
+		"color": color,
+		"god_id": god.get_id() if god != null else "",
+		"base_hand_size": base_hand_size,
+		"total_actions": total_actions,
+		"materials": materials,
+		"fervor": fervor,
+		"glory": glory,
+		"actions_remaining": actions_remaining,
+		"hand": hand_data,
+	}
+
+
+## Rebuilds this player from to_dict() output. Deliberately does not go through
+## initialize_game_start(): that derives the hand from the god and wipes it, while
+## a restore has to reinstate the hand exactly as it was. Resources are assigned
+## through their setters so the UI's stat signals fire as usual.
+func from_dict(data: Dictionary) -> void:
+	player_name = data["player_name"]
+	color = data["color"]
+	god = God.from_id(data["god_id"])
+	if god == null:
+		Log.error("Player: unknown god id '%s' restoring %s" % [data["god_id"], player_name])
+	base_hand_size = data["base_hand_size"]
+	total_actions = data["total_actions"]
+
+	# Capacity comes from the snapshot, not base_hand_size: grow_hand() lets the
+	# hand temporarily hold more than the god grants (e.g. Rakun's stolen tile).
+	var hand_data: Array = data["hand"]
+	hand.resize(hand_data.size())
+	for i in range(hand_data.size()):
+		hand[i] = TileDefinition.from_dict(hand_data[i]) if hand_data[i] != null else null
+
+	materials = data["materials"]
+	fervor = data["fervor"]
+	glory = data["glory"]
+	actions_remaining = data["actions_remaining"]

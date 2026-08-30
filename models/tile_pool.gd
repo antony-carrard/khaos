@@ -109,3 +109,41 @@ func return_tile(tile: TileDefinition) -> void:
 	var insert_idx = _rng.randi_range(0, tile_bag.size())
 	tile_bag.insert(insert_idx, tile)
 	Log.debug("TilePool: Returned tile to bag. Total: %d" % tile_bag.size())
+
+
+# ==================== SERIALIZATION ====================
+
+## Flat snapshot of the bag: both piles plus the RNG position, so draws made
+## after a restore continue the same sequence instead of forking a new one.
+func to_dict() -> Dictionary:
+	var bag: Array = []
+	for tile in tile_bag:
+		bag.append(tile.to_dict())
+	var removed: Array = []
+	for tile in removed_tiles:
+		removed.append(tile.to_dict())
+	return {
+		"tile_bag": bag,
+		"removed_tiles": removed,
+		"rng_seed": _rng.seed,
+		"rng_state": _rng.state,
+	}
+
+
+## Rebuilds the pool from to_dict() output. Replaces initialize() — the bag
+## comes from the snapshot, not from the rules.md tile list.
+func from_dict(data: Dictionary) -> void:
+	_rng = RandomNumberGenerator.new()
+	# Order matters: assigning `seed` resets `state`, so state must come second.
+	_rng.seed = data["rng_seed"]
+	_rng.state = data["rng_state"]
+
+	tile_bag.clear()
+	for entry in data["tile_bag"]:
+		tile_bag.append(TileDefinition.from_dict(entry))
+
+	removed_tiles.clear()
+	for entry in data["removed_tiles"]:
+		removed_tiles.append(TileDefinition.from_dict(entry))
+
+	Log.info("TilePool restored: %d tiles in bag, %d drawn" % [tile_bag.size(), removed_tiles.size()])
