@@ -41,8 +41,12 @@ func update_hand_display() -> void:
 	if not hand_container or not board_manager_ref:
 		return
 
-	# Clear existing hand cards
+	# Detached before being queued: queue_free() alone leaves the old cards in the
+	# container until the end of the frame, still laid out and still clickable
+	# beside the new ones. Restoring a snapshot calls this several times in a
+	# single frame, which would otherwise stack generations of stale cards.
 	for child in hand_container.get_children():
+		hand_container.remove_child(child)
 		child.queue_free()
 
 	var hand = board_manager_ref.ui_player.hand

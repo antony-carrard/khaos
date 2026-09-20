@@ -712,13 +712,16 @@ func _advance_to_next_player() -> void:
 ## and every UI element bound to a player whose stats just changed underneath it.
 ## Returns false if the snapshot was rejected, leaving the game untouched.
 func restore_snapshot(snapshot: Dictionary) -> bool:
-	if not GameState.apply(self, snapshot):
-		return false
-
+	# Cancelled BEFORE the state changes under it, not after: clear_power_selection()
+	# un-highlights tiles by coordinate, so running it afterwards would look up the
+	# restored board and leave stale highlights stuck on whichever tiles survived.
 	# Any action mid-aim refers to hand indices and board picks from the game we
-	# just replaced, so it can't be carried across.
+	# just replaced, so it can't be carried across either way.
 	cancel_power_activation()
 	placement_controller.cancel_placement()
+
+	if not GameState.apply(self, snapshot):
+		return false
 
 	# Last, and via the normal path: _switch_to_player() rebinds the active player
 	# view, resets gain tracking and refreshes the header, which is exactly what a

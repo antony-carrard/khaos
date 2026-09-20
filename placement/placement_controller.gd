@@ -89,9 +89,11 @@ func handle_keyboard_input(event: InputEvent) -> void:
 		select_tile_type(TileDefinition.TileType.HILLS)
 	elif event.keycode == KEY_F3:
 		select_tile_type(TileDefinition.TileType.MOUNTAIN)
-	elif event.keycode == KEY_F5:
+	# Ctrl-modified rather than bare function keys: F5-F8 are Godot's own
+	# run/pause/stop block, and the editor swallows them before the game sees them.
+	elif event.keycode == KEY_S and event.ctrl_pressed:
 		board_manager.save_game()
-	elif event.keycode == KEY_F9:
+	elif event.keycode == KEY_L and event.ctrl_pressed:
 		board_manager.load_game()
 
 
