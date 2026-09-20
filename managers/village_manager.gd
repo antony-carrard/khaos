@@ -258,3 +258,88 @@ func to_dict(players: Array[Player]) -> Array:
 		if a["q"] != b["q"]: return a["q"] < b["q"]
 		return a["r"] < b["r"])
 	return villages
+
+
+## Reconciles the board against a snapshot's village list (see GameState).
+## Call after TileManager.apply(): a village's world position is derived from the
+## height of the tile stack beneath it, so the tiles have to be settled first.
+func apply(villages: Array, players: Array[Player]) -> void:
+	var wanted: Dictionary = {}
+	for entry in villages:
+		wanted[Vector2i(entry["q"], entry["r"])] = entry
+
+	# Drop villages the snapshot doesn't have — and also any whose owner changed,
+	# which can't be repainted in place: _apply_color() lerps towards the player
+	# colour from whatever material it finds, so calling it a second time
+	# compounds the first colour instead of replacing it.
+	for pos in placed_villages.keys():
+		var entry = wanted.get(pos, null)
+		if entry == null or placed_villages[pos].player_owner != _owner_from(entry, players):
+			_discard_village(pos)
+
+	for pos in wanted:
+		var entry: Dictionary = wanted[pos]
+		var village: Village = placed_villages.get(pos, null)
+		if village == null:
+			village = _restore_village(entry, _owner_from(entry, players))
+		if village.is_doubled != entry["is_doubled"]:
+			village.set_doubled(entry["is_doubled"])
+		# Unconditional: the stack under an otherwise untouched village may have
+		# grown or shrunk, which changes the height it sits at.
+		_settle_on_stack(village)
+
+	_reindex_by_player()
+
+
+## The Player a snapshot entry belongs to, or null for the -1 written when a
+## village was captured with an owner outside the player list.
+func _owner_from(entry: Dictionary, players: Array[Player]) -> Player:
+	var index: int = entry["owner_index"]
+	if index < 0 or index >= players.size():
+		Log.error("VillageManager: village at (%d,%d) has no valid owner index (%d)" % [entry["q"], entry["r"], index])
+		return null
+	return players[index]
+
+
+func _restore_village(entry: Dictionary, village_owner: Player) -> Village:
+	var village = village_scene.instantiate() as Village
+	village.set_grid_position(entry["q"], entry["r"])
+	village.set_player_owner(village_owner)
+	add_child(village)
+	if village_owner and village_owner.color != Color.WHITE:
+		_apply_color(village, village_owner.color)
+	placed_villages[Vector2i(entry["q"], entry["r"])] = village
+	return village
+
+
+## Detached before being queued for deletion, so it stops rendering immediately
+## rather than lingering a frame over whatever replaces it.
+func _discard_village(pos: Vector2i) -> void:
+	var village: Village = placed_villages[pos]
+	placed_villages.erase(pos)
+	if village.get_parent() == self:
+		remove_child(village)
+	village.queue_free()
+
+
+## Puts a village back on top of the current tile stack at its own coordinates.
+func _settle_on_stack(village: Village) -> void:
+	if not tile_manager:
+		return
+	var top_height := tile_manager.get_top_height(village.q, village.r)
+	if top_height < 0:
+		Log.error("VillageManager: village at (%d,%d) has no tile under it" % [village.q, village.r])
+		return
+	village.global_position = HexGridUtils.axial_to_world(village.q, village.r, top_height) \
+		+ Vector3(0, HexGridUtils.TILE_HEIGHT / 2, 0)
+
+
+## Rebuilds the per-player index wholesale rather than patching it. It's a pure
+## view over placed_villages, so deriving it fresh can't drift out of sync.
+func _reindex_by_player() -> void:
+	player_villages.clear()
+	for pos in placed_villages:
+		var village: Village = placed_villages[pos]
+		if not player_villages.has(village.player_owner):
+			player_villages[village.player_owner] = [] as Array[Village]
+		player_villages[village.player_owner].append(village)

@@ -704,6 +704,44 @@ func _advance_to_next_player() -> void:
 		ui.update_hand_display()
 
 
+# ==================== SAVE / RESTORE ====================
+
+## Restores this game to `snapshot` and re-wires everything that points at the
+## state it replaced. GameState.apply() handles the data; this handles the parts
+## that only board_manager knows about — the aimed power, the placement preview,
+## and every UI element bound to a player whose stats just changed underneath it.
+## Returns false if the snapshot was rejected, leaving the game untouched.
+func restore_snapshot(snapshot: Dictionary) -> bool:
+	if not GameState.apply(self, snapshot):
+		return false
+
+	# Any action mid-aim refers to hand indices and board picks from the game we
+	# just replaced, so it can't be carried across.
+	cancel_power_activation()
+	placement_controller.cancel_placement()
+
+	# Last, and via the normal path: _switch_to_player() rebinds the active player
+	# view, resets gain tracking and refreshes the header, which is exactly what a
+	# restore needs — the alternative is reproducing all of it here.
+	_switch_to_player(snapshot["current_player_index"])
+	if ui:
+		ui.update_hand_display()
+
+	Log.info("Restored game state: %s to play" % current_player.player_name)
+	return true
+
+
+## Writes the current game to disk. Returns false on I/O failure.
+func save_game(path: String = GameState.SAVE_PATH) -> bool:
+	return GameState.save_to_file(self, path)
+
+
+## Reloads the game from disk. Returns false if there is no readable save or the
+## snapshot doesn't fit this session (e.g. a different player count).
+func load_game(path: String = GameState.SAVE_PATH) -> bool:
+	return restore_snapshot(GameState.load_from_file(path))
+
+
 ## Debug only: skip the opponent's current turn without them doing anything.
 ## Called by the NotYourTurnOverlay debug button for single-machine stub testing.
 func _on_debug_end_opponent_turn() -> void:

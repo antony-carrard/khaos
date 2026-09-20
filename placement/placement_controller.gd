@@ -89,6 +89,10 @@ func handle_keyboard_input(event: InputEvent) -> void:
 		select_tile_type(TileDefinition.TileType.HILLS)
 	elif event.keycode == KEY_F3:
 		select_tile_type(TileDefinition.TileType.MOUNTAIN)
+	elif event.keycode == KEY_F5:
+		board_manager.save_game()
+	elif event.keycode == KEY_F9:
+		board_manager.load_game()
 
 
 func update_preview() -> void:

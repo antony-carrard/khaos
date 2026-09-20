@@ -15,8 +15,10 @@ class_name GameState
 ## preserves them exactly and is what RPC already speaks, so save files and
 ## network snapshots share one format with no conversion layer between them.
 ##
-## This class only captures and persists. Rebuilding a live game from a snapshot
-## is the next step, and lands in the managers that own the scene nodes.
+## capture()/apply() are a matched pair and stay pure data: apply() restores the
+## players, the bag and the board, but does no UI or scene re-wiring. That part
+## belongs to whoever owns those references — see board_manager.restore_snapshot(),
+## which is the entry point gameplay should actually call.
 
 const SAVE_PATH := "user://savegame.dat"
 
@@ -93,3 +95,57 @@ static func load_from_file(path: String = SAVE_PATH) -> Dictionary:
 
 	Log.info("GameState: loaded from %s" % path)
 	return data
+
+
+## Restores a running game to the state described by `snapshot`.
+##
+## Reconciles rather than rebuilds — see TileManager.apply() for why — so calling
+## this on a board that already nearly matches only touches what actually differs.
+## Returns false without changing anything if the snapshot can't be applied.
+static func apply(board_manager: Node3D, snapshot: Dictionary) -> bool:
+	if snapshot.is_empty():
+		return false
+
+	var players_data: Array = snapshot["players"]
+	if players_data.size() != board_manager.players.size():
+		# Refused rather than partially applied: a half-restored game is far
+		# harder to diagnose than a load that plainly didn't happen. The caller
+		# is responsible for standing up the right number of players first.
+		Log.error("GameState: snapshot has %d players, game has %d" % [
+			players_data.size(), board_manager.players.size()])
+		return false
+
+	for i in range(players_data.size()):
+		board_manager.players[i].from_dict(players_data[i])
+
+	board_manager.tile_pool.from_dict(snapshot["tile_pool"])
+
+	# Tiles before villages: a village sits on top of the stack beneath it, so
+	# its height isn't known until the tiles have settled.
+	board_manager.tile_manager.apply(snapshot["tiles"])
+	board_manager.village_manager.apply(snapshot["villages"], board_manager.players)
+
+	# Restored as plain data, keeping current_player's documented invariant.
+	# board_manager.restore_snapshot() then re-runs the same switch through
+	# _switch_to_player() to rebind the UI — idempotent, and it keeps this
+	# function free of scene concerns.
+	board_manager.current_player_index = snapshot["current_player_index"]
+	board_manager.current_player = board_manager.players[board_manager.current_player_index]
+
+	board_manager.final_round_triggered = snapshot["final_round_triggered"]
+	var trigger_index: int = snapshot["triggering_player_index"]
+	board_manager.triggering_player = board_manager.players[trigger_index] if trigger_index >= 0 else null
+
+	_restore_typed(board_manager.villages_built_this_turn, snapshot["villages_built_this_turn"])
+	_restore_typed(board_manager.villages_demolished_this_turn, snapshot["villages_demolished_this_turn"])
+
+	return true
+
+
+## Refills a typed Dictionary from a plain one, element by element. A typed
+## container survives store_var() and RPC but arrives untyped on the far side,
+## and an untyped Dictionary won't assign straight into a typed field.
+static func _restore_typed(target: Dictionary, source: Dictionary) -> void:
+	target.clear()
+	for key in source:
+		target[key] = source[key]

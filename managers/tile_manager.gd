@@ -284,3 +284,65 @@ func to_dict() -> Array:
 		if a["r"] != b["r"]: return a["r"] < b["r"]
 		return a["height"] < b["height"])
 	return tiles
+
+
+## Reconciles the board against a snapshot's tile list (see GameState).
+##
+## Diffs rather than rebuilds: a tile already standing where the snapshot wants
+## one is kept and, if its properties differ, updated in place. Only genuinely
+## new tiles are instantiated and only genuinely absent ones are freed, so
+## applying a snapshot doesn't churn every node on the board — which would
+## interrupt in-flight animations and highlights on every action once network
+## play runs through this path.
+func apply(tiles: Array) -> void:
+	var wanted: Dictionary = {}
+	for entry in tiles:
+		wanted[Vector3i(entry["q"], entry["r"], entry["height"])] = entry
+
+	for key in placed_tiles.keys():
+		if not wanted.has(key):
+			_discard_tile(key)
+
+	for key in wanted:
+		var entry: Dictionary = wanted[key]
+		var tile: HexTile = placed_tiles.get(key, null)
+		if tile == null:
+			_restore_tile(entry)
+		elif tile.tile_type != entry["tile_type"] \
+				or tile.yields != entry["yields"] \
+				or tile.village_building_cost != entry["village_building_cost"]:
+			tile.set_tile_type(entry["tile_type"], TILE_TYPE_COLORS[entry["tile_type"]])
+			tile.set_resource_properties(entry["yields"].duplicate(), entry["village_building_cost"])
+
+
+## Instantiates one tile exactly as the snapshot describes it.
+##
+## Deliberately skips is_valid_placement(): those rules govern which *moves* are
+## legal, not which board states are representable, and a snapshot is already a
+## state the game reached legally. Re-validating here would reject perfectly good
+## saves (e.g. a stack whose lower tile is hidden under a village).
+func _restore_tile(entry: Dictionary) -> HexTile:
+	var q: int = entry["q"]
+	var r: int = entry["r"]
+	var height: int = entry["height"]
+
+	var tile = hex_tile_scene.instantiate() as HexTile
+	add_child(tile)
+	tile.set_grid_position(q, r, height)
+	tile.set_tile_type(entry["tile_type"], TILE_TYPE_COLORS[entry["tile_type"]])
+	tile.global_position = HexGridUtils.axial_to_world(q, r, height)
+	tile.set_resource_properties(entry["yields"].duplicate(), entry["village_building_cost"])
+
+	placed_tiles[Vector3i(q, r, height)] = tile
+	return tile
+
+
+## Drops the tile at `key`. Detached from the tree before being queued for
+## deletion: queue_free() alone leaves the node visible until the end of the
+## frame, which would show it overlapping whatever the snapshot puts in its place.
+func _discard_tile(key: Vector3i) -> void:
+	var tile: HexTile = placed_tiles[key]
+	placed_tiles.erase(key)
+	if tile.get_parent() == self:
+		remove_child(tile)
+	tile.queue_free()
