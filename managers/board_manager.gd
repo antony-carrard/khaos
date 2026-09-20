@@ -57,6 +57,14 @@ var ui_player: Player = null
 # 0 in hot-seat (all players are local); set from GameConfig.local_player_index in network mode.
 var local_player_index: int = 0
 
+# False until _ready() has finished standing the game up. Restoring a snapshot
+# before that point silently loses: placement_controller is live from early in
+# _ready(), but the rest of _ready() — god selection's initialize_game_start(),
+# _switch_to_player(0), _begin_turn() — then runs on top of whatever was restored
+# and overwrites it. Step 4 (rejoin) applies a snapshot during startup, so this
+# precondition has to be explicit rather than accidental.
+var _game_started: bool = false
+
 # Final round tracking
 var final_round_triggered: bool = false
 
@@ -198,6 +206,8 @@ func _ready() -> void:
 	_begin_turn(current_player)
 	if ui:
 		ui.update_hand_display()
+
+	_game_started = true
 
 
 ## Show god selection screen for a specific player, greying out already-taken gods.
@@ -710,8 +720,15 @@ func _advance_to_next_player() -> void:
 ## state it replaced. GameState.apply() handles the data; this handles the parts
 ## that only board_manager knows about — the aimed power, the placement preview,
 ## and every UI element bound to a player whose stats just changed underneath it.
-## Returns false if the snapshot was rejected, leaving the game untouched.
+## Returns false if the snapshot was rejected. A snapshot rejected by the
+## _game_started guard leaves the game completely untouched; one rejected by
+## GameState.apply() leaves the state untouched but will have cleared any
+## in-flight aim, since that has to be cancelled before the state can change.
 func restore_snapshot(snapshot: Dictionary) -> bool:
+	if not _game_started:
+		Log.warn("Ignoring restore: the game is still starting up, and the rest of _ready() would overwrite it")
+		return false
+
 	# Cancelled BEFORE the state changes under it, not after: clear_power_selection()
 	# un-highlights tiles by coordinate, so running it afterwards would look up the
 	# restored board and leave stale highlights stuck on whichever tiles survived.

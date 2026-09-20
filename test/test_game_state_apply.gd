@@ -300,3 +300,16 @@ func test_a_saved_game_survives_a_file_round_trip_and_restores() -> void:
 	assert_bool(village_manager.get_village_at(0, 0).is_doubled).is_true()
 
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(path))
+
+
+func test_restore_is_refused_before_the_game_has_started() -> void:
+	# placement_controller is live from early in board_manager._ready(), so a load
+	# can be triggered while _ready() is still suspended on god selection. The rest
+	# of _ready() would then overwrite whatever was restored — a free harvest and a
+	# redeal on top of the loaded state. Step 4 (rejoin) applies a snapshot during
+	# startup, so this precondition has to hold rather than be avoided by the UI.
+	var board := _make_board()
+	var snapshot := GameState.capture(board)
+
+	assert_bool(board._game_started).is_false()
+	assert_bool(board.restore_snapshot(snapshot)).is_false()
