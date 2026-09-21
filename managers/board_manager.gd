@@ -63,20 +63,12 @@ var local_player_index: int = 0
 # _switch_to_player(0), _begin_turn() — then runs on top of whatever was restored
 # and overwrites it. Step 4 (rejoin) applies a snapshot during startup, so this
 # precondition has to be explicit rather than accidental.
-var _game_started: bool = false
+var game_started: bool = false
 
-# NETWORK clients only: true from the moment an action intent is sent to the host
-# until the host's snapshot answers it. Every action entry point ignores input
-# while set — the client's copy of the game is stale until the reply lands, so a
-# second click could pass checks against numbers that no longer hold. The host
-# answers every intent with a snapshot, even a rejected one, so the lock always
-# releases.
-var _awaiting_host: bool = false
-
-# Set by _trigger_game_end(). Stops the host broadcasting per-action snapshots on
-# top of the game-over message, which would re-run _switch_to_player() on clients
-# and put the turn overlay back over the victory screen.
-var _game_over: bool = false
+# All game-session RPCs (intents in, snapshots out) live on this child node. Built
+# here rather than in _ready() so the action entry points work on a bare
+# board_manager in tests; it only enters the tree in _ready().
+var network: NetworkSync = NetworkSync.new()
 
 # Final round tracking
 var final_round_triggered: bool = false
@@ -119,10 +111,16 @@ var _is_network: bool:
 # same local code as hot-seat, so this — not _is_network — is what the action
 # entry points branch on.
 var _is_client: bool:
-	get: return _is_network and not NetworkManager.is_host
+	get: return network.is_client
 
 
 func _ready() -> void:
+	# First: RPCs need this node at the same path on every peer before god
+	# selection sends the first one.
+	network.name = "NetworkSync"
+	network.board = self
+	add_child(network)
+
 	# Create active player view (signal bridge)
 	active_player_view = ActivePlayerView.new()
 	add_child(active_player_view)
@@ -210,9 +208,6 @@ func _ready() -> void:
 	if OS.is_debug_build():
 		not_your_turn_overlay.debug_end_turn_requested.connect(_on_debug_end_opponent_turn)
 
-	# Connect network disconnect handler (no-op in hot-seat since signal never fires)
-	NetworkManager.peer_disconnected.connect(_on_network_peer_disconnected)
-
 	_switch_to_player(0)
 
 	active_player_switched.connect(_on_active_player_changed)
@@ -227,17 +222,17 @@ func _ready() -> void:
 		# snapshot brings all of it. Ask for it now that restore_snapshot() will
 		# accept one; if the host's own end-of-_ready() broadcast already went
 		# out, it either arrived just above (applied) or was dropped by the
-		# _game_started guard, and this request covers that case.
-		_game_started = true
-		rpc_id(1, "_rpc_request_state")
+		# game_started guard, and this request covers that case.
+		game_started = true
+		network.request_state()
 		return
 
 	_begin_turn(current_player)
 	if ui:
 		ui.update_hand_display()
 
-	_game_started = true
-	_broadcast_state()
+	game_started = true
+	network.broadcast_state()
 
 
 ## Show god selection screen for a specific player, greying out already-taken gods.
@@ -273,7 +268,7 @@ func _select_god_networked() -> void:
 			# Our turn: interactive selection, then broadcast the choice
 			await show_god_selection(players[i], taken)
 			Log.info("Player %d selected god: %s" % [i + 1, players[i].god.god_name])
-			rpc("_rpc_god_selected", i, players[i].god.get_id())
+			network.send_god_selected(i, players[i].god.get_id())
 		else:
 			# Their turn: show god selection as read-only backdrop, block until RPC arrives
 			var waiting_canvas := _show_god_waiting_ui(players[i], taken)
@@ -460,9 +455,9 @@ func _on_tile_selected_from_hand(hand_index: int) -> void:
 ## "refused" only means the intent wasn't sent; the host decides the rest.
 func on_tile_placed_from_hand(hand_index: int, q: int, r: int) -> bool:
 	if _is_client:
-		return _send_intent("_rpc_intent_place_tile", [hand_index, q, r])
+		return network.send_intent("_rpc_intent_place_tile", [hand_index, q, r])
 	var placed := _place_tile_from_hand(hand_index, q, r)
-	_broadcast_state()
+	network.broadcast_state()
 	return placed
 
 
@@ -506,9 +501,9 @@ func _place_tile_from_hand(hand_index: int, q: int, r: int) -> bool:
 ## Called by VillagePlaceStrategy when the player attempts to place a village.
 func on_village_placed(q: int, r: int) -> bool:
 	if _is_client:
-		return _send_intent("_rpc_intent_place_village", [q, r])
+		return network.send_intent("_rpc_intent_place_village", [q, r])
 	var placed := _place_village(q, r)
-	_broadcast_state()
+	network.broadcast_state()
 	return placed
 
 
@@ -622,9 +617,9 @@ func can_destroy_enemy_village(q: int, r: int) -> bool:
 ## Called by VillageRemoveStrategy when the player attempts to remove a village.
 func on_village_removed(q: int, r: int) -> bool:
 	if _is_client:
-		return _send_intent("_rpc_intent_remove_village", [q, r])
+		return network.send_intent("_rpc_intent_remove_village", [q, r])
 	var removed := _remove_village(q, r)
-	_broadcast_state()
+	network.broadcast_state()
 	return removed
 
 
@@ -775,11 +770,11 @@ func _advance_to_next_player() -> void:
 ## that only board_manager knows about — the aimed power, the placement preview,
 ## and every UI element bound to a player whose stats just changed underneath it.
 ## Returns false if the snapshot was rejected. A snapshot rejected by the
-## _game_started guard leaves the game completely untouched; one rejected by
+## game_started guard leaves the game completely untouched; one rejected by
 ## GameState.apply() leaves the state untouched but will have cleared any
 ## in-flight aim, since that has to be cancelled before the state can change.
 func restore_snapshot(snapshot: Dictionary) -> bool:
-	if not _game_started:
+	if not game_started:
 		Log.warn("Ignoring restore: the game is still starting up, and the rest of _ready() would overwrite it")
 		return false
 
@@ -818,7 +813,7 @@ func load_game(path: String = GameState.SAVE_PATH) -> bool:
 		return false
 	var restored := restore_snapshot(GameState.load_from_file(path))
 	if restored:
-		_broadcast_state()
+		network.broadcast_state()
 	return restored
 
 
@@ -830,7 +825,7 @@ func _on_debug_end_opponent_turn() -> void:
 		return
 	Log.info("Debug overlay: skipping action for %s" % current_player.player_name)
 	_end_turn()
-	_broadcast_state()
+	network.broadcast_state()
 
 
 ## Debug only: ends the game immediately and shows the victory screen,
@@ -847,10 +842,10 @@ func debug_finish_game() -> void:
 ## Called by tile_selector_ui when the player presses End Turn.
 func on_end_turn_requested() -> void:
 	if _is_client:
-		_send_intent("_rpc_intent_end_turn", [])
+		network.send_intent("_rpc_intent_end_turn", [])
 		return
 	_end_turn()
-	_broadcast_state()
+	network.broadcast_state()
 
 
 ## Called by tile_selector_ui._on_power_activated. Every power is targeted —
@@ -951,7 +946,7 @@ func cancel_power_activation() -> void:
 ## it from.
 func _resolve_power_target(power: GodPower, q: int, r: int) -> bool:
 	if _is_client:
-		var sent := _send_intent("_rpc_intent_power_resolve", [
+		var sent := network.send_intent("_rpc_intent_power_resolve", [
 			current_player.god.find_slot(power), q, r,
 			power_hand_index, power_selected_villages.duplicate()])
 		if sent:
@@ -960,7 +955,7 @@ func _resolve_power_target(power: GodPower, q: int, r: int) -> bool:
 			placement_controller.cancel_placement()
 		return sent
 	var success := _execute_power(power, q, r)
-	_broadcast_state()
+	network.broadcast_state()
 	return success
 
 
@@ -973,74 +968,17 @@ func _execute_power(power: GodPower, q: int, r: int) -> bool:
 	return success
 
 
-## Called when a remote peer disconnects during a game session.
-func _on_network_peer_disconnected(_id: int) -> void:
-	Log.warn("Network: A peer disconnected — returning to main menu")
-	# Disconnect self first to prevent re-entrant calls: disconnect_network() nulls
-	# the ENet peer which can flush pending events and re-fire peer_disconnected.
-	NetworkManager.peer_disconnected.disconnect(_on_network_peer_disconnected)
-	NetworkManager.disconnect_network()
-	# Defer so the current frame finishes before the scene tree tears down this node.
-	get_tree().call_deferred("change_scene_to_file", "res://main_menu.tscn")
-
-
-## Validates that an incoming RPC comes from the peer whose turn it currently is.
-func _validate_rpc_sender() -> bool:
-	var sender_id := multiplayer.get_remote_sender_id()
-	var sender_player := NetworkManager.get_player_index(sender_id)
-	if sender_player != current_player_index:
-		push_warning("RPC from wrong player (got player %d, expected player %d)" % [sender_player, current_player_index])
-		return false
-	return true
-
-
-# ==================== STATE REPLICATION ====================
-# Host-authoritative. A client's action entry point sends an intent to peer 1
-# (the host) and returns; the host runs the same local code a hot-seat game
-# runs, then broadcasts the resulting GameState snapshot, which clients apply
-# through restore_snapshot(). The rules therefore run exactly once, on the host.
-
-## Client side: sends an action intent to the host, or refuses if one is already
-## in flight. Returns whether it was sent.
-func _send_intent(method: StringName, args: Array) -> bool:
-	if _awaiting_host:
-		Log.debug("Ignoring input: still waiting for the host to answer the previous action")
-		return false
-	_awaiting_host = true
-	callv("rpc_id", [1, method] + args)
-	return true
-
-
-## Host side: whether an incoming intent should be acted on. A rejected intent
-## still gets a snapshot in reply (see the handlers) so the sender's lock clears.
-func _accept_intent() -> bool:
-	if not NetworkManager.is_host:
-		push_warning("Intent received by a non-host peer — ignored")
-		return false
-	return _validate_rpc_sender()
-
-
-## Host side: pushes the current game to every client. No-op in hot-seat and on
-## clients. Called after every action, accepted or not.
-func _broadcast_state() -> void:
-	if _is_network and NetworkManager.is_host and not _game_over:
-		rpc("_rpc_state", GameState.capture(self))
-
-
-# ==================== RPC HANDLERS ====================
-
-@rpc("any_peer", "call_remote", "reliable")
-func _rpc_god_selected(player_index: int, god_id: String) -> void:
+## Called by NetworkSync when a remote player's god choice arrives.
+func on_remote_god_selected(player_index: int, god_id: String) -> void:
 	var god := God.from_id(god_id)
 	if god == null:
 		# Only reachable if peers are running different builds. Log loudly, but
 		# still release the waiting peer: a hang here would hide the real cause.
-		Log.error("_rpc_god_selected: unknown god id '%s'" % god_id)
+		Log.error("on_remote_god_selected: unknown god id '%s'" % god_id)
 	else:
 		players[player_index].initialize_game_start(god, test_mode)
 		Log.info("Player %d selected god: %s" % [player_index + 1, god.god_name])
 	_god_choice_received.emit()
-
 
 
 ## Applies the cost/glory of building a village. Shared by _place_village() and powers that build (BuildAnywherePower).
@@ -1083,91 +1021,10 @@ func record_village_demolition(q: int, r: int, tile: HexTile) -> void:
 	current_player.god.on_village_demolished(self, tile)
 
 
-@rpc("any_peer", "call_remote", "reliable")
-func _rpc_intent_place_tile(hand_index: int, q: int, r: int) -> void:
-	if _accept_intent():
-		on_tile_placed_from_hand(hand_index, q, r)
-	else:
-		_broadcast_state()
-
-
-@rpc("any_peer", "call_remote", "reliable")
-func _rpc_intent_place_village(q: int, r: int) -> void:
-	if _accept_intent():
-		on_village_placed(q, r)
-	else:
-		_broadcast_state()
-
-
-@rpc("any_peer", "call_remote", "reliable")
-func _rpc_intent_remove_village(q: int, r: int) -> void:
-	if _accept_intent():
-		on_village_removed(q, r)
-	else:
-		_broadcast_state()
-
-
-@rpc("any_peer", "call_remote", "reliable")
-func _rpc_intent_end_turn() -> void:
-	if _accept_intent():
-		on_end_turn_requested()
-	else:
-		_broadcast_state()
-
-
-@rpc("any_peer", "call_remote", "reliable")
-func _rpc_intent_power_resolve(slot: int, q: int, r: int, hand_index: int, selection: Array) -> void:
-	var power: GodPower = current_player.god.get_power(slot) if _accept_intent() else null
-	if power == null:
-		push_warning("_rpc_intent_power_resolve: no usable power in slot %d" % slot)
-		_broadcast_state()
-		return
-	power_hand_index = hand_index
-	# Rebuilt element by element rather than assigned: the wire hands back a
-	# plain Array, which won't assign straight into a typed one.
-	power_selected_villages.clear()
-	for village_pos in selection:
-		power_selected_villages.append(village_pos)
-	_resolve_power_target(power, q, r)
-
-
-## Client → host once the client has finished starting up (and, later, when it
-## rejoins). Answered with a direct _rpc_state. Ignored until the host itself
-## has finished _ready(), because before that the snapshot would be pre-deal —
-## the host's own end-of-_ready() broadcast reaches that client instead.
-@rpc("any_peer", "call_remote", "reliable")
-func _rpc_request_state() -> void:
-	if not NetworkManager.is_host or not _game_started:
-		return
-	var sender_id := multiplayer.get_remote_sender_id()
-	if NetworkManager.get_player_index(sender_id) < 0:
-		push_warning("_rpc_request_state from unknown peer %d" % sender_id)
-		return
-	rpc_id(sender_id, "_rpc_state", GameState.capture(self))
-
-
-## Host → clients after every action. "authority" means only peer 1 may send it.
-@rpc("authority", "call_remote", "reliable")
-func _rpc_state(snapshot: Dictionary) -> void:
-	_awaiting_host = false
-	restore_snapshot(snapshot)
-
-
-## Host → clients when the game ends. Carries the final state itself because
-## clients never run the turn flow that would otherwise reach _trigger_game_end().
-@rpc("authority", "call_remote", "reliable")
-func _rpc_game_over(snapshot: Dictionary) -> void:
-	_awaiting_host = false
-	restore_snapshot(snapshot)
-	_trigger_game_end()
-
-
 ## Calculates scores for all players and shows the victory screen.
 func _trigger_game_end() -> void:
 	Log.info("=== GAME OVER ===")
-	if _is_network and NetworkManager.is_host and not _game_over:
-		rpc("_rpc_game_over", GameState.capture(self))
-	_game_over = true
+	network.broadcast_game_over()
 	if status_header:
 		status_header.visible = false
 	if not_your_turn_overlay:

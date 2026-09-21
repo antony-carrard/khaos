@@ -311,5 +311,5 @@ func test_restore_is_refused_before_the_game_has_started() -> void:
 	var board := _make_board()
 	var snapshot := GameState.capture(board)
 
-	assert_bool(board._game_started).is_false()
+	assert_bool(board.game_started).is_false()
 	assert_bool(board.restore_snapshot(snapshot)).is_false()
