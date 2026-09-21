@@ -393,8 +393,7 @@ func _show_lobby_section() -> void:
 			var peer_map: Dictionary = {}
 			for i in range(count):
 				peer_map[all_peers[i]] = i
-			var rng_seed := randi()
-			NetworkManager.rpc("start_game", count, peer_map, rng_seed))
+			NetworkManager.rpc("start_game", count, peer_map))
 		vbox.add_child(start_btn)
 	else:
 		var waiting_lbl := Label.new()

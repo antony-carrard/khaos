@@ -139,13 +139,11 @@ func _ready() -> void:
 	village_manager = VillageManager.new()
 	add_child(village_manager)
 
-	# Initialize tile pool — use shared seed in network mode for deterministic bag order
+	# Initialize tile pool. In network mode only the host's bag is ever drawn from;
+	# a client's is overwritten by the host's first snapshot.
 	tile_pool = TilePool.new()
 	add_child(tile_pool)
-	var tile_seed := -1
-	if GameConfig.initialized and GameConfig.mode == GameConfig.GameMode.NETWORK:
-		tile_seed = GameConfig.network_rng_seed
-	tile_pool.initialize(tile_seed)
+	tile_pool.initialize()
 
 	# Create N players — prefer GameConfig when coming from the main menu
 	var count = clampi(GameConfig.player_count if GameConfig.initialized else player_count, 1, 4)
@@ -224,11 +222,22 @@ func _ready() -> void:
 		active_player_view.bind(players[local_player_index])
 
 	setup_ui()
+	if _is_client:
+		# Clients never deal, harvest or reset actions themselves: the host's
+		# snapshot brings all of it. Ask for it now that restore_snapshot() will
+		# accept one; if the host's own end-of-_ready() broadcast already went
+		# out, it either arrived just above (applied) or was dropped by the
+		# _game_started guard, and this request covers that case.
+		_game_started = true
+		rpc_id(1, "_rpc_request_state")
+		return
+
 	_begin_turn(current_player)
 	if ui:
 		ui.update_hand_display()
 
 	_game_started = true
+	_broadcast_state()
 
 
 ## Show god selection screen for a specific player, greying out already-taken gods.
@@ -827,6 +836,9 @@ func _on_debug_end_opponent_turn() -> void:
 ## Debug only: ends the game immediately and shows the victory screen,
 ## skipping the rest of the final round. Called by tile_selector_ui's debug button.
 func debug_finish_game() -> void:
+	if _is_client:
+		Log.warn("Debug: only the host can force the game end in network mode")
+		return
 	Log.info("Debug: forcing game end")
 	_trigger_game_end()
 
@@ -1117,6 +1129,21 @@ func _rpc_intent_power_resolve(slot: int, q: int, r: int, hand_index: int, selec
 	for village_pos in selection:
 		power_selected_villages.append(village_pos)
 	_resolve_power_target(power, q, r)
+
+
+## Client → host once the client has finished starting up (and, later, when it
+## rejoins). Answered with a direct _rpc_state. Ignored until the host itself
+## has finished _ready(), because before that the snapshot would be pre-deal —
+## the host's own end-of-_ready() broadcast reaches that client instead.
+@rpc("any_peer", "call_remote", "reliable")
+func _rpc_request_state() -> void:
+	if not NetworkManager.is_host or not _game_started:
+		return
+	var sender_id := multiplayer.get_remote_sender_id()
+	if NetworkManager.get_player_index(sender_id) < 0:
+		push_warning("_rpc_request_state from unknown peer %d" % sender_id)
+		return
+	rpc_id(sender_id, "_rpc_state", GameState.capture(self))
 
 
 ## Host → clients after every action. "authority" means only peer 1 may send it.

@@ -288,11 +288,11 @@ func _create_button_style(bg_color: Color) -> StyleBoxFlat:
 
 
 ## Called when New Game button is pressed.
-## In network mode the host broadcasts a restart with a fresh RNG seed; all machines reload.
+## In network mode the host broadcasts a restart; all machines reload.
 ## In hot-seat GameConfig is left unchanged so the rematch reuses the same settings.
 func _on_new_game() -> void:
 	if GameConfig.initialized and GameConfig.mode == GameConfig.GameMode.NETWORK:
-		NetworkManager.rpc("restart_game", randi())
+		NetworkManager.rpc("restart_game")
 	else:
 		get_tree().reload_current_scene()
 

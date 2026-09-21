@@ -11,7 +11,7 @@ var _rng: RandomNumberGenerator
 
 
 ## Initialize the tile pool with all 64 tiles from rules.md.
-## Pass rng_seed >= 0 for deterministic shuffling (network mode); -1 uses random seed.
+## Pass rng_seed >= 0 for deterministic shuffling (tests); -1 uses a random seed.
 func initialize(rng_seed: int = -1) -> void:
 	_rng = RandomNumberGenerator.new()
 	if rng_seed >= 0:
@@ -52,7 +52,7 @@ func initialize(rng_seed: int = -1) -> void:
 	for i in 2: tile_bag.append(TileDefinition.new(MOUNTAIN, {G: 3}, 6))
 	for i in 2: tile_bag.append(TileDefinition.new(MOUNTAIN, {M: 2, F: 2, G: 2}, 6))
 
-	# Fisher-Yates shuffle using seeded RNG for deterministic ordering
+	# Fisher-Yates shuffle
 	for i in range(tile_bag.size() - 1, 0, -1):
 		var j := _rng.randi_range(0, i)
 		var tmp = tile_bag[i]
@@ -99,8 +99,7 @@ func is_empty() -> bool:
 	return tile_bag.is_empty()
 
 
-## Return a tile to the bag at a random position (using the pool's seeded RNG,
-## so network games stay deterministic across peers).
+## Return a tile to the bag at a random position.
 func return_tile(tile: TileDefinition) -> void:
 	var idx = removed_tiles.find(tile)
 	if idx != -1:

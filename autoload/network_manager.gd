@@ -103,22 +103,19 @@ func _sync_peer_names(names: Dictionary) -> void:
 
 
 ## Called by host to restart the current game on all machines simultaneously.
-## Generates a fresh RNG seed so the rematch has a different tile order.
 @rpc("authority", "call_local", "reliable")
-func restart_game(rng_seed: int) -> void:
-	GameConfig.network_rng_seed = rng_seed
+func restart_game() -> void:
 	get_tree().reload_current_scene()
 
 
 ## Called by host to start the game on all machines simultaneously.
 ## p_peer_player_map: {peer_id (int) → player_index (int)}
 @rpc("authority", "call_local", "reliable")
-func start_game(player_count: int, p_peer_player_map: Dictionary, rng_seed: int) -> void:
+func start_game(player_count: int, p_peer_player_map: Dictionary) -> void:
 	peer_player_map = p_peer_player_map
 	GameConfig.mode = GameConfig.GameMode.NETWORK
 	GameConfig.player_count = player_count
 	GameConfig.local_player_index = peer_player_map.get(multiplayer.get_unique_id(), 0)
-	GameConfig.network_rng_seed = rng_seed
 	# Build player_names array ordered by player_index, falling back to "Player N"
 	var names: Array[String] = []
 	names.resize(player_count)
