@@ -425,21 +425,28 @@ func _on_tile_selected_from_hand(hand_index: int) -> void:
 	placement_controller.select_tile_from_hand(hand_index, tile_def)
 
 
-## Called by TilePlacementStrategy (gameplay path) after placing a tile.
-## q, r are the hex coords of the placement for network broadcasting.
-func on_tile_placed_from_hand(hand_index: int, q: int, r: int) -> void:
+## Called by TilePlacementStrategy (gameplay path) when the player confirms a
+## placement. Owns the whole mutation — placing the tile, consuming the action,
+## granting yields, emptying the hand slot — so nothing outside board_manager
+## touches the board. Returns false if the placement was refused.
+func on_tile_placed_from_hand(hand_index: int, q: int, r: int) -> bool:
 	if hand_index < 0 or hand_index >= current_player.hand.size():
-		return
+		return false
 
 	var placed_tile = current_player.hand[hand_index]
 	if placed_tile == null:
 		Log.warn("BoardManager: No tile in hand slot %d" % hand_index)
-		return
+		return false
 
-	# Consume action
+	if not tile_manager.is_valid_placement(q, r, placed_tile.tile_type):
+		return false
+
 	if not _consume_action("place tile"):
-		Log.error("BoardManager: consume_action failed despite passing phase/action checks")
-		return
+		return false
+
+	if not tile_manager.place_tile(q, r, placed_tile.tile_type, placed_tile.yields, placed_tile.village_building_cost):
+		Log.error("BoardManager: place_tile failed at (%d,%d) after passing validation" % [q, r])
+		return false
 
 	Log.info("Placed tile from hand: %s yields=%s" % [
 		TileDefinition.TileType.keys()[placed_tile.tile_type],
@@ -456,6 +463,7 @@ func on_tile_placed_from_hand(hand_index: int, q: int, r: int) -> void:
 	if _is_network:
 		rpc("_rpc_place_tile", hand_index, q, r)
 
+	return true
 
 
 ## Called when player attempts to place a village
