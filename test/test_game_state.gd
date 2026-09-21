@@ -314,3 +314,50 @@ func test_loading_a_foreign_format_version_is_refused() -> void:
 	file.store_var({"version": GameState.FORMAT_VERSION + 1})
 	file.close()
 	assert_dict(GameState.load_from_file(_save_path)).is_empty()
+
+
+# --- Wire size ---
+
+# Step 3 of the state-replication plan broadcasts a full snapshot after every
+# action. Sized against a deliberately impossible upper bound: all 64 bag tiles
+# on the board AND still in the bag, a village on every hex, four players.
+# If this ceiling ever trips, it's the signal to switch to state deltas.
+func test_full_snapshot_stays_small_enough_to_broadcast_per_action() -> void:
+	var carol: Player = auto_free(Player.new())
+	carol.initialize("Carol", Color.GREEN)
+	carol.initialize_game_start(LeBatisseurGod.new(), false)
+	var dave: Player = auto_free(Player.new())
+	dave.initialize("Dave", Color.YELLOW)
+	dave.initialize_game_start(BicephallesGod.new(), false)
+	var four: Array[Player] = [alice, bob, carol, dave]
+	board.players = four
+	for player in four:
+		player.hand = tile_pool.draw_tiles(player.base_hand_size)
+		player.materials = 12
+		player.fervor = 9
+		player.glory = 31
+
+	# 64 tiles over 22 hexes: 21 full stacks of 3 + one single. Every hex gets a village.
+	var placed := 0
+	var hex := 0
+	while placed < 64:
+		var q := hex % 6
+		var r := hex / 6
+		var stack := mini(3, 64 - placed)
+		for h in stack:
+			var tile_type: int = [TileDefinition.TileType.PLAINS,
+				TileDefinition.TileType.HILLS, TileDefinition.TileType.MOUNTAIN][h]
+			_inject_tile(q, r, h, tile_type, {M: 2, F: 1, G: 3}, 2 * (h + 1))
+		_inject_village(q, r, four[hex % 4])
+		board.villages_built_this_turn[Vector2i(q, r)] = true
+		placed += stack
+		hex += 1
+
+	var snapshot := GameState.capture(board)
+	var size := var_to_bytes(snapshot).size()
+	print("Full snapshot: %d bytes (%d tiles, %d villages, %d players)" % [
+		size, snapshot["tiles"].size(), snapshot["villages"].size(), snapshot["players"].size()])
+
+	assert_int(snapshot["tiles"].size()).is_equal(64)
+	assert_int(snapshot["villages"].size()).is_equal(22)
+	assert_int(size).is_less(32 * 1024)
