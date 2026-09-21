@@ -65,6 +65,19 @@ var local_player_index: int = 0
 # precondition has to be explicit rather than accidental.
 var _game_started: bool = false
 
+# NETWORK clients only: true from the moment an action intent is sent to the host
+# until the host's snapshot answers it. Every action entry point ignores input
+# while set — the client's copy of the game is stale until the reply lands, so a
+# second click could pass checks against numbers that no longer hold. The host
+# answers every intent with a snapshot, even a rejected one, so the lock always
+# releases.
+var _awaiting_host: bool = false
+
+# Set by _trigger_game_end(). Stops the host broadcasting per-action snapshots on
+# top of the game-over message, which would re-run _switch_to_player() on clients
+# and put the turn overlay back over the victory screen.
+var _game_over: bool = false
+
 # Final round tracking
 var final_round_triggered: bool = false
 
@@ -99,6 +112,14 @@ var triggering_player: Player = null
 # True when running in NETWORK mode (shorthand property)
 var _is_network: bool:
 	get: return GameConfig.initialized and GameConfig.mode == GameConfig.GameMode.NETWORK
+
+# True on a NETWORK peer that isn't the host. Clients never mutate their own game:
+# every action is sent to the host as an intent, and the host's snapshot is the
+# only thing that changes their state. The host is also a player and runs the
+# same local code as hot-seat, so this — not _is_network — is what the action
+# entry points branch on.
+var _is_client: bool:
+	get: return _is_network and not NetworkManager.is_host
 
 
 func _ready() -> void:
@@ -426,10 +447,20 @@ func _on_tile_selected_from_hand(hand_index: int) -> void:
 
 
 ## Called by TilePlacementStrategy (gameplay path) when the player confirms a
-## placement. Owns the whole mutation — placing the tile, consuming the action,
-## granting yields, emptying the hand slot — so nothing outside board_manager
-## touches the board. Returns false if the placement was refused.
+## placement. Returns false if the placement was refused. On a network client
+## "refused" only means the intent wasn't sent; the host decides the rest.
 func on_tile_placed_from_hand(hand_index: int, q: int, r: int) -> bool:
+	if _is_client:
+		return _send_intent("_rpc_intent_place_tile", [hand_index, q, r])
+	var placed := _place_tile_from_hand(hand_index, q, r)
+	_broadcast_state()
+	return placed
+
+
+## Owns the whole mutation — placing the tile, consuming the action, granting
+## yields, emptying the hand slot — so nothing outside board_manager touches the
+## board.
+func _place_tile_from_hand(hand_index: int, q: int, r: int) -> bool:
 	if hand_index < 0 or hand_index >= current_player.hand.size():
 		return false
 
@@ -460,14 +491,19 @@ func on_tile_placed_from_hand(hand_index: int, q: int, r: int) -> bool:
 	if ui:
 		ui.update_hand_display()
 
-	if _is_network:
-		rpc("_rpc_place_tile", hand_index, q, r)
-
 	return true
 
 
-## Called when player attempts to place a village
+## Called by VillagePlaceStrategy when the player attempts to place a village.
 func on_village_placed(q: int, r: int) -> bool:
+	if _is_client:
+		return _send_intent("_rpc_intent_place_village", [q, r])
+	var placed := _place_village(q, r)
+	_broadcast_state()
+	return placed
+
+
+func _place_village(q: int, r: int) -> bool:
 	var tile = tile_manager.get_tile_at(q, r)
 	if not tile:
 		Log.error("BoardManager: No tile at (%d,%d) for village placement" % [q, r])
@@ -490,15 +526,11 @@ func on_village_placed(q: int, r: int) -> bool:
 
 	var glory := apply_village_construction(tile, current_player, cost)
 	Log.info("Built village for %d resources, gained %d glory" % [cost, glory])
-
-	if _is_network:
-		rpc("_rpc_place_village", q, r)
-
 	return true
 
 
 ## Materials cost for the current player to build a village on `tile`, shared by the
-## afford-check, the local execution path, and the network replay path. Runs the god's
+## afford-check and the execution path in _place_village(). Runs the god's
 ## two cost hooks in sequence: modify_village_cost() (tile-based), then
 ## modify_rebuild_cost() (turn-history-based, e.g. Le Démolisseur's Échafaudage).
 func _compute_village_cost(tile: HexTile) -> int:
@@ -546,8 +578,8 @@ func _has_non_fresh_adjacent_own_village(q: int, r: int) -> bool:
 	return false
 
 
-## Full demolition cost for the enemy village at (q, r), shared by the afford-check, the
-## local execution path, and the network replay path so they can't drift apart. Bundles the
+## Full demolition cost for the enemy village at (q, r), shared by the afford-check and
+## the execution path in _remove_village() so they can't drift apart. Bundles the
 ## height-based surcharge with the "only a freshly-built adjacent village is available"
 ## surcharge (+1 action, rules.md). has_own_village is false if there's no legal attacker.
 func _compute_demolition_cost(q: int, r: int) -> Dictionary:
@@ -578,10 +610,18 @@ func can_destroy_enemy_village(q: int, r: int) -> bool:
 	return true
 
 
-## Called when player attempts to remove/sell a village.
+## Called by VillageRemoveStrategy when the player attempts to remove a village.
+func on_village_removed(q: int, r: int) -> bool:
+	if _is_client:
+		return _send_intent("_rpc_intent_remove_village", [q, r])
+	var removed := _remove_village(q, r)
+	_broadcast_state()
+	return removed
+
+
 ## Own village: costs 1 action, free (no resource cost or refund).
 ## Enemy village: requires adjacent own village; costs resources + actions per rules.
-func on_village_removed(q: int, r: int) -> bool:
+func _remove_village(q: int, r: int) -> bool:
 	var village = village_manager.get_village_at(q, r)
 	if not village:
 		Log.warn("BoardManager: No village at (%d,%d) to remove" % [q, r])
@@ -613,9 +653,6 @@ func on_village_removed(q: int, r: int) -> bool:
 		record_village_demolition(q, r, tile)
 		var glory := apply_village_demolition(tile, current_player, res_cost)
 		Log.info("Destroyed enemy village at (%d,%d), paid %d resources, %d actions, gained %d glory" % [q, r, res_cost, act_cost, glory])
-
-	if _is_network:
-		rpc("_rpc_remove_village", q, r)
 
 	return true
 
@@ -767,14 +804,24 @@ func save_game(path: String = GameState.SAVE_PATH) -> bool:
 ## Reloads the game from disk. Returns false if there is no readable save or the
 ## snapshot doesn't fit this session (e.g. a different player count).
 func load_game(path: String = GameState.SAVE_PATH) -> bool:
-	return restore_snapshot(GameState.load_from_file(path))
+	if _is_client:
+		Log.warn("Only the host can load a save in network mode")
+		return false
+	var restored := restore_snapshot(GameState.load_from_file(path))
+	if restored:
+		_broadcast_state()
+	return restored
 
 
 ## Debug only: skip the opponent's current turn without them doing anything.
 ## Called by the NotYourTurnOverlay debug button for single-machine stub testing.
 func _on_debug_end_opponent_turn() -> void:
+	if _is_client:
+		Log.warn("Debug overlay: only the host can skip a turn in network mode")
+		return
 	Log.info("Debug overlay: skipping action for %s" % current_player.player_name)
 	_end_turn()
+	_broadcast_state()
 
 
 ## Debug only: ends the game immediately and shows the victory screen,
@@ -787,9 +834,11 @@ func debug_finish_game() -> void:
 
 ## Called by tile_selector_ui when the player presses End Turn.
 func on_end_turn_requested() -> void:
+	if _is_client:
+		_send_intent("_rpc_intent_end_turn", [])
+		return
 	_end_turn()
-	if _is_network:
-		rpc("_rpc_end_turn")
+	_broadcast_state()
 
 
 ## Called by tile_selector_ui._on_power_activated. Every power is targeted —
@@ -882,22 +931,33 @@ func cancel_power_activation() -> void:
 			ui.set_hand_picking_mode(false)
 
 
-## Called by PowerTargetStrategy.on_click() once a target has been validated.
-## This is only ever reached via a real local click, so broadcasting
-## unconditionally here can't cause a re-broadcast loop on remotes (they
-## replay via _rpc_power_resolve directly, never through this method).
+## Called by PowerTargetStrategy.on_click() once a target has been validated,
+## and by _rpc_intent_power_resolve on the host once it has installed the
+## client's picks. The activation context (power_hand_index and
+## power_selected_villages) is read from this node, not passed in — a client
+## ships it with the intent because the host has no local UI events to derive
+## it from.
 func _resolve_power_target(power: GodPower, q: int, r: int) -> bool:
-	var hand_index := power_hand_index
-	var selection := power_selected_villages.duplicate()
+	if _is_client:
+		var sent := _send_intent("_rpc_intent_power_resolve", [
+			current_player.god.find_slot(power), q, r,
+			power_hand_index, power_selected_villages.duplicate()])
+		if sent:
+			power_hand_index = NO_HAND_INDEX
+			clear_power_selection()
+			placement_controller.cancel_placement()
+		return sent
+	var success := _execute_power(power, q, r)
+	_broadcast_state()
+	return success
+
+
+func _execute_power(power: GodPower, q: int, r: int) -> bool:
 	var success: bool = power.resolve(self, q, r)
 	power_hand_index = NO_HAND_INDEX
 	clear_power_selection()
 	if success:
 		placement_controller.cancel_placement()
-		if _is_network:
-			# The hand pick and the collected board picks have to be replayed
-			# explicitly — remotes have no local UI events to derive them from.
-			rpc("_rpc_power_resolve", current_player.god.find_slot(power), q, r, hand_index, selection)
 	return success
 
 
@@ -922,6 +982,39 @@ func _validate_rpc_sender() -> bool:
 	return true
 
 
+# ==================== STATE REPLICATION ====================
+# Host-authoritative. A client's action entry point sends an intent to peer 1
+# (the host) and returns; the host runs the same local code a hot-seat game
+# runs, then broadcasts the resulting GameState snapshot, which clients apply
+# through restore_snapshot(). The rules therefore run exactly once, on the host.
+
+## Client side: sends an action intent to the host, or refuses if one is already
+## in flight. Returns whether it was sent.
+func _send_intent(method: StringName, args: Array) -> bool:
+	if _awaiting_host:
+		Log.debug("Ignoring input: still waiting for the host to answer the previous action")
+		return false
+	_awaiting_host = true
+	callv("rpc_id", [1, method] + args)
+	return true
+
+
+## Host side: whether an incoming intent should be acted on. A rejected intent
+## still gets a snapshot in reply (see the handlers) so the sender's lock clears.
+func _accept_intent() -> bool:
+	if not NetworkManager.is_host:
+		push_warning("Intent received by a non-host peer — ignored")
+		return false
+	return _validate_rpc_sender()
+
+
+## Host side: pushes the current game to every client. No-op in hot-seat and on
+## clients. Called after every action, accepted or not.
+func _broadcast_state() -> void:
+	if _is_network and NetworkManager.is_host and not _game_over:
+		rpc("_rpc_state", GameState.capture(self))
+
+
 # ==================== RPC HANDLERS ====================
 
 @rpc("any_peer", "call_remote", "reliable")
@@ -938,7 +1031,7 @@ func _rpc_god_selected(player_index: int, god_id: String) -> void:
 
 
 
-## Applies the cost/glory of building a village. Shared by the local path and the network replay path.
+## Applies the cost/glory of building a village. Shared by _place_village() and powers that build (BuildAnywherePower).
 func apply_village_construction(tile: HexTile, player: Player, cost: int) -> int:
 	player.materials -= cost
 	var glory := tile.height_level + 1
@@ -947,7 +1040,7 @@ func apply_village_construction(tile: HexTile, player: Player, cost: int) -> int
 	return glory
 
 
-## Applies the cost/glory of destroying an enemy village. Shared by the local path and the network replay path.
+## Applies the cost/glory of destroying an enemy village. Shared by _remove_village() and the demolition powers.
 func apply_village_demolition(tile: HexTile, player: Player, res_cost: int) -> int:
 	player.materials -= res_cost
 	var glory := tile.height_level + 1
@@ -979,70 +1072,43 @@ func record_village_demolition(q: int, r: int, tile: HexTile) -> void:
 
 
 @rpc("any_peer", "call_remote", "reliable")
-func _rpc_place_tile(hand_index: int, q: int, r: int) -> void:
-	if not _validate_rpc_sender(): return
-	var td = current_player.hand[hand_index]
-	if td == null:
-		push_warning("_rpc_place_tile: hand[%d] is null" % hand_index)
-		return
-	tile_manager.place_tile(q, r, td.tile_type, td.yields, td.village_building_cost)
-	current_player.receive_yields(td.yields)
-	current_player.remove_from_hand(hand_index)
-	show_resource_gain(q, r, tile_manager.get_top_height(q, r), td.yields)
-	_consume_action("place tile")
-	if ui:
-		ui.update_hand_display()
-
-
-
-@rpc("any_peer", "call_remote", "reliable")
-func _rpc_place_village(q: int, r: int) -> void:
-	if not _validate_rpc_sender(): return
-	var tile = tile_manager.get_tile_at(q, r)
-	if not tile:
-		push_warning("_rpc_place_village: no tile at (%d,%d)" % [q, r])
-		return
-	var cost := _compute_village_cost(tile)
-	village_manager.place_village(q, r, current_player)
-	villages_built_this_turn[Vector2i(q, r)] = true
-	_consume_action("build village")
-	apply_village_construction(tile, current_player, cost)
-
-
-@rpc("any_peer", "call_remote", "reliable")
-func _rpc_remove_village(q: int, r: int) -> void:
-	if not _validate_rpc_sender(): return
-	var village := village_manager.get_village_at(q, r)
-	var tile := tile_manager.get_tile_at(q, r)
-	if not village or not tile:
-		push_warning("_rpc_remove_village: missing village or tile at (%d,%d)" % [q, r])
-		return
-	if village.player_owner == current_player:
-		village_manager.remove_village(q, r)
-		_consume_action("remove village")
+func _rpc_intent_place_tile(hand_index: int, q: int, r: int) -> void:
+	if _accept_intent():
+		on_tile_placed_from_hand(hand_index, q, r)
 	else:
-		var cost := _compute_demolition_cost(q, r)
-		var res_cost: int = cost["res_cost"]
-		var act_cost: int = cost["act_cost"]
-		village_manager.remove_village(q, r)
-		record_village_demolition(q, r, tile)
-		for i in act_cost:
-			_consume_action("destroy enemy village")
-		apply_village_demolition(tile, current_player, res_cost)
+		_broadcast_state()
 
 
 @rpc("any_peer", "call_remote", "reliable")
-func _rpc_end_turn() -> void:
-	if not _validate_rpc_sender(): return
-	_end_turn()
+func _rpc_intent_place_village(q: int, r: int) -> void:
+	if _accept_intent():
+		on_village_placed(q, r)
+	else:
+		_broadcast_state()
 
 
 @rpc("any_peer", "call_remote", "reliable")
-func _rpc_power_resolve(slot: int, q: int, r: int, hand_index: int, selection: Array) -> void:
-	if not _validate_rpc_sender(): return
-	var power := current_player.god.get_power(slot)
+func _rpc_intent_remove_village(q: int, r: int) -> void:
+	if _accept_intent():
+		on_village_removed(q, r)
+	else:
+		_broadcast_state()
+
+
+@rpc("any_peer", "call_remote", "reliable")
+func _rpc_intent_end_turn() -> void:
+	if _accept_intent():
+		on_end_turn_requested()
+	else:
+		_broadcast_state()
+
+
+@rpc("any_peer", "call_remote", "reliable")
+func _rpc_intent_power_resolve(slot: int, q: int, r: int, hand_index: int, selection: Array) -> void:
+	var power: GodPower = current_player.god.get_power(slot) if _accept_intent() else null
 	if power == null:
-		push_warning("_rpc_power_resolve: no power in slot %d for player's god" % slot)
+		push_warning("_rpc_intent_power_resolve: no usable power in slot %d" % slot)
+		_broadcast_state()
 		return
 	power_hand_index = hand_index
 	# Rebuilt element by element rather than assigned: the wire hands back a
@@ -1050,14 +1116,31 @@ func _rpc_power_resolve(slot: int, q: int, r: int, hand_index: int, selection: A
 	power_selected_villages.clear()
 	for village_pos in selection:
 		power_selected_villages.append(village_pos)
-	power.resolve(self, q, r)
-	power_hand_index = NO_HAND_INDEX
-	clear_power_selection()
+	_resolve_power_target(power, q, r)
+
+
+## Host → clients after every action. "authority" means only peer 1 may send it.
+@rpc("authority", "call_remote", "reliable")
+func _rpc_state(snapshot: Dictionary) -> void:
+	_awaiting_host = false
+	restore_snapshot(snapshot)
+
+
+## Host → clients when the game ends. Carries the final state itself because
+## clients never run the turn flow that would otherwise reach _trigger_game_end().
+@rpc("authority", "call_remote", "reliable")
+func _rpc_game_over(snapshot: Dictionary) -> void:
+	_awaiting_host = false
+	restore_snapshot(snapshot)
+	_trigger_game_end()
 
 
 ## Calculates scores for all players and shows the victory screen.
 func _trigger_game_end() -> void:
 	Log.info("=== GAME OVER ===")
+	if _is_network and NetworkManager.is_host and not _game_over:
+		rpc("_rpc_game_over", GameState.capture(self))
+	_game_over = true
 	if status_header:
 		status_header.visible = false
 	if not_your_turn_overlay:
