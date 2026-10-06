@@ -105,6 +105,8 @@ func _sync_peer_names(names: Dictionary) -> void:
 ## Called by host to restart the current game on all machines simultaneously.
 @rpc("authority", "call_local", "reliable")
 func restart_game() -> void:
+	# A rematch is a fresh game for everyone, a rejoined client included.
+	GameConfig.rejoining = false
 	get_tree().reload_current_scene()
 
 
@@ -126,6 +128,7 @@ func start_game(player_count: int, p_peer_player_map: Dictionary) -> void:
 		if idx < player_count and peer_names.has(pid):
 			names[idx] = peer_names[pid]
 	GameConfig.player_names = names
+	GameConfig.rejoining = false
 	GameConfig.initialized = true
 	get_tree().change_scene_to_file("res://main.tscn")
 

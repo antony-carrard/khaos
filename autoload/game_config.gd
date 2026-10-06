@@ -11,3 +11,4 @@ var player_count: int = 2
 var player_names: Array[String] = []  # indexed by player_index; empty = use "Player N" defaults
 var local_player_index: int = 0  # which player index belongs to this machine (network mode only)
 var initialized: bool = false  # true only when coming from the main menu
+var rejoining: bool = false  # network client entering a game already in progress: skip god selection, take the host's snapshot

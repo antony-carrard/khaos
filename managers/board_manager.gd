@@ -178,7 +178,11 @@ func _ready() -> void:
 	# God selection: network shows local player's UI and waits for all choices via RPC;
 	# hot-seat shows UI per player sequentially with taken-god greying.
 	if _is_network:
-		await _select_god_networked()
+		# A rejoining client skips selection: the gods were picked before it
+		# connected, and the host's snapshot restores them (Player.from_dict).
+		# Clients only — the host is the one running the game.
+		if not (_is_client and GameConfig.rejoining):
+			await _select_god_networked()
 	else:
 		var selected_so_far: Array[God] = []
 		for player in players:

@@ -313,3 +313,30 @@ func test_restore_is_refused_before_the_game_has_started() -> void:
 
 	assert_bool(board.game_started).is_false()
 	assert_bool(board.restore_snapshot(snapshot)).is_false()
+
+
+func test_apply_brings_up_players_that_skipped_god_selection() -> void:
+	# A rejoining client skips god selection, so its players reach their first
+	# snapshot with only a name and colour — no god, no hand capacity. The
+	# snapshot alone has to make them whole.
+	var source := _make_board()
+	alice.add_to_hand(TileDefinition.new(HILLS, {G: 2}, 4))
+	bob.fervor = 3
+	var snapshot := GameState.capture(source)
+
+	var fresh_alice: Player = auto_free(Player.new())
+	fresh_alice.initialize("Alice", Color.BLUE)
+	var fresh_bob: Player = auto_free(Player.new())
+	fresh_bob.initialize("Bob", Color.RED)
+	var rejoiner: Node3D = auto_free(BoardManagerScript.new())
+	rejoiner.tile_manager = tile_manager
+	rejoiner.village_manager = village_manager
+	rejoiner.tile_pool = auto_free(TilePool.new())
+	rejoiner.players = [fresh_alice, fresh_bob] as Array[Player]
+	assert_object(fresh_alice.god).is_null()
+
+	assert_bool(GameState.apply(rejoiner, snapshot)).is_true()
+	assert_object(fresh_alice.god).is_instanceof(AugiaGod)
+	assert_object(fresh_bob.god).is_instanceof(RakunGod)
+	assert_int(fresh_alice.base_hand_size).is_equal(alice.base_hand_size)
+	assert_dict(GameState.capture(rejoiner)).is_equal(snapshot)

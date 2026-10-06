@@ -233,6 +233,7 @@ func _show_local_section() -> void:
 		GameConfig.mode = GameConfig.GameMode.HOT_SEAT
 		GameConfig.player_count = _selected_count
 		GameConfig.player_names = []
+		GameConfig.rejoining = false
 		GameConfig.initialized = true
 		get_tree().change_scene_to_file("res://main.tscn"))
 	vbox.add_child(start_btn)
