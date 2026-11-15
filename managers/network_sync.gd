@@ -269,6 +269,20 @@ func _on_peer_disconnected(id: int) -> void:
 	_rpc_seated("_rpc_presence", [absent_players])
 
 
+## Host side, resuming a saved game: seats nobody took in the lobby start
+## absent, so their turns can be skipped and their players can rejoin by name.
+## Clients learn it in reply to their _rpc_request_state.
+func mark_unseated_absent() -> void:
+	if not is_host:
+		return
+	var seated := NetworkManager.peer_player_map.values()
+	var absent: Array[int] = []
+	for index in range(board.players.size()):
+		if not seated.has(index):
+			absent.append(index)
+	_set_absent_players(absent)
+
+
 ## Host side: a peer registered its name while this game is running, so it's a
 ## player coming back — seat it in the absent seat with that name, or turn it
 ## away. The name is the key because the peer id changes on every connection.

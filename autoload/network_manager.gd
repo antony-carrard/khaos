@@ -21,6 +21,11 @@ var is_host: bool = false
 var peer_player_map: Dictionary = {}
 # peer_id → player name (host authoritative, synced to all via _sync_peer_names)
 var peer_names: Dictionary = {}
+# Lobby resuming a saved game: the save's player names, one per seat, and
+# peer_id → seat for the peers seated so far. Both empty in an ordinary lobby.
+# Host authoritative, synced to all with peer_names.
+var resume_names: Array[String] = []
+var resume_seats: Dictionary = {}
 
 
 func get_player_index(peer_id: int) -> int:
@@ -72,6 +77,8 @@ func disconnect_network() -> void:
 	is_host = false
 	peer_player_map.clear()
 	peer_names.clear()
+	resume_names.clear()
+	resume_seats.clear()
 
 
 ## Closing the window: drop the connection now, while the game scene is still
@@ -96,10 +103,40 @@ func register_host_name(name: String) -> void:
 	_broadcast_lobby()
 
 
+## Host: opens a lobby that resumes a saved game. The host takes the seat
+## matching its name. Returns false, changing nothing, if there's none.
+func open_resume_lobby(host_name: String, save_names: Array[String]) -> bool:
+	var all_seats: Array[int] = []
+	all_seats.assign(range(save_names.size()))
+	var seat := NetworkSync.find_rejoin_seat(host_name, save_names, all_seats)
+	if seat < 0:
+		return false
+	resume_names = save_names.duplicate()
+	resume_seats = {1: seat}
+	return true
+
+
+## Host, resume lobby: the seat a joining peer named `player_name` takes — the
+## lowest one with that name nobody holds yet — or -1.
+func _free_resume_seat(player_name: String) -> int:
+	var free_seats: Array[int] = []
+	for seat in range(resume_names.size()):
+		if not resume_seats.values().has(seat):
+			free_seats.append(seat)
+	return NetworkSync.find_rejoin_seat(player_name, resume_names, free_seats)
+
+
 ## Client → host: registers the caller's name. Host stores it and rebroadcasts lobby.
+## In a resume lobby the name must match a free seat of the saved game.
 @rpc("any_peer", "call_remote", "reliable")
 func register_name(name: String) -> void:
 	var id := multiplayer.get_remote_sender_id()
+	if not resume_names.is_empty():
+		var seat := _free_resume_seat(name)
+		if seat < 0:
+			rpc_id(id, "refuse_rejoin", "Resuming a saved game — no free seat named %s" % name)
+			return
+		resume_seats[id] = seat
 	peer_names[id] = name
 	_broadcast_lobby()
 	# A game in progress listens for this to seat a returning player (NetworkSync).
@@ -108,13 +145,15 @@ func register_name(name: String) -> void:
 
 ## Broadcasts current peer_names to all machines (including host via call_local).
 func _broadcast_lobby() -> void:
-	rpc("_sync_peer_names", peer_names.duplicate())
+	rpc("_sync_peer_names", peer_names.duplicate(), resume_names.duplicate(), resume_seats.duplicate())
 
 
-## Received by all machines: updates local peer_names and notifies UI.
+## Received by all machines: updates local peer_names (and resume seats) and notifies UI.
 @rpc("authority", "call_local", "reliable")
-func _sync_peer_names(names: Dictionary) -> void:
+func _sync_peer_names(names: Dictionary, p_resume_names: Array, p_resume_seats: Dictionary) -> void:
 	peer_names = names
+	resume_names.assign(p_resume_names)
+	resume_seats = p_resume_seats
 	lobby_updated.emit()
 
 
@@ -146,6 +185,28 @@ func start_game(player_count: int, p_peer_player_map: Dictionary) -> void:
 	GameConfig.player_names = names
 	GameConfig.rejoining = false
 	GameConfig.initialized = true
+	get_tree().change_scene_to_file("res://main.tscn")
+
+
+## Host, resume lobby: starts the saved game. Seated clients go in as rejoining
+## players (they take their state from the host's snapshot); seats nobody took
+## start absent, and their players can rejoin by name later.
+func start_resumed_game(snapshot: Dictionary) -> void:
+	var names := resume_names.duplicate()
+	peer_player_map = resume_seats.duplicate()
+	for pid in peer_player_map:
+		if pid != 1:
+			rpc_id(pid, "rejoin_game", names, peer_player_map[pid])
+	GameConfig.mode = GameConfig.GameMode.NETWORK
+	GameConfig.player_count = names.size()
+	GameConfig.local_player_index = peer_player_map[1]
+	GameConfig.player_names = names
+	GameConfig.rejoining = false
+	GameConfig.resume_snapshot = snapshot
+	GameConfig.initialized = true
+	# Over now: in the game, a name registering is a player rejoining (NetworkSync).
+	resume_names.clear()
+	resume_seats.clear()
 	get_tree().change_scene_to_file("res://main.tscn")
 
 
@@ -187,6 +248,7 @@ func _on_peer_connected(id: int) -> void:
 
 func _on_peer_disconnected(id: int) -> void:
 	peer_names.erase(id)
+	resume_seats.erase(id)
 	if is_host:
 		_broadcast_lobby()
 	peer_disconnected.emit(id)

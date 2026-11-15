@@ -260,6 +260,7 @@ func _ready() -> void:
 		# Before restoring: restore_snapshot() refuses while the game is starting up.
 		game_started = true
 		restore_snapshot(resume)
+		network.mark_unseated_absent()
 	network.broadcast_state()
 
 

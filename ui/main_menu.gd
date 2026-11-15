@@ -5,6 +5,7 @@ extends Control
 ##   Main (Local | Host | Join)
 ##   ├─ Local → count picker → Start Game
 ##   ├─ Host  → name + port → Create Server → Lobby (host sees Start Game)
+##   │          or, with a network autosave, Resume Last Game → Lobby with the save's seats
 ##   └─ Join  → name + IP + port → Connect → Lobby (client sees waiting label)
 
 # Layout constants
@@ -34,6 +35,7 @@ var _current_container: CenterContainer = null
 var _count_buttons: Array[Button] = []
 var _selected_count: int = 2
 var _lobby_refresh: Callable  # stored so it can be disconnected when leaving the lobby
+var _resume_save: Dictionary = {}  # host: the saved game the lobby resumes; empty for a new game
 
 
 func _ready() -> void:
@@ -301,12 +303,69 @@ func _show_host_section() -> void:
 		if err != OK:
 			status_lbl.text = "Failed to create server (error %d)" % err
 			return
+		_resume_save = {}
 		_save_name(player_name)
 		NetworkManager.register_host_name(player_name)
 		_show_lobby_section())
 	vbox.add_child(create_btn)
 
+	var save := _load_network_autosave()
+	if not save.is_empty():
+		var save_names := _save_player_names(save)
+		var resume_btn := Button.new()
+		resume_btn.text = "Resume Last Game"
+		resume_btn.add_theme_font_size_override("font_size", 28)
+		resume_btn.custom_minimum_size = Vector2(240, 56)
+		resume_btn.pressed.connect(func() -> void:
+			var player_name := name_edit.text.strip_edges()
+			if player_name.is_empty():
+				status_lbl.text = "Please enter your name"
+				return
+			if not save_names.has(player_name):
+				status_lbl.text = "No player named %s in the saved game" % player_name
+				return
+			var port := int(port_edit.text) if port_edit.text.is_valid_int() else NetworkManager.DEFAULT_PORT
+			var err := NetworkManager.create_server(port)
+			if err != OK:
+				status_lbl.text = "Failed to create server (error %d)" % err
+				return
+			# Before registering: that broadcasts the lobby, seats included.
+			NetworkManager.open_resume_lobby(player_name, save_names)
+			_resume_save = save
+			_save_name(player_name)
+			NetworkManager.register_host_name(player_name)
+			_show_lobby_section())
+		vbox.add_child(resume_btn)
+
+		var save_lbl := Label.new()
+		save_lbl.text = "%s — saved %s" % [", ".join(save_names), _format_save_time(GameState.AUTOSAVE_PATH)]
+		save_lbl.add_theme_font_size_override("font_size", 20)
+		save_lbl.add_theme_color_override("font_color", COLOR_TAGLINE)
+		save_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		vbox.add_child(save_lbl)
+
 	_build_back_button(vbox, _show_main_section)
+
+
+## The host's network autosave, or empty if there is none (or it can't be read).
+func _load_network_autosave() -> Dictionary:
+	if not FileAccess.file_exists(GameState.AUTOSAVE_PATH):
+		return {}
+	return GameState.load_from_file(GameState.AUTOSAVE_PATH)
+
+
+func _save_player_names(snapshot: Dictionary) -> Array[String]:
+	var names: Array[String] = []
+	for player_data in snapshot["players"]:
+		names.append(player_data["player_name"])
+	return names
+
+
+## e.g. "15/11 23:39", in local time.
+func _format_save_time(path: String) -> String:
+	var unix: int = FileAccess.get_modified_time(path) + Time.get_time_zone_from_system()["bias"] * 60
+	var dt := Time.get_datetime_dict_from_unix_time(unix)
+	return "%02d/%02d %02d:%02d" % [dt["day"], dt["month"], dt["hour"], dt["minute"]]
 
 
 ## ─── JOIN SECTION ───────────────────────────────────────────────────────────
@@ -396,6 +455,9 @@ func _show_lobby_section() -> void:
 		start_btn.add_theme_font_size_override("font_size", START_BTN_FONT_SIZE)
 		start_btn.custom_minimum_size = Vector2(240, 64)
 		start_btn.pressed.connect(func() -> void:
+			if not NetworkManager.resume_names.is_empty():
+				NetworkManager.start_resumed_game(_resume_save)
+				return
 			var all_peers: Array[int] = []
 			all_peers.assign(NetworkManager.peer_names.keys())
 			all_peers.sort()
@@ -423,6 +485,9 @@ func _show_lobby_section() -> void:
 			return
 		for child in player_list.get_children():
 			child.queue_free()
+		if not NetworkManager.resume_names.is_empty():
+			_fill_resume_seats(player_list)
+			return
 		var all_peers: Array[int] = []
 		all_peers.assign(NetworkManager.peer_names.keys())
 		all_peers.sort()  # host (1) always first, then clients in join order
@@ -441,3 +506,29 @@ func _show_lobby_section() -> void:
 	_lobby_refresh = refresh
 	NetworkManager.lobby_updated.connect(refresh)
 	refresh.call()
+
+
+## Resume lobby: one row per seat of the saved game, seated or still waiting.
+func _fill_resume_seats(player_list: VBoxContainer) -> void:
+	var heading := Label.new()
+	heading.text = "Resuming a saved game"
+	heading.add_theme_font_size_override("font_size", 22)
+	heading.add_theme_color_override("font_color", COLOR_TAGLINE)
+	heading.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	player_list.add_child(heading)
+
+	var seat_peers: Dictionary = {}  # seat → peer id
+	for pid in NetworkManager.resume_seats:
+		seat_peers[NetworkManager.resume_seats[pid]] = pid
+	var my_id := multiplayer.get_unique_id()
+	for seat in range(NetworkManager.resume_names.size()):
+		var pid: int = seat_peers.get(seat, 0)
+		var host_tag := " (host)" if pid == 1 else ""
+		var state_tag := " ✓" if pid != 0 else " — waiting"
+		var me_tag := " ← you" if pid == my_id else ""
+		var lbl := Label.new()
+		lbl.text = "%s%s%s%s" % [NetworkManager.resume_names[seat], host_tag, state_tag, me_tag]
+		lbl.add_theme_font_size_override("font_size", 26)
+		lbl.add_theme_color_override("font_color", Color.WHITE if pid != 0 else Color(0.55, 0.55, 0.6))
+		lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		player_list.add_child(lbl)
