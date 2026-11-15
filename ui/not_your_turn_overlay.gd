@@ -7,6 +7,11 @@ class_name NotYourTurnOverlay
 
 const DEBUG_BTN_FONT_SIZE: int = 18
 const SKIP_BTN_FONT_SIZE: int = 20
+## Same orange as the main menu's connection-error text, so it reads as "something
+## needs your attention" rather than as part of the debug tooling below it.
+const COLOR_SKIP_BG: Color = Color(0.75, 0.35, 0.15)
+const COLOR_SKIP_BORDER: Color = Color(1.0, 0.6, 0.35)
+const SKIP_BTN_CORNER_RADIUS: int = 8
 
 signal debug_end_turn_requested
 signal skip_turn_requested
@@ -38,6 +43,12 @@ func _ready() -> void:
 	# Sits just above the debug button.
 	_skip_button = Button.new()
 	_skip_button.add_theme_font_size_override("font_size", SKIP_BTN_FONT_SIZE)
+	_skip_button.add_theme_color_override("font_color", Color.WHITE)
+	_skip_button.add_theme_color_override("font_hover_color", Color.WHITE)
+	_skip_button.add_theme_color_override("font_pressed_color", Color.WHITE)
+	_skip_button.add_theme_stylebox_override("normal", _create_skip_style(COLOR_SKIP_BG))
+	_skip_button.add_theme_stylebox_override("hover", _create_skip_style(COLOR_SKIP_BG.lightened(0.15)))
+	_skip_button.add_theme_stylebox_override("pressed", _create_skip_style(COLOR_SKIP_BG.darkened(0.15)))
 	_skip_button.anchor_left = 0.5
 	_skip_button.anchor_right = 0.5
 	_skip_button.anchor_top = 1.0
@@ -49,6 +60,15 @@ func _ready() -> void:
 	_skip_button.visible = false
 	_skip_button.pressed.connect(func() -> void: skip_turn_requested.emit())
 	add_child(_skip_button)
+
+
+func _create_skip_style(bg_color: Color) -> StyleBoxFlat:
+	var style := StyleBoxFlat.new()
+	style.bg_color = bg_color
+	style.border_color = COLOR_SKIP_BORDER
+	style.set_border_width_all(2)
+	style.set_corner_radius_all(SKIP_BTN_CORNER_RADIUS)
+	return style
 
 
 ## Shows the skip button for `player`'s turn, or hides it when null.
