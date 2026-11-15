@@ -29,6 +29,18 @@ var awaiting_host: bool = false
 ## clients and put the turn overlay back over the victory screen.
 var game_over: bool = false
 
+## Indices of players whose peer has dropped out of a game in progress. Session
+## state, not game state: it lives outside the snapshot, the host owns it and
+## pushes it to clients through _rpc_presence.
+var absent_players: Array[int] = []
+
+## Set once this peer starts heading back to the main menu, so the several
+## disconnect signals a dying connection can fire only act once.
+var _leaving: bool = false
+
+## Emitted on every peer whenever absent_players changes.
+signal presence_changed
+
 
 ## True when running in NETWORK mode.
 var is_network: bool:
@@ -46,8 +58,9 @@ var is_host: bool:
 
 
 func _ready() -> void:
-	# No-op in hot-seat: the signal never fires.
+	# No-op in hot-seat: the signals never fire.
 	NetworkManager.peer_disconnected.connect(_on_peer_disconnected)
+	multiplayer.server_disconnected.connect(func() -> void: _return_to_menu("Lost connection to the host"))
 
 
 # ==================== OUTBOUND ====================
@@ -181,6 +194,7 @@ func _rpc_request_state() -> void:
 		push_warning("_rpc_request_state from unknown peer %d" % sender_id)
 		return
 	rpc_id(sender_id, "_rpc_state", GameState.capture(board))
+	rpc_id(sender_id, "_rpc_presence", absent_players)
 
 
 ## Host → clients after every action. "authority" means only peer 1 may send it.
@@ -198,13 +212,50 @@ func _rpc_game_over(snapshot: Dictionary) -> void:
 	board._trigger_game_end()
 
 
-## A remote peer dropped mid-game: everyone returns to the main menu. Rejoin is
-## the next step of the state-replication plan.
-func _on_peer_disconnected(_id: int) -> void:
-	Log.warn("Network: A peer disconnected — returning to main menu")
-	# Disconnect self first to prevent re-entrant calls: disconnect_network() nulls
-	# the ENet peer which can flush pending events and re-fire peer_disconnected.
-	NetworkManager.peer_disconnected.disconnect(_on_peer_disconnected)
+## Host → clients whenever a seat empties. The host keeps its own copy current
+## through _set_absent_players() instead of receiving this.
+@rpc("authority", "call_remote", "reliable")
+func _rpc_presence(absent: Array) -> void:
+	_set_absent_players(absent)
+
+
+func _set_absent_players(absent: Array) -> void:
+	absent_players.assign(absent)
+	presence_changed.emit()
+
+
+## A peer dropped. Once the game is running the host carries on without it: the
+## seat is marked absent and its turns are skipped from the host (see
+## board.skip_absent_turn()). Only losing the host, or a drop during god
+## selection, still sends everyone back to the menu.
+func _on_peer_disconnected(id: int) -> void:
+	if not is_host:
+		# Other seats come and go through _rpc_presence; only the host matters here.
+		if id == 1:
+			_return_to_menu("Lost connection to the host")
+		return
+	if not board.game_started:
+		# God selection waits on each seat's pick in turn and can't continue one short.
+		_return_to_menu("A player disconnected during god selection")
+		return
+	var index := NetworkManager.get_player_index(id)
+	if index < 0:
+		return
+	Log.warn("Network: %s disconnected — their turns will need skipping" % board.players[index].player_name)
+	NetworkManager.peer_player_map.erase(id)
+	var absent := absent_players.duplicate()
+	absent.append(index)
+	_set_absent_players(absent)
+	rpc("_rpc_presence", absent_players)
+
+
+func _return_to_menu(reason: String) -> void:
+	# disconnect_network() nulls the ENet peer, which can flush pending events and
+	# re-fire the disconnect signals that brought us here.
+	if _leaving:
+		return
+	_leaving = true
+	Log.warn("Network: %s — returning to main menu" % reason)
 	NetworkManager.disconnect_network()
 	# Defer so the current frame finishes before the scene tree tears down this node.
 	get_tree().call_deferred("change_scene_to_file", "res://main_menu.tscn")

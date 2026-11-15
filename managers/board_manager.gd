@@ -211,6 +211,8 @@ func _ready() -> void:
 	overlay_canvas.add_child(not_your_turn_overlay)
 	if OS.is_debug_build():
 		not_your_turn_overlay.debug_end_turn_requested.connect(_on_debug_end_opponent_turn)
+	not_your_turn_overlay.skip_turn_requested.connect(skip_absent_turn)
+	network.presence_changed.connect(_refresh_presence_ui)
 
 	_switch_to_player(0)
 
@@ -371,6 +373,17 @@ func _switch_to_player(index: int) -> void:
 			not_your_turn_overlay.show_for_player(current_player)
 		else:
 			not_your_turn_overlay.hide_overlay()
+		_refresh_presence_ui()
+
+
+## Network only: greys out disconnected seats in the header, and offers the host
+## a skip button while it's an absent player's turn.
+func _refresh_presence_ui() -> void:
+	if status_header:
+		status_header.set_absent_players(network.absent_players)
+	if not_your_turn_overlay:
+		var skippable := network.is_host and network.absent_players.has(current_player_index)
+		not_your_turn_overlay.set_skip_target(current_player if skippable else null)
 
 
 ## Called by active_player_switched → rebuilds player-specific UI sections.
@@ -819,6 +832,16 @@ func load_game(path: String = GameState.SAVE_PATH) -> bool:
 	if restored:
 		network.broadcast_state()
 	return restored
+
+
+## Host only: ends the turn of a player whose peer has disconnected, so the game
+## doesn't stall on an empty seat.
+func skip_absent_turn() -> void:
+	if not network.is_host or not network.absent_players.has(current_player_index):
+		return
+	Log.info("Skipping the turn of %s (disconnected)" % current_player.player_name)
+	_end_turn()
+	network.broadcast_state()
 
 
 ## Debug only: skip the opponent's current turn without them doing anything.

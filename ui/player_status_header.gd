@@ -117,6 +117,7 @@ func _create_player_card(player: Player, index: int, parent: HBoxContainer) -> v
 		"fervor_label": fervor_label,
 		"portrait": portrait,
 		"color": player.color,
+		"player_name": player.player_name,
 	})
 
 
@@ -174,6 +175,15 @@ func on_fervor_changed(amount: int, index: int) -> void:
 func on_glory_changed(amount: int, index: int) -> void:
 	if index < _cards.size():
 		_cards[index].glory_label.text = str(amount)
+
+
+## Network only: dims the cards of players whose peer has disconnected.
+func set_absent_players(absent: Array[int]) -> void:
+	for i in range(_cards.size()):
+		var card: Dictionary = _cards[i]
+		var is_absent := absent.has(i)
+		(card.name_label as Label).text = card.player_name + (" (disconnected)" if is_absent else "")
+		(card.panel as PanelContainer).modulate.a = 0.5 if is_absent else 1.0
 
 
 func _set_card_active(index: int, is_active: bool) -> void:
