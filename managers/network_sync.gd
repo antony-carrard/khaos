@@ -12,7 +12,9 @@ class_name NetworkSync extends Node
 ##
 ## Must sit at the same scene path on every peer (a child of board_manager named
 ## "NetworkSync") before the first RPC is sent — god selection is the earliest.
-## Every method is a no-op in hot-seat, so board_manager calls them unguarded.
+## Every method is a no-op in hot-seat, so board_manager calls them unguarded —
+## except the autosave in broadcast_state()/broadcast_game_over(), which a
+## hot-seat game uses too, so it can be continued from the main menu.
 
 ## The board_manager this node serves. Set before it enters the tree.
 var board: Node3D
@@ -34,9 +36,10 @@ var game_over: bool = false
 ## pushes it to clients through _rpc_presence.
 var absent_players: Array[int] = []
 
-## Host only: where broadcast_state() autosaves. A var so tests can point it
-## away from the real autosave.
-var autosave_path: String = GameState.AUTOSAVE_PATH
+## Where broadcast_state() autosaves: this mode's slot. Fixed at construction,
+## which is fine since GameConfig is set before the game scene loads. A var so
+## tests can point it away from the real autosave.
+var autosave_path: String = GameState.autosave_path_for(GameConfig.mode)
 
 ## Set once this peer starts heading back to the main menu, so the several
 ## disconnect signals a dying connection can fire only act once.
@@ -60,6 +63,12 @@ var is_client: bool:
 var is_host: bool:
 	get: return is_network and NetworkManager.is_host
 
+## True where this game is autosaved: the network host, or a hot-seat game.
+## Never a client (the host owns the game), and never a game run straight
+## from the editor — a test_mode session must not overwrite a real save.
+var autosaves: bool:
+	get: return GameConfig.initialized and not is_client
+
 
 func _ready() -> void:
 	# No-op in hot-seat: the signals never fire.
@@ -82,13 +91,15 @@ func send_intent(method: StringName, args: Array) -> bool:
 
 
 ## Host side: pushes the current game to every client. Called after every
-## action, accepted or not. Also autosaves it, so the host can resume the game
-## from the main menu if it crashes or leaves.
+## action, accepted or not. Also autosaves it (host or hot-seat), so the game
+## can be resumed from the main menu after a crash or a quit.
 func broadcast_state() -> void:
-	if is_host and not game_over:
-		var snapshot := GameState.capture(board)
+	if game_over or not autosaves:
+		return
+	var snapshot := GameState.capture(board)
+	if is_host:
 		_rpc_seated("_rpc_state", [snapshot])
-		GameState.write_to_file(snapshot, autosave_path)
+	GameState.write_to_file(snapshot, autosave_path)
 
 
 ## Host side: pushes the final state to every client and has them show the
@@ -97,6 +108,7 @@ func broadcast_state() -> void:
 func broadcast_game_over() -> void:
 	if is_host and not game_over:
 		_rpc_seated("_rpc_game_over", [GameState.capture(board)])
+	if autosaves and not game_over:
 		# A finished game has nothing to resume.
 		DirAccess.remove_absolute(autosave_path)
 	game_over = true

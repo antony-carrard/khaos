@@ -1,8 +1,9 @@
 extends GdUnitTestSuite
 
-# NetworkSync's host autosave: written by broadcast_state() after every action,
+# NetworkSync's autosave: written by broadcast_state() after every action,
 # removed by broadcast_game_over(). Played as the host of a network game with no
-# seated clients, so no RPC actually goes out.
+# seated clients, so no RPC actually goes out — and, at the end, as a hot-seat
+# game, which autosaves through the same calls.
 
 const BoardManagerScript := preload("res://managers/board_manager.gd")
 
@@ -74,3 +75,31 @@ func test_client_never_autosaves() -> void:
 	sync.broadcast_state()
 
 	assert_bool(FileAccess.file_exists(sync.autosave_path)).is_false()
+
+
+func test_hot_seat_autosaves_the_current_game() -> void:
+	GameConfig.mode = GameConfig.GameMode.HOT_SEAT
+	sync.broadcast_state()
+
+	assert_dict(GameState.load_from_file(sync.autosave_path)).is_equal(GameState.capture(board))
+
+
+func test_hot_seat_game_over_removes_the_autosave() -> void:
+	GameConfig.mode = GameConfig.GameMode.HOT_SEAT
+	sync.broadcast_state()
+	sync.broadcast_game_over()
+
+	assert_bool(FileAccess.file_exists(sync.autosave_path)).is_false()
+
+
+func test_game_run_from_the_editor_never_autosaves() -> void:
+	GameConfig.mode = GameConfig.GameMode.HOT_SEAT
+	GameConfig.initialized = false
+	sync.broadcast_state()
+
+	assert_bool(FileAccess.file_exists(sync.autosave_path)).is_false()
+
+
+func test_each_mode_autosaves_to_its_own_slot() -> void:
+	assert_str(GameState.autosave_path_for(GameConfig.GameMode.NETWORK)).is_equal(GameState.NETWORK_AUTOSAVE_PATH)
+	assert_str(GameState.autosave_path_for(GameConfig.GameMode.HOT_SEAT)).is_equal(GameState.LOCAL_AUTOSAVE_PATH)

@@ -21,13 +21,20 @@ class_name GameState
 ## which is the entry point gameplay should actually call.
 
 const SAVE_PATH := "user://savegame.dat"
-## Written by the host of a network game after every action, so a crashed or
-## departed host can resume it from the main menu. Removed when the game ends.
-const AUTOSAVE_PATH := "user://network_autosave.dat"
+## Written after every action — by the host of a network game, or by a hot-seat
+## game — so it can be resumed from the main menu. Removed when the game ends.
+## One slot per mode, so a local game never overwrites a network one.
+const NETWORK_AUTOSAVE_PATH := "user://network_autosave.dat"
+const LOCAL_AUTOSAVE_PATH := "user://local_autosave.dat"
 
 ## Bumped whenever the snapshot layout changes incompatibly. load_from_file()
 ## refuses anything it doesn't recognise rather than half-restoring it.
 const FORMAT_VERSION := 1
+
+
+## The autosave slot for a game played in `mode`.
+static func autosave_path_for(mode: int) -> String:
+	return NETWORK_AUTOSAVE_PATH if mode == GameConfig.GameMode.NETWORK else LOCAL_AUTOSAVE_PATH
 
 
 ## Captures the full state of a running game.

@@ -4,6 +4,7 @@ extends Control
 ## Flow:
 ##   Main (Local | Host | Join)
 ##   ├─ Local → count picker → Start Game
+##   │          or, with a local autosave, Continue → straight into the saved game
 ##   ├─ Host  → name + port → Create Server → Lobby (host sees Start Game)
 ##   │          or, with a network autosave, Resume Last Game → Lobby with the save's seats
 ##   └─ Join  → name + IP + port → Connect → Lobby (client sees waiting label)
@@ -242,6 +243,33 @@ func _show_local_section() -> void:
 		get_tree().change_scene_to_file("res://main.tscn"))
 	vbox.add_child(start_btn)
 
+	# Shown right by Start Game, which overwrites this one slot as soon as the
+	# new game deals — no confirm, the save is in plain sight.
+	var save := _load_autosave(GameState.LOCAL_AUTOSAVE_PATH)
+	if not save.is_empty():
+		var save_names := _save_player_names(save)
+		var continue_btn := Button.new()
+		continue_btn.text = "Continue"
+		continue_btn.add_theme_font_size_override("font_size", 28)
+		continue_btn.custom_minimum_size = Vector2(240, 56)
+		continue_btn.pressed.connect(func() -> void:
+			GameConfig.mode = GameConfig.GameMode.HOT_SEAT
+			# Must match the save: GameState.apply() refuses a different count.
+			GameConfig.player_count = save_names.size()
+			GameConfig.player_names = save_names
+			GameConfig.rejoining = false
+			GameConfig.resume_snapshot = save
+			GameConfig.initialized = true
+			get_tree().change_scene_to_file("res://main.tscn"))
+		vbox.add_child(continue_btn)
+
+		var save_lbl := Label.new()
+		save_lbl.text = "%s — saved %s" % [", ".join(save_names), _format_save_time(GameState.LOCAL_AUTOSAVE_PATH)]
+		save_lbl.add_theme_font_size_override("font_size", 20)
+		save_lbl.add_theme_color_override("font_color", COLOR_TAGLINE)
+		save_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		vbox.add_child(save_lbl)
+
 	_build_back_button(vbox, _show_main_section)
 	_select_count(2)
 
@@ -309,7 +337,7 @@ func _show_host_section() -> void:
 		_show_lobby_section())
 	vbox.add_child(create_btn)
 
-	var save := _load_network_autosave()
+	var save := _load_autosave(GameState.NETWORK_AUTOSAVE_PATH)
 	if not save.is_empty():
 		var save_names := _save_player_names(save)
 		var resume_btn := Button.new()
@@ -338,7 +366,7 @@ func _show_host_section() -> void:
 		vbox.add_child(resume_btn)
 
 		var save_lbl := Label.new()
-		save_lbl.text = "%s — saved %s" % [", ".join(save_names), _format_save_time(GameState.AUTOSAVE_PATH)]
+		save_lbl.text = "%s — saved %s" % [", ".join(save_names), _format_save_time(GameState.NETWORK_AUTOSAVE_PATH)]
 		save_lbl.add_theme_font_size_override("font_size", 20)
 		save_lbl.add_theme_color_override("font_color", COLOR_TAGLINE)
 		save_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -347,11 +375,11 @@ func _show_host_section() -> void:
 	_build_back_button(vbox, _show_main_section)
 
 
-## The host's network autosave, or empty if there is none (or it can't be read).
-func _load_network_autosave() -> Dictionary:
-	if not FileAccess.file_exists(GameState.AUTOSAVE_PATH):
+## The autosave at `path`, or empty if there is none (or it can't be read).
+func _load_autosave(path: String) -> Dictionary:
+	if not FileAccess.file_exists(path):
 		return {}
-	return GameState.load_from_file(GameState.AUTOSAVE_PATH)
+	return GameState.load_from_file(path)
 
 
 func _save_player_names(snapshot: Dictionary) -> Array[String]:
