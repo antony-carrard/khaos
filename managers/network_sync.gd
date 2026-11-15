@@ -256,6 +256,8 @@ func _return_to_menu(reason: String) -> void:
 		return
 	_leaving = true
 	Log.warn("Network: %s — returning to main menu" % reason)
-	NetworkManager.disconnect_network()
-	# Defer so the current frame finishes before the scene tree tears down this node.
+	# Both deferred: this usually runs inside the ENet peer's own disconnect
+	# signal, and freeing the peer while it's still emitting crashes the engine.
+	# The scene change also waits for the current frame to finish.
+	NetworkManager.call_deferred("disconnect_network")
 	get_tree().call_deferred("change_scene_to_file", "res://main_menu.tscn")

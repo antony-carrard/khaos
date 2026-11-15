@@ -63,10 +63,21 @@ func disconnect_network() -> void:
 		multiplayer.connected_to_server.disconnect(_on_connected_to_server)
 	if multiplayer.connection_failed.is_connected(_on_connection_failed):
 		multiplayer.connection_failed.disconnect(_on_connection_failed)
+	if multiplayer.multiplayer_peer:
+		# Explicit, so the other side gets a disconnect packet rather than a timeout.
+		multiplayer.multiplayer_peer.close()
 	multiplayer.multiplayer_peer = null
 	is_host = false
 	peer_player_map.clear()
 	peer_names.clear()
+
+
+## Closing the window: drop the connection now, while the game scene is still
+## intact, so the other peers hear about it at once instead of after an ENet
+## timeout, and nothing in the game reacts to a disconnect mid-teardown.
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_WM_CLOSE_REQUEST and multiplayer.multiplayer_peer:
+		disconnect_network()
 
 
 func get_connected_peers() -> Array[int]:
