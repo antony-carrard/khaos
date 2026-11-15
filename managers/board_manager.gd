@@ -184,9 +184,18 @@ func _ready() -> void:
 	pause_menu.quit_requested.connect(_quit_to_menu)
 	pause_canvas.add_child(pause_menu)
 
+	# Read once and cleared: a later restart_game() reloads this scene and must
+	# deal a fresh game rather than resume this one again.
+	var resume := GameConfig.resume_snapshot
+	GameConfig.resume_snapshot = {}
+
 	# God selection: network shows local player's UI and waits for all choices via RPC;
 	# hot-seat shows UI per player sequentially with taken-god greying.
-	if _is_network:
+	# Resuming skips it: the gods were picked in the saved game and the snapshot
+	# restores them (Player.from_dict).
+	if not resume.is_empty():
+		pass
+	elif _is_network:
 		# A rejoining client skips selection: the gods were picked before it
 		# connected, and the host's snapshot restores them (Player.from_dict).
 		# Clients only — the host is the one running the game.
@@ -242,11 +251,15 @@ func _ready() -> void:
 		network.request_state()
 		return
 
-	_begin_turn(current_player)
-	if ui:
-		ui.update_hand_display()
-
-	game_started = true
+	if resume.is_empty():
+		_begin_turn(current_player)
+		if ui:
+			ui.update_hand_display()
+		game_started = true
+	else:
+		# Before restoring: restore_snapshot() refuses while the game is starting up.
+		game_started = true
+		restore_snapshot(resume)
 	network.broadcast_state()
 
 
