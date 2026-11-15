@@ -302,6 +302,11 @@ static func find_rejoin_seat(player_name: String, player_names: Array[String], a
 	return -1
 
 
+## The local player chose to quit (Esc menu).
+func leave_game() -> void:
+	_return_to_menu("Left the game")
+
+
 func _return_to_menu(reason: String) -> void:
 	# disconnect_network() nulls the ENet peer, which can flush pending events and
 	# re-fire the disconnect signals that brought us here.

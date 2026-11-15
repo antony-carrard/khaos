@@ -76,8 +76,12 @@ func handle_keyboard_input(event: InputEvent) -> void:
 	if not event is InputEventKey or not event.pressed:
 		return
 
+	# Esc cancels whatever is in progress; with nothing to cancel it opens the menu.
 	if event.keycode == KEY_ESCAPE:
-		_deactivate()
+		if current_strategy or board_manager.has_pending_hand_power():
+			_deactivate()
+		else:
+			board_manager.open_pause_menu()
 		return
 
 	if not OS.is_debug_build():

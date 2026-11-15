@@ -47,6 +47,7 @@ var active_player_view: ActivePlayerView = null
 var resource_popups: ResourcePopupManager = null
 var status_header: PlayerStatusHeader = null
 var not_your_turn_overlay: NotYourTurnOverlay = null
+var pause_menu: PauseMenu = null
 
 # The player whose data the UI displays.
 # Hot-seat: updated to current_player on every turn switch.
@@ -174,6 +175,20 @@ func _ready() -> void:
 	placement_controller = PlacementController.new()
 	add_child(placement_controller)
 	await placement_controller.initialize(tile_manager, village_manager, camera, self)
+
+	# Before god selection, so Esc works there too. Above every other layer.
+	var pause_canvas := CanvasLayer.new()
+	pause_canvas.layer = 20
+	add_child(pause_canvas)
+	pause_menu = PauseMenu.new()
+	if not _is_network:
+		pause_menu.quit_warning = "This game will be lost."
+	elif network.is_host:
+		pause_menu.quit_warning = "This ends the game for everyone."
+	else:
+		pause_menu.quit_warning = "You can rejoin by name from the main menu."
+	pause_menu.quit_requested.connect(_quit_to_menu)
+	pause_canvas.add_child(pause_menu)
 
 	# God selection: network shows local player's UI and waits for all choices via RPC;
 	# hot-seat shows UI per player sequentially with taken-god greying.
@@ -956,6 +971,29 @@ func _set_tile_highlight(key: Vector2i, enabled: bool) -> void:
 
 ## Cancels an in-progress power activation, e.g. on Escape: the pending "pick a
 ## hand tile" state and any board picks a multi-step power had collected.
+## Whether a power is waiting on a hand-tile pick — an activation with no
+## placement strategy installed yet, which Esc should cancel before opening the menu.
+func has_pending_hand_power() -> bool:
+	return _pending_hand_power != null
+
+
+## Esc with nothing to cancel. The victory screen has its own way back to the menu.
+func open_pause_menu() -> void:
+	if pause_menu and not network.game_over:
+		pause_menu.open()
+
+
+func _quit_to_menu() -> void:
+	if _is_network:
+		# The other peers react through their usual disconnect paths: losing the
+		# host sends clients to the menu; a client leaving marks its seat absent.
+		network.leave_game()
+	else:
+		get_tree().change_scene_to_file("res://main_menu.tscn")
+	# Last: _is_network reads it.
+	GameConfig.initialized = false
+
+
 func cancel_power_activation() -> void:
 	power_hand_index = NO_HAND_INDEX
 	clear_power_selection()
@@ -1052,6 +1090,8 @@ func record_village_demolition(q: int, r: int, tile: HexTile) -> void:
 func _trigger_game_end() -> void:
 	Log.info("=== GAME OVER ===")
 	network.broadcast_game_over()
+	if pause_menu:
+		pause_menu.close()
 	if status_header:
 		status_header.visible = false
 	if not_your_turn_overlay:
