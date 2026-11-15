@@ -181,12 +181,6 @@ func _ready() -> void:
 	pause_canvas.layer = 20
 	add_child(pause_canvas)
 	pause_menu = PauseMenu.new()
-	if not _is_network:
-		pause_menu.quit_warning = "This game will be lost."
-	elif network.is_host:
-		pause_menu.quit_warning = "This ends the game for everyone."
-	else:
-		pause_menu.quit_warning = "You can rejoin by name from the main menu."
 	pause_menu.quit_requested.connect(_quit_to_menu)
 	pause_canvas.add_child(pause_menu)
 
@@ -979,8 +973,17 @@ func has_pending_hand_power() -> bool:
 
 ## Esc with nothing to cancel. The victory screen has its own way back to the menu.
 func open_pause_menu() -> void:
-	if pause_menu and not network.game_over:
-		pause_menu.open()
+	if not pause_menu or network.game_over:
+		return
+	# Chosen on each open: a client can only rejoin once god selection is over —
+	# a drop during it still sends everyone back to the menu.
+	if not _is_network:
+		pause_menu.quit_warning = "This game will be lost."
+	elif network.is_host or not game_started:
+		pause_menu.quit_warning = "This ends the game for everyone."
+	else:
+		pause_menu.quit_warning = "You can rejoin by name from the main menu."
+	pause_menu.open()
 
 
 func _quit_to_menu() -> void:
