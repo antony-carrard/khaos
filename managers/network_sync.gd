@@ -60,6 +60,7 @@ var is_host: bool:
 func _ready() -> void:
 	# No-op in hot-seat: the signals never fire.
 	NetworkManager.peer_disconnected.connect(_on_peer_disconnected)
+	NetworkManager.name_registered.connect(_on_name_registered)
 	multiplayer.server_disconnected.connect(func() -> void: _return_to_menu("Lost connection to the host"))
 
 
@@ -80,7 +81,7 @@ func send_intent(method: StringName, args: Array) -> bool:
 ## action, accepted or not.
 func broadcast_state() -> void:
 	if is_host and not game_over:
-		rpc("_rpc_state", GameState.capture(board))
+		_rpc_seated("_rpc_state", [GameState.capture(board)])
 
 
 ## Host side: pushes the final state to every client and has them show the
@@ -88,8 +89,17 @@ func broadcast_state() -> void:
 ## board._trigger_game_end(). Marks the game over on every peer.
 func broadcast_game_over() -> void:
 	if is_host and not game_over:
-		rpc("_rpc_game_over", GameState.capture(board))
+		_rpc_seated("_rpc_game_over", [GameState.capture(board)])
 	game_over = true
+
+
+## Host side: sends an RPC to every client holding a seat. Not rpc(): that also
+## reaches peers that have connected but aren't in the game — a returning player
+## still on the main menu — whose tree has no NetworkSync to receive it.
+func _rpc_seated(method: StringName, args: Array) -> void:
+	for peer_id in NetworkManager.peer_player_map:
+		if peer_id != multiplayer.get_unique_id():
+			callv("rpc_id", [peer_id, method] + args)
 
 
 ## Client side: asks the host for a snapshot. Sent once startup completes (and,
@@ -234,19 +244,62 @@ func _on_peer_disconnected(id: int) -> void:
 		if id == 1:
 			_return_to_menu("Lost connection to the host")
 		return
+	var index := NetworkManager.get_player_index(id)
+	if index < 0:
+		# Never seated — e.g. a peer turned away by _on_name_registered().
+		return
 	if not board.game_started:
 		# God selection waits on each seat's pick in turn and can't continue one short.
 		_return_to_menu("A player disconnected during god selection")
-		return
-	var index := NetworkManager.get_player_index(id)
-	if index < 0:
 		return
 	Log.warn("Network: %s disconnected — their turns will need skipping" % board.players[index].player_name)
 	NetworkManager.peer_player_map.erase(id)
 	var absent := absent_players.duplicate()
 	absent.append(index)
 	_set_absent_players(absent)
-	rpc("_rpc_presence", absent_players)
+	_rpc_seated("_rpc_presence", [absent_players])
+
+
+## Host side: a peer registered its name while this game is running, so it's a
+## player coming back — seat it in the absent seat with that name, or turn it
+## away. The name is the key because the peer id changes on every connection.
+func _on_name_registered(id: int, player_name: String) -> void:
+	if not is_host:
+		return
+	var names: Array[String] = []
+	for player in board.players:
+		names.append(player.player_name)
+	var index := find_rejoin_seat(player_name, names, absent_players)
+	var reason := ""
+	if not board.game_started:
+		reason = "The game is still in god selection"
+	elif game_over:
+		reason = "The game has ended"
+	elif index < 0:
+		reason = "Game in progress — no disconnected player named %s" % player_name
+	if not reason.is_empty():
+		Log.info("Network: turned away %s — %s" % [player_name, reason])
+		NetworkManager.rpc_id(id, "refuse_rejoin", reason)
+		return
+	Log.info("Network: %s rejoined" % player_name)
+	var absent := absent_players.duplicate()
+	absent.erase(index)
+	_set_absent_players(absent)
+	# Before seating it: the returning peer is still on the main menu and gets
+	# presence in reply to its own _rpc_request_state.
+	_rpc_seated("_rpc_presence", [absent_players])
+	NetworkManager.peer_player_map[id] = index
+	NetworkManager.rpc_id(id, "rejoin_game", names, index)
+
+
+## The seat a returning player named `player_name` takes back: the lowest-index
+## absent seat with that name, or -1. Only absent seats count — a connected
+## player's seat is never handed over, even if the names match.
+static func find_rejoin_seat(player_name: String, player_names: Array[String], absent: Array[int]) -> int:
+	for index in range(player_names.size()):
+		if absent.has(index) and player_names[index] == player_name:
+			return index
+	return -1
 
 
 func _return_to_menu(reason: String) -> void:

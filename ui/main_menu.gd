@@ -46,6 +46,8 @@ func _ready() -> void:
 
 	_build_title()
 	_show_main_section()
+	# A method, not a lambda, so it goes away with this scene.
+	NetworkManager.rejoin_refused.connect(_on_rejoin_refused)
 
 
 func _exit_tree() -> void:
@@ -309,7 +311,13 @@ func _show_host_section() -> void:
 
 ## ─── JOIN SECTION ───────────────────────────────────────────────────────────
 
-func _show_join_section() -> void:
+## The host had a game in progress and no seat for us: back to Join, saying why.
+func _on_rejoin_refused(reason: String) -> void:
+	_show_join_section(reason)
+
+
+## `message`, if given, is shown in the status line (e.g. why a join was refused).
+func _show_join_section(message: String = "") -> void:
 	var vbox := _make_screen_vbox()
 	_build_screen_title(vbox, "Join a Game")
 
@@ -332,6 +340,7 @@ func _show_join_section() -> void:
 	vbox.add_child(port_edit)
 
 	var status_lbl := _build_status_label(vbox)
+	status_lbl.text = message
 
 	var connect_btn := Button.new()
 	connect_btn.text = "Connect"

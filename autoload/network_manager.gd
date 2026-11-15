@@ -10,6 +10,8 @@ signal connection_failed
 signal peer_connected(id: int)
 signal peer_disconnected(id: int)
 signal lobby_updated  # emitted on all machines when peer_names changes
+signal name_registered(id: int, name: String)  # host only: a client registered its name
+signal rejoin_refused(reason: String)  # client only: the host's game in progress had no seat for us
 
 const DEFAULT_PORT := 7777
 const MAX_PLAYERS := 4
@@ -97,8 +99,11 @@ func register_host_name(name: String) -> void:
 ## Client → host: registers the caller's name. Host stores it and rebroadcasts lobby.
 @rpc("any_peer", "call_remote", "reliable")
 func register_name(name: String) -> void:
-	peer_names[multiplayer.get_remote_sender_id()] = name
+	var id := multiplayer.get_remote_sender_id()
+	peer_names[id] = name
 	_broadcast_lobby()
+	# A game in progress listens for this to seat a returning player (NetworkSync).
+	name_registered.emit(id, name)
 
 
 ## Broadcasts current peer_names to all machines (including host via call_local).
@@ -142,6 +147,27 @@ func start_game(player_count: int, p_peer_player_map: Dictionary) -> void:
 	GameConfig.rejoining = false
 	GameConfig.initialized = true
 	get_tree().change_scene_to_file("res://main.tscn")
+
+
+## Host → one client: seats the caller in the game already running on the host,
+## in the seat it left. Skips god selection; the client takes its whole state,
+## player names included, from the host's snapshot (see board_manager._ready()).
+@rpc("authority", "call_remote", "reliable")
+func rejoin_game(p_player_names: Array, local_index: int) -> void:
+	GameConfig.mode = GameConfig.GameMode.NETWORK
+	GameConfig.player_count = p_player_names.size()
+	GameConfig.local_player_index = local_index
+	GameConfig.player_names.assign(p_player_names)
+	GameConfig.rejoining = true
+	GameConfig.initialized = true
+	get_tree().change_scene_to_file("res://main.tscn")
+
+
+## Host → one client: a game is in progress and none of its seats is ours.
+@rpc("authority", "call_remote", "reliable")
+func refuse_rejoin(reason: String) -> void:
+	disconnect_network()
+	rejoin_refused.emit(reason)
 
 
 func _on_connected_to_server() -> void:
