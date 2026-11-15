@@ -21,6 +21,9 @@ class_name GameState
 ## which is the entry point gameplay should actually call.
 
 const SAVE_PATH := "user://savegame.dat"
+## Written by the host of a network game after every action, so a crashed or
+## departed host can resume it from the main menu. Removed when the game ends.
+const AUTOSAVE_PATH := "user://network_autosave.dat"
 
 ## Bumped whenever the snapshot layout changes incompatibly. load_from_file()
 ## refuses anything it doesn't recognise rather than half-restoring it.
@@ -62,12 +65,20 @@ static func _plain_copy(typed: Dictionary) -> Dictionary:
 
 ## Writes a snapshot of the running game to `path`. Returns false on I/O failure.
 static func save_to_file(board_manager: Node3D, path: String = SAVE_PATH) -> bool:
+	if not write_to_file(capture(board_manager), path):
+		return false
+	Log.info("GameState: saved to %s" % path)
+	return true
+
+
+## Writes an already-captured snapshot to `path`, for callers that need the
+## snapshot for something else too. Returns false on I/O failure.
+static func write_to_file(snapshot: Dictionary, path: String) -> bool:
 	var file := FileAccess.open(path, FileAccess.WRITE)
 	if file == null:
 		Log.error("GameState: cannot write %s (error %d)" % [path, FileAccess.get_open_error()])
 		return false
-	file.store_var(capture(board_manager))
-	Log.info("GameState: saved to %s" % path)
+	file.store_var(snapshot)
 	return true
 
 

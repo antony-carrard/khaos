@@ -34,6 +34,10 @@ var game_over: bool = false
 ## pushes it to clients through _rpc_presence.
 var absent_players: Array[int] = []
 
+## Host only: where broadcast_state() autosaves. A var so tests can point it
+## away from the real autosave.
+var autosave_path: String = GameState.AUTOSAVE_PATH
+
 ## Set once this peer starts heading back to the main menu, so the several
 ## disconnect signals a dying connection can fire only act once.
 var _leaving: bool = false
@@ -78,10 +82,13 @@ func send_intent(method: StringName, args: Array) -> bool:
 
 
 ## Host side: pushes the current game to every client. Called after every
-## action, accepted or not.
+## action, accepted or not. Also autosaves it, so the host can resume the game
+## from the main menu if it crashes or leaves.
 func broadcast_state() -> void:
 	if is_host and not game_over:
-		_rpc_seated("_rpc_state", [GameState.capture(board)])
+		var snapshot := GameState.capture(board)
+		_rpc_seated("_rpc_state", [snapshot])
+		GameState.write_to_file(snapshot, autosave_path)
 
 
 ## Host side: pushes the final state to every client and has them show the
@@ -90,6 +97,8 @@ func broadcast_state() -> void:
 func broadcast_game_over() -> void:
 	if is_host and not game_over:
 		_rpc_seated("_rpc_game_over", [GameState.capture(board)])
+		# A finished game has nothing to resume.
+		DirAccess.remove_absolute(autosave_path)
 	game_over = true
 
 
