@@ -298,6 +298,10 @@ func _on_new_game() -> void:
 
 
 ## Called when Return to Menu button is pressed.
+## In network mode this also closes the connection: otherwise the ENet peer outlives
+## the game, keeps the port bound, and the next Host from the menu fails.
 func _on_return_to_menu() -> void:
+	if GameConfig.initialized and GameConfig.mode == GameConfig.GameMode.NETWORK:
+		NetworkManager.disconnect_network()
 	GameConfig.initialized = false
 	get_tree().change_scene_to_file("res://main_menu.tscn")
