@@ -17,15 +17,9 @@ func on_click(controller: PlacementController, _q: int, _r: int) -> bool:
 		success = controller.board_manager.on_tile_placed_from_hand(
 			controller.selected_hand_index, pos.x, pos.y)
 	else:
-		# Debug-only path (1/2/3 keyboard shortcuts, see PlacementController.select_tile_type):
-		# no hand TileDefinition exists, so supply the rules.md base village cost and
-		# standard yields directly. Bypasses board_manager on purpose.
-		success = controller.tile_manager.place_tile(
-			pos.x, pos.y,
-			controller.current_tile_type,
-			TileDefinition.STANDARD_YIELDS_BY_TYPE[controller.current_tile_type],
-			TileDefinition.VILLAGE_COST_BY_TYPE[controller.current_tile_type]
-		)
+		# Debug-only path (F1–F3 keyboard shortcuts, see PlacementController.select_tile_type).
+		success = controller.board_manager.debug_place_tile(
+			controller.current_tile_type, pos.x, pos.y)
 
 	if success:
 		controller.preview_tile.visible = false

@@ -501,6 +501,20 @@ func on_tile_placed_from_hand(hand_index: int, q: int, r: int) -> bool:
 	return placed
 
 
+## Debug only (F1–F3, see PlacementController.select_tile_type): places a tile
+## of `tile_type` that comes from nowhere — no hand slot, no action, no yields
+## granted — with the rules.md base village cost and standard yields. Goes
+## through the host like any action, so clients see it and it's autosaved.
+func debug_place_tile(tile_type: int, q: int, r: int) -> bool:
+	if _is_client:
+		return network.send_intent("_rpc_intent_debug_place_tile", [tile_type, q, r])
+	var placed := tile_manager.place_tile(q, r, tile_type,
+		TileDefinition.STANDARD_YIELDS_BY_TYPE[tile_type],
+		TileDefinition.VILLAGE_COST_BY_TYPE[tile_type])
+	network.broadcast_state()
+	return placed
+
+
 ## Owns the whole mutation — placing the tile, consuming the action, granting
 ## yields, emptying the hand slot — so nothing outside board_manager touches the
 ## board.

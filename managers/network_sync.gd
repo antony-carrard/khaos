@@ -156,6 +156,15 @@ func _rpc_intent_place_tile(hand_index: int, q: int, r: int) -> void:
 		broadcast_state()
 
 
+## Refused outside debug builds, so a release host can't be fed free tiles.
+@rpc("any_peer", "call_remote", "reliable")
+func _rpc_intent_debug_place_tile(tile_type: int, q: int, r: int) -> void:
+	if OS.is_debug_build() and _accept_intent():
+		board.debug_place_tile(tile_type, q, r)
+	else:
+		broadcast_state()
+
+
 @rpc("any_peer", "call_remote", "reliable")
 func _rpc_intent_place_village(q: int, r: int) -> void:
 	if _accept_intent():
