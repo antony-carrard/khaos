@@ -1006,7 +1006,13 @@ func open_pause_menu() -> void:
 	# Chosen on each open: a client can only rejoin once god selection is over —
 	# a drop during it still sends everyone back to the menu.
 	if not _is_network:
-		pause_menu.quit_warning = "This game will be lost."
+		# Nothing is autosaved before the first deal, nor in an editor run.
+		if network.autosaves and game_started:
+			pause_menu.quit_warning = "Continue it later from the Local screen."
+		else:
+			pause_menu.quit_warning = "This game will be lost."
+	elif network.is_host and game_started:
+		pause_menu.quit_warning = "This ends the game for everyone.\nYou can resume it from the Host screen."
 	elif network.is_host or not game_started:
 		pause_menu.quit_warning = "This ends the game for everyone."
 	else:
