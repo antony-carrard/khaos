@@ -82,7 +82,7 @@ class FakeBoardManager extends Node3D:
 
 	# Stubbed: the resource-popup visual is scene-tree dependent (see
 	# ResourcePopupManager), so it's a no-op here like place_village().
-	func show_resource_gain(_q: int, _r: int, _height: int, _yields: Dictionary) -> void:
+	func show_resource_gain(_player: Player, _q: int, _r: int, _height: int, _yields: Dictionary) -> void:
 		pass
 
 

@@ -48,7 +48,7 @@ func apply_effect(board_manager: Node3D, q: int, r: int) -> bool:
 		actor.add_to_hand(stolen_tile)
 		actor.glory += 1
 		gained[TileDefinition.ResourceType.GLORY] = gained.get(TileDefinition.ResourceType.GLORY, 0) + 1
-		board_manager.show_resource_gain(q, r, new_height, gained)
+		board_manager.show_resource_gain(board_manager.current_player, q, r, new_height, gained)
 		if board_manager.ui:
 			board_manager.ui.update_hand_display()
 

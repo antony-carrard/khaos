@@ -64,7 +64,7 @@ func apply_effect(board_manager: Node3D, q: int, r: int) -> bool:
 	if climbed > 0:
 		board_manager.current_player.glory += climbed
 		gained[TileDefinition.ResourceType.GLORY] = gained.get(TileDefinition.ResourceType.GLORY, 0) + climbed
-	board_manager.show_resource_gain(q, r, to_tile.height_level, gained)
+	board_manager.show_resource_gain(board_manager.current_player, q, r, to_tile.height_level, gained)
 
 	Log.info("Moved village from (%d, %d) to (%d, %d) with %s, climbed %d level(s)" % [
 		from_pos.x, from_pos.y, q, r, power_name, max(climbed, 0)])

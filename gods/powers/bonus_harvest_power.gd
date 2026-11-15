@@ -22,7 +22,7 @@ func apply_effect(board_manager: Node3D, q: int, r: int) -> bool:
 
 	var scaled_yields := _scaled_yields(tile.yields, village.multiplier())
 	board_manager.current_player.receive_yields(scaled_yields)
-	board_manager.show_resource_gain(q, r, tile.height_level, scaled_yields)
+	board_manager.show_resource_gain(board_manager.current_player, q, r, tile.height_level, scaled_yields)
 	return true
 
 

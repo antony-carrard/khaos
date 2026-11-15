@@ -19,7 +19,7 @@ func apply_effect(board_manager: Node3D, q: int, r: int) -> bool:
 		return false
 
 	steal_yields(board_manager.current_player, tile.yields)
-	board_manager.show_resource_gain(q, r, tile.height_level, tile.yields)
+	board_manager.show_resource_gain(board_manager.current_player, q, r, tile.height_level, tile.yields)
 	return true
 
 

@@ -544,7 +544,7 @@ func _place_tile_from_hand(hand_index: int, q: int, r: int) -> bool:
 
 	current_player.receive_yields(placed_tile.yields)
 	current_player.remove_from_hand(hand_index)
-	show_resource_gain(q, r, tile_manager.get_top_height(q, r), placed_tile.yields)
+	show_resource_gain(current_player, q, r, tile_manager.get_top_height(q, r), placed_tile.yields)
 
 	if ui:
 		ui.update_hand_display()
@@ -781,7 +781,7 @@ func harvest_for_player(player: Player) -> void:
 		var scaled: Dictionary = {}
 		for res_type in tile.yields:
 			scaled[res_type] = tile.yields[res_type] * village.multiplier()
-		show_resource_gain(village.q, village.r, tile.height_level, scaled)
+		show_resource_gain(player, village.q, village.r, tile.height_level, scaled)
 
 
 ## Returns the current player's unplayed hand to the bag, then advances to the
@@ -1088,7 +1088,7 @@ func apply_village_construction(tile: HexTile, player: Player, cost: int) -> int
 	player.materials -= cost
 	var glory := tile.height_level + 1
 	player.glory += glory
-	show_resource_gain(tile.q, tile.r, tile.height_level, {TileDefinition.ResourceType.GLORY: glory})
+	show_resource_gain(player, tile.q, tile.r, tile.height_level, {TileDefinition.ResourceType.GLORY: glory})
 	return glory
 
 
@@ -1097,7 +1097,7 @@ func apply_village_demolition(tile: HexTile, player: Player, res_cost: int) -> i
 	player.materials -= res_cost
 	var glory := tile.height_level + 1
 	player.glory += glory
-	show_resource_gain(tile.q, tile.r, tile.height_level, {TileDefinition.ResourceType.GLORY: glory})
+	show_resource_gain(player, tile.q, tile.r, tile.height_level, {TileDefinition.ResourceType.GLORY: glory})
 	return glory
 
 
@@ -1105,7 +1105,12 @@ func apply_village_demolition(tile: HexTile, player: Player, res_cost: int) -> i
 ## positive entry in `yields` (TileDefinition.ResourceType -> amount). Called
 ## wherever a player's resources actually change, so gains are visible on the
 ## board — tile placement, village construction/demolition, harvest, powers.
-func show_resource_gain(q: int, r: int, height: int, yields: Dictionary) -> void:
+## In a network game only `player` (the one who gained) sees it: the host shows
+## its own (ui_player), and hands a client's to NetworkSync to send on after the snapshot.
+func show_resource_gain(player: Player, q: int, r: int, height: int, yields: Dictionary) -> void:
+	if network.is_network and player != ui_player:
+		network.queue_popup(player, q, r, height, yields)
+		return
 	# resource_popups is only created in _ready(); some tests drive board_manager
 	# directly via its script without ever entering the scene tree (see
 	# test_board_manager_demolition.gd), so guard like the `ui` references below.

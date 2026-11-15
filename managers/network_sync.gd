@@ -41,6 +41,11 @@ var absent_players: Array[int] = []
 ## tests can point it away from the real autosave.
 var autosave_path: String = GameState.autosave_path_for(GameConfig.mode)
 
+## Host only: +N popups owed to clients, as [player_index, q, r, height, yields].
+## Held until the next snapshot goes out and sent right behind it, so a popup
+## never lands above a tile or village the client hasn't received yet.
+var pending_popups: Array = []
+
 ## Set once this peer starts heading back to the main menu, so the several
 ## disconnect signals a dying connection can fire only act once.
 var _leaving: bool = false
@@ -99,6 +104,7 @@ func broadcast_state() -> void:
 	var snapshot := GameState.capture(board)
 	if is_host:
 		_rpc_seated("_rpc_state", [snapshot])
+		_flush_popups()
 	GameState.write_to_file(snapshot, autosave_path)
 
 
@@ -108,6 +114,7 @@ func broadcast_state() -> void:
 func broadcast_game_over() -> void:
 	if is_host and not game_over:
 		_rpc_seated("_rpc_game_over", [GameState.capture(board)])
+		_flush_popups()
 	if autosaves and not game_over:
 		# A finished game has nothing to resume.
 		DirAccess.remove_absolute(autosave_path)
@@ -121,6 +128,23 @@ func _rpc_seated(method: StringName, args: Array) -> void:
 	for peer_id in NetworkManager.peer_player_map:
 		if peer_id != multiplayer.get_unique_id():
 			callv("rpc_id", [peer_id, method] + args)
+
+
+## Host side: holds a +N popup for the client playing `player`, to be sent
+## behind the next snapshot (see pending_popups).
+func queue_popup(player: Player, q: int, r: int, height: int, yields: Dictionary) -> void:
+	if is_host:
+		pending_popups.append([board.players.find(player), q, r, height, yields])
+
+
+## Host side: sends each pending popup to the peer seated as its player. One
+## whose player has disconnected has no peer, and is dropped.
+func _flush_popups() -> void:
+	for popup in pending_popups:
+		var peer_id = NetworkManager.peer_player_map.find_key(popup[0])
+		if peer_id != null:
+			callv("rpc_id", [peer_id, "_rpc_popup"] + popup.slice(1))
+	pending_popups.clear()
 
 
 ## Client side: asks the host for a snapshot. Sent once startup completes (and,
@@ -250,6 +274,13 @@ func _rpc_game_over(snapshot: Dictionary) -> void:
 	awaiting_host = false
 	board.restore_snapshot(snapshot)
 	board._trigger_game_end()
+
+
+## Host → the one client who gained resources, right after the snapshot.
+@rpc("authority", "call_remote", "reliable")
+func _rpc_popup(q: int, r: int, height: int, yields: Dictionary) -> void:
+	if board.resource_popups:
+		board.resource_popups.spawn(q, r, height, yields)
 
 
 ## Host → clients whenever a seat empties. The host keeps its own copy current
