@@ -73,3 +73,10 @@ func test_return_tile_can_be_drawn_again() -> void:
 	pool.return_tile(last_in_bag)
 	assert_bool(pool.is_empty()).is_false()
 	assert_object(pool.draw_tile()).is_same(last_in_bag)
+
+
+func test_drain_empties_the_bag_and_keeps_tiles_accounted_for() -> void:
+	pool.draw_tiles(3)
+	pool.drain()
+	assert_bool(pool.is_empty()).is_true()
+	assert_int(pool.removed_tiles.size()).is_equal(64)

@@ -515,6 +515,20 @@ func debug_place_tile(tile_type: int, q: int, r: int) -> bool:
 	return placed
 
 
+## Debug only: empties the tile bag so the final round can be tested without
+## placing all 64 tiles. Hands are untouched: tiles left unplaced at end of turn
+## still return to the bag, so the final round starts once a turn ends with the
+## bag empty — through the normal end-of-turn path.
+func debug_drain_tile_bag() -> void:
+	if _is_client:
+		network.send_intent("_rpc_intent_debug_drain_tile_bag", [])
+		return
+	tile_pool.drain()
+	if ui:
+		ui.update_hand_display()
+	network.broadcast_state()
+
+
 ## Owns the whole mutation — placing the tile, consuming the action, granting
 ## yields, emptying the hand slot — so nothing outside board_manager touches the
 ## board.

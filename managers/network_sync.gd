@@ -201,6 +201,15 @@ func _rpc_intent_debug_place_tile(tile_type: int, q: int, r: int) -> void:
 		broadcast_state()
 
 
+## Refused outside debug builds, like the debug tile placement above.
+@rpc("any_peer", "call_remote", "reliable")
+func _rpc_intent_debug_drain_tile_bag() -> void:
+	if OS.is_debug_build() and _accept_intent():
+		board.debug_drain_tile_bag()
+	else:
+		broadcast_state()
+
+
 @rpc("any_peer", "call_remote", "reliable")
 func _rpc_intent_place_village(q: int, r: int) -> void:
 	if _accept_intent():

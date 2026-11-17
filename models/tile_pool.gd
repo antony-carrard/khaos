@@ -99,6 +99,13 @@ func is_empty() -> bool:
 	return tile_bag.is_empty()
 
 
+## Debug only: moves every tile left in the bag out of play, as if drawn.
+func drain() -> void:
+	removed_tiles.append_array(tile_bag)
+	tile_bag.clear()
+	Log.info("TilePool: Bag drained")
+
+
 ## Return a tile to the bag at a random position.
 func return_tile(tile: TileDefinition) -> void:
 	var idx = removed_tiles.find(tile)
