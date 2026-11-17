@@ -13,7 +13,7 @@ var player: Player
 
 
 func before_test() -> void:
-	victory_manager = auto_free(VictoryManager.new())
+	victory_manager = VictoryManager.new()
 	tile_manager = auto_free(TileManager.new())
 	tile_manager.max_stack_height = 3
 	village_manager = auto_free(VillageManager.new())
