@@ -796,18 +796,20 @@ func _end_turn() -> void:
 func _advance_to_next_player() -> void:
 	placement_controller.cancel_placement()
 
+	var next_index = (current_player_index + 1) % players.size()
+
 	# Check if tile pool just became empty — trigger final round
 	if tile_pool.is_empty() and not final_round_triggered:
 		final_round_triggered = true
 		triggering_player = current_player
 		Log.info("=== FINAL ROUND TRIGGERED by %s ===" % current_player.player_name)
-		if ui:
+		# No notification when the last seat empties the bag: the game ends right now.
+		if ui and next_index != 0:
 			ui.show_final_round_notification()
 
-	var next_index = (current_player_index + 1) % players.size()
-
-	# If the next player is the one who triggered the final round, game ends
-	if final_round_triggered and players[next_index] == triggering_player:
+	# Once triggered, the round is finished: the game ends after the last seat
+	# plays, so every player gets the same number of turns (rules.md "Fin de la partie").
+	if final_round_triggered and next_index == 0:
 		_trigger_game_end()
 		return
 
